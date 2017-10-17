@@ -1,3 +1,5 @@
+from dlo_hic.utils.parse_text import is_comment
+
 def load_chr_len(file_chr_len):
     """ 
     load a list of (chromesome, length) pair.
@@ -11,13 +13,6 @@ def load_chr_len(file_chr_len):
     chrM    16569
     
     """
-    import re
-    def is_comment(line):
-        if re.match("[ \t]*#", line):
-            return True
-        else:
-            return False
-
     chr_len = list()
     with file_chr_len as f:
         for line in f:
