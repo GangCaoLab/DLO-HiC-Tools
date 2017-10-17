@@ -1,15 +1,22 @@
 # -*- coding: utf-8 -*-
 
-
-import os
-import sys
-import cPickle
+import copy
+from functools import wraps
 
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib import colors
 
 from .plot.matrix import plot_hicmat, plot_chrmat
+from .IO.matrix import save_hicmat
+
+
+def mat_operation(func):
+    """ Decorator for HicMatrix operation method. """
+    @wraps(func)
+    def warp(self, other):
+        res = copy.copy(self)
+        res.matrix = func(self.matrix, other.matrix)
+        return res
+    return warp
 
 
 class HicMatrix:
@@ -37,66 +44,40 @@ class HicMatrix:
         img = plot_hicmat(self, *args, **kwargs)
         return img
 
-    def save_matrix(self, filename):
-        """ save numpy matrix/ndarray to file. """
-        np.save(filename, self.matrix)
-
-    @staticmethod
-    def save(hicmat, fname):
+    def save(self, *args, **kwargs):
         """ 
-        save object to two files:
-            .npy for store numpy matrix
-            .pyobj file for store class instance
-        using numpy and cPickle. 
-
-        >>> HicMatrix.save(hicmat, "test")
-
-        $ ls
-        test.npy test.pyobj
-
+        save object to npz files:
         """
-        prefix = os.path.splitext(fname)[0]
-        hicmat.save_matrix(prefix)
-        with open(prefix + ".pyobj", 'w') as f:
-            mat = hicmat.matrix
-            hicmat.matrix = None
-            cPickle.dump(hicmat, f)
-            hicmat.matrix = mat
-
-    @staticmethod
-    def load(fname):
-        """ 
-        load object from .npy file and .pyobj file.
-
-        >>> HicMatrix.load("test")
-        array([[1 2 0 ... 1]
-                ...
-               [1 3 0 ... 1]])
-        
-        """
-        prefix = os.path.splitext(fname)[0]
-        try:
-            with open(prefix + ".pyobj") as f:
-                hicmat = cPickle.load(f)
-            hicmat.matrix = np.load(prefix + ".npy")
-        except IOError as ioe:
-            sys.stderr.write("[warning] Unable to open .pyobj file " + str(ioe) + " ")
-            sys.stderr.write("will creat HicMatrix recover only from numpy matrix file.\n")
-            hicmat = HicMatrix(np.load(prefix + ".npy"))
-        return hicmat
-
-    def to_file(self, filename):
-        """ 
-        save object to binary file. 
-        equal to HicMatrix.save
-
-        >>> hicmat.save("test")
-        
-        """
-        HicMatrix.save(self, filename)
+        save_hicmat(self, *args, **kwargs)
 
     def __repr__(self):
         return "HicMatrix: \n" + repr(self.matrix)
+
+    @mat_operation
+    def __add__(a, b):
+        return a + b
+
+    @mat_operation
+    def __sub__(a, b):
+        return a - b
+
+    @mat_operation
+    def __div__(a, b):
+        return a / b
+
+    @mat_operation
+    def __mul__(a, b):
+        return a * b
+
+    @mat_operation
+    def log2_fold_change(a, b):
+        """
+        get the log2(Fold Change) from self to other
+        a.log2_fold_change(b) = log2(b - a)
+        """
+        fc = b / a
+        log2_fc = np.log2(fc)
+        return log2_fc
 
 
 class HicChrMatrix(HicMatrix):
@@ -123,7 +104,7 @@ class HicChrMatrix(HicMatrix):
             record both order and length(in basepair) of chromosomes.
 
         :bin_size: the length of bins in the matrix.
-            can use HicChrMatrix.load_chr_len load from tab split file.
+            can use dlo_hic.IO.load_chr_len load from tab split file.
 
         """
         self.bin_size = bin_size
@@ -150,28 +131,6 @@ class HicChrMatrix(HicMatrix):
         # init super class
         self.matrix = np.zeros([num_bins, num_bins], dtype=np.int)
         HicMatrix.__init__(self, self.matrix)
-
-    @staticmethod
-    def load_chr_len(file_chr_len):
-        """ 
-        load a list of (chromesome, length) pair.
-
-        :file_chr_len: a Tab split file record,
-        the order and length(in basepair) of chrosome, file format like this:
-
-        chr1    248956422
-        chr2    242193529
-        ...
-        chrM    16569
-        
-        """
-        chr_len = list()
-        with file_chr_len as f:
-            for line in f:
-               chr_, len_ = line.strip().split("\t") 
-               len_ = int(len_)
-               chr_len.append((chr_, len_))
-        return chr_len
 
     def chromosome(self, chr_):
         """
@@ -201,15 +160,15 @@ class HicChrMatrix(HicMatrix):
     def __repr__(self):
         return "HicChrMatrix: \n" + repr(self.matrix)
 
-    def locate(self, chr_x, x, chr_y, y):
+    def locate(self, chr_x, x, chr_y, y, val=1):
         """
         locate an interaction on matrix.
 
         firstly, find bin_x and bin_y, then
-        interaction strength between bin_x, bin_y increase one.
+        interaction strength between bin_x, bin_y increase val(default 1).
 
-        matrix[bin_x, bin_y] += 1
-        matrix[bin_y, bin_x] += 1
+        matrix[bin_x, bin_y] += val
+        matrix[bin_y, bin_x] += val
         
         >>> hicmat.bin_size
         10
@@ -229,8 +188,8 @@ class HicChrMatrix(HicMatrix):
         # the absulute adderss of x and y in matrix
         abs_x = offset_x + chr_span_x[0]
         abs_y = offset_y + chr_span_y[0]
-        self.matrix[abs_x, abs_y] += 1
-        self.matrix[abs_y, abs_x] += 1
+        self.matrix[abs_x, abs_y] += val
+        self.matrix[abs_y, abs_x] += val
 
     def plot(self, *args, **kwargs):
         """ plot matrix with chromosomes information. """
