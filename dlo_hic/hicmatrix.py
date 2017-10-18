@@ -13,6 +13,8 @@ def mat_operation(func):
     """ Decorator for HicMatrix operation method. """
     @wraps(func)
     def warp(self, other):
+        if self.matrix.shape != other.matrix.shape:
+            raise ValueError("Two matrix must in same shape.")
         res = copy.copy(self)
         res.matrix = func(self.matrix, other.matrix)
         return res
