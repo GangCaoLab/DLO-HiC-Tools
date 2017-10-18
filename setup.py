@@ -1,11 +1,10 @@
 import os
 from codecs import open
-from setuptools import setup
+from setuptools import setup, find_packages
 
 here = os.path.abspath(os.path.dirname(__file__))
 
 # load about information
-
 requires = [
     "numpy >= 1.13.3",
     "scipy >= 0.18.1",
@@ -21,8 +20,11 @@ setup(
     author='nanguage',
     author_email='nanguage@yahoo.com',
     url='',
-    packages=['dlo_hic'],
-    package_data={'':['LICENSE'], 'dlo_hic': []},
+    packages=find_packages(),
+    package_data={
+        '':['LICENSE'],
+        'dlo_hic': [],
+        },
     package_dir={'dlo_hic': 'dlo_hic'},
     install_requires=requires,
     license='MIT License',
