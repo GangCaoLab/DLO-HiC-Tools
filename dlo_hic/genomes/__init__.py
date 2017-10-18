@@ -1,15 +1,25 @@
-from os.path import abspath, join, dirname
+import re
 
-here = abspath(__file__)
-here_dir = dirname(here)
+from human import hg18, hg19, hg38
+from mouse import mm8, mm9, mm10
 
-suffix = '.txt'
+def sort_chr_len(chr_len):
+    num_chrlens = []
+    other_chrlens = []
+    for chr_, len_ in chr_len:
+        if re.match("chr[0-9]+$", chr_):
+            num_chrlens.append((chr_, len_))
+        else:
+            other_chrlens.append((chr_, len_))
+    num_chrlens.sort(key=lambda (chr_, len_):int(chr_.replace("chr", "")))
+    other_chrlens.sort()
+    return num_chrlens + other_chrlens
 
 supported_genomes = {
-    'hg38': join(here_dir, 'hg38' + suffix),
-    'hg19': join(here_dir, 'hg19' + suffix),
-    'hg18': join(here_dir, 'hg18' + suffix),
-    'mm10': join(here_dir, 'mm10' + suffix),
-    'mm9' : join(here_dir, 'mm9'  + suffix),
-    'mm8' : join(here_dir, 'mm8'  + suffix),
+    'hg38': sort_chr_len(hg38),
+    'hg19': sort_chr_len(hg19),
+    'hg18': sort_chr_len(hg18),
+    'mm10': sort_chr_len(mm10),
+    'mm9' : sort_chr_len(mm9 ),
+    'mm8' : sort_chr_len(mm8 ),
 }
