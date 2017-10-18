@@ -1,8 +1,9 @@
+import numpy as np
 import matplotlib.pyplot as plt 
 from matplotlib import colors
 
-def plot_hicmat(hicmat, transform=False, cmap="RdBu_r", cbar=False, figsize=(10, 10),
-        norm=colors.SymLogNorm(1)):
+def plot_hicmat(hicmat, transform=np.log10, cmap="RdYlBu_r",
+        cbar=False, figsize=(10, 10)):
     """ 
     plot the matrix.
     :transform: scale transformation function, default False.
@@ -16,27 +17,30 @@ def plot_hicmat(hicmat, transform=False, cmap="RdBu_r", cbar=False, figsize=(10,
     else:
         mat = hicmat.matrix
     fig, ax = plt.subplots(figsize=figsize)
-    img = ax.imshow(mat, origin="lower", cmap=cmap,
-            extent=(0, mat.shape[0], 0, mat.shape[1]),
-            norm=norm)
+    img = ax.imshow(mat, origin="lower",
+            cmap=cmap, extent=(0, mat.shape[0], 0, mat.shape[1]))
+    #img = ax.imshow(mat, origin="lower", cmap=cmap,
+    #        extent=(0, mat.shape[0], 0, mat.shape[1]),
+    #        norm=norm)
     if cbar:
         cb = fig.colorbar(img)
     return img
 
 
-def plot_chrmat(chrmat, transform=False, cmap="RdBu_r", cbar=True,
-        figsize=(20, 14), ticks=True, norm=colors.SymLogNorm(1)):
+def plot_chrmat(chrmat, transform=np.log10, cmap="RdYlBu_r", cbar=True,
+        figsize=(20, 14), ticks=True):
     """ plot matrix with chromosomes information. """
-    img = HicMatrix.plot(self, transform=transform, cmap=cmap, cbar=cbar,\
-            figsize=figsize, norm=norm)
+    img = plot_hicmat(chrmat, transform=transform, cmap=cmap, cbar=cbar,\
+            figsize=figsize)
     ax = img.axes
-    for i in self.lengths.cumsum(): # plot line between chromosomes
-        ax.axhline(i, linewidth=1, color="#222222")
-        ax.axvline(i, linewidth=1, color="#222222")
+    for i in chrmat.lengths.cumsum(): # plot line between chromosomes
+        ax.axhline(i, linewidth=1, color="#222222", alpha=0.5)
+        ax.axvline(i, linewidth=1, color="#222222", alpha=0.5)
     if ticks:
-        ticks = np.append(np.zeros([1]), self.lengths.cumsum())
-        ax.set_xticks(ticks)
-        ax.set_yticks(ticks)
-        ax.set_xticklabels(self.chromosomes, rotation="vertical")
-        ax.set_yticklabels(self.chromosomes)
+        xticks = np.append(np.zeros([1]), chrmat.lengths.cumsum())
+        yticks = xticks[::-1]
+        ax.set_xticks(xticks)
+        ax.set_yticks(yticks)
+        ax.set_xticklabels(chrmat.chromosomes, rotation="vertical")
+        ax.set_yticklabels([""] + chrmat.chromosomes[::-1])
     return img

@@ -14,7 +14,7 @@ def load_chr_len(file_chr_len):
     
     """
     chr_len = list()
-    with file_chr_len as f:
+    with open(file_chr_len) as f:
         for line in f:
             if is_comment(line):
                 continue

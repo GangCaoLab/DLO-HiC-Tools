@@ -24,7 +24,7 @@ def argument_parser():
             description = "Creat interaction matrix from interaction file format.")
 
     parser.add_argument("input",
-            help="Input pairs file in bedpe format, default stdin.")
+            help="Input pairs file in bedpe format.")
 
     parser.add_argument("output_prefix",
             help="Output matrix file prefix.")
@@ -59,17 +59,17 @@ def main(input, output_prefix, binsize, genome, figure, format_):
     binsize = int(binsize * 1000000)
 
     if genome in supported_genomes:
-        chr_len_file = supported_genomes
+        chr_len = supported_genomes[genome]
     else:
         chr_len_file = genome
-
-    chr_len = dlo_hic.IO.load_chr_len(chr_len_file)
+        chr_len = dlo_hic.IO.load_chr_len(chr_len_file)
 
     if format_ == 'bedpe':
         parse_func = parse_line_bedpe
     elif format_ == 'short':
         parse_func = parse_line_short
 
+    hicmat = dlo_hic.HicChrMatrix(chr_len, binsize)
     print("chromosome axis: " + str(hicmat.axis))
     print("total bins:" + str(hicmat.num_bins))
     with open(input) as f:
@@ -80,12 +80,18 @@ def main(input, output_prefix, binsize, genome, figure, format_):
             try:
                 hicmat.locate(chr_a, pos_a, chr_b, pos_b, val)
             except KeyError as ke:
-                sys.stderr.write("unknow chr:" + str(ke) + "\n")
+                print("unknow chr:" + str(ke), file=sys.stderr)
                 continue
+            except IndexError as ie:
+                #print(str(ie), file=sys.stderr)
+                print(line.strip(), file=sys.stderr)
+                continue
+
+    hicmat.save(output_prefix)
+
     if figure:
         hicmat.plot()
         plt.savefig(figure, dpi=600)
-    hicmat.save(output_prefix)
     
 
 if __name__ == "__main__":
