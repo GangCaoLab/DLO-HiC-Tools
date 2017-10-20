@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 import copy
 from functools import wraps
 
@@ -116,8 +117,13 @@ class HicChrMatrix(HicMatrix):
         chromosomes, lengths = [], []
         axis, pos = dict(), 0
         for chr_, len_ in chr_len:
-            num_bins = len_ // bin_size
+            if len_ % bin_size == 0:
+                num_bins = len_ // bin_size
+            else:
+                num_bins = (len_ // bin_size) + 1
+
             if num_bins == 0: # chromosome length is too short
+                print("chromosome {} is too short".format(chr_), file=sys.stderr)
                 continue
             else:
                 axis[chr_] = (pos, pos+num_bins-1)
@@ -129,8 +135,7 @@ class HicChrMatrix(HicMatrix):
         self.lengths = np.asarray(lengths)
 
         # number of all bins
-        num_bins = sum([len_//bin_size for _, len_ in chr_len])
-        self.num_bins = num_bins
+        self.num_bins = sum(list(self.lengths))
         # init super class
         self.matrix = np.zeros([num_bins, num_bins], dtype=np.int)
         HicMatrix.__init__(self, self.matrix)
