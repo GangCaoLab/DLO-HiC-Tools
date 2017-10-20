@@ -50,7 +50,7 @@ def load_hicmat(file_name):
     npz_item = np.load(file_name)
     mat = npz_item['matrix'].item()
     if type(mat) == sparse.csr.csr_matrix:
-        mat = mat.todense()
+        mat = np.array(mat.todense())
     obj = npz_item['obj'].tostring()
     hicmat = cPickle.loads(obj)
     hicmat.matrix = mat
