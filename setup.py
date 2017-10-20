@@ -10,6 +10,7 @@ requires = [
     "scipy >= 0.18.1",
     "matplotlib >= 2.0.0",
     "biopython >= 1.70",
+    "iced >= 0.4.2",
 ]
 
 setup(
