@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt 
-from matplotlib import colors
+
 
 def plot_hicmat(hicmat, transform=np.log10, cmap="RdYlBu_r",
         cbar=False, figsize=(10, 10)):
@@ -30,7 +30,7 @@ def plot_hicmat(hicmat, transform=np.log10, cmap="RdYlBu_r",
 def plot_chrmat(chrmat, transform=np.log10, cmap="RdYlBu_r", cbar=True,
         figsize=(20, 14), ticks=True):
     """ plot matrix with chromosomes information. """
-    img = plot_hicmat(chrmat, transform=transform, cmap=cmap, cbar=cbar,\
+    img = plot_hicmat(chrmat, transform=transform, cmap=cmap, cbar=cbar,
             figsize=figsize)
     ax = img.axes
     for i in chrmat.lengths.cumsum(): # plot line between chromosomes
