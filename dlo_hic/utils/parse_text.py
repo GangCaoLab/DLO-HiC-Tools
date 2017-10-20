@@ -10,8 +10,14 @@ def is_comment(line):
 def add_chr_prefix(chr_a, chr_b):
     if not chr_a.startswith("chr"):
         chr_a_ = 'chr' + chr_a
+    else:
+        chr_a_ = chr_a
+
     if not chr_b.startswith("chr"):
         chr_b_ = 'chr' + chr_b
+    else:
+        chr_b_ = chr_b
+
     return chr_a_, chr_b_
 
 

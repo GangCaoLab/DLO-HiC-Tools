@@ -4,7 +4,7 @@
 creat_matrix.py
 ~~~~~~~~~~~~~~~
 
-Creat interaction matrix from pairs file in bedpe format.
+Creat interaction matrix from pairs file in bedpe/short format.
 
 """
 
@@ -39,7 +39,7 @@ def argument_parser():
             help="The reference genome you used, like 'hg19', 'hg38'... \n"
                  "or use the "
                  "tab split file which storege the length of each chromosome.")
-
+    
     parser.add_argument("--figure", "-f",
             help="Output matrix figure if specified.")
 
@@ -52,10 +52,13 @@ def argument_parser():
                  "short:\n"
                  "\"<chr_a>\t<pos_a>\t<chr_b>\t<pos_b>\t<val>\"\n")
 
+    parser.add_argument("--chromosome",
+            help="Only generate one chromosome's interaction matrix, if specified.")
+
     return parser
 
 
-def main(input, output_prefix, binsize, genome, figure, format_):
+def main(input, output_prefix, binsize, genome, figure, format_, chromosome):
     binsize = int(binsize * 1000000)
 
     if genome in supported_genomes:
@@ -64,27 +67,37 @@ def main(input, output_prefix, binsize, genome, figure, format_):
         chr_len_file = genome
         chr_len = dlo_hic.IO.load_chr_len(chr_len_file)
 
+    # select line parse function
     if format_ == 'bedpe':
         parse_func = parse_line_bedpe
     elif format_ == 'short':
         parse_func = parse_line_short
 
+    if chromosome: # select target chrosomosome
+        chr_len = [(chr_, len_) for (chr_, len_) in chr_len if chr_ == chromosome]
     hicmat = dlo_hic.HicChrMatrix(chr_len, binsize)
+
     print("chromosome axis: " + str(hicmat.axis))
     print("total bins:" + str(hicmat.num_bins))
+
     with open(input) as f:
         for line in f:
             if is_comment(line):
                 continue
             chr_a, pos_a, chr_b, pos_b, val = parse_func(line)
+
+            if chromosome: # skip other chromosome
+                if chr_a != chromosome or chr_b != chromosome:
+                    continue
+
             try:
                 hicmat.locate(chr_a, pos_a, chr_b, pos_b, val)
             except KeyError as ke:
                 print("unknow chr:" + str(ke), file=sys.stderr)
                 continue
             except IndexError as ie:
-                #print(str(ie), file=sys.stderr)
-                print(line.strip(), file=sys.stderr)
+                print(str(ie), file=sys.stderr)
+                #print(line.strip(), file=sys.stderr)
                 continue
 
     hicmat.save(output_prefix)
@@ -104,5 +117,6 @@ if __name__ == "__main__":
     genome = args.genome
     figure = args.figure
     format_ = args.format
+    chromosome = args.chromosome
 
-    main(input, output_prefix, binsize, genome, figure, format_)
+    main(input, output_prefix, binsize, genome, figure, format_, chromosome)
