@@ -75,7 +75,7 @@ class HicMatrix:
     def log2_fold_change(a, b):
         """
         get the log2(Fold Change) from self to other
-        a.log2_fold_change(b) = log2(b - a)
+        a.log2_fold_change(b) = log2(b / a)
         """
         fc = b / a
         log2_fc = np.log2(fc)
@@ -110,6 +110,7 @@ class HicChrMatrix(HicMatrix):
 
         """
         self.bin_size = bin_size
+        self.chr_len = chr_len
 
         # build a linner space to represent all chromosomes bin range
         chromosomes, lengths = [], []
