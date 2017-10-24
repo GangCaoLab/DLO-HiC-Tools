@@ -5,7 +5,8 @@ from scipy import ndimage
 
 
 def plot_TAD(chrmat, chr_, start=None, end=None,
-        transform=np.log10, cmap='RdYlBu_r', cbar=True, figsize=(10, 10), origin='lower'):
+        transform=np.log10, cmap='RdYlBu_r', cbar=True, figsize=(10, 10), origin='lower',
+        **kwargs):
     """
     plot TAD.
     :chrmat: HicChrMatrix object
@@ -49,7 +50,7 @@ def plot_TAD(chrmat, chr_, start=None, end=None,
 
     fig, ax = plt.subplots(figsize=figsize)
 
-    img = ax.imshow(tad, cmap=cmap, origin=origin)
+    img = ax.imshow(tad, cmap=cmap, origin=origin, **kwargs)
 
     if cbar:
         divider = make_axes_locatable(ax)
@@ -61,6 +62,9 @@ def plot_TAD(chrmat, chr_, start=None, end=None,
     ax.set_xticklabels([str(start), str(end)])
     
     # hide spines
+    if origin == 'upper':
+        ax.xaxis.tick_top()
+    ax.spines['bottom'].set_visible(False)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     ax.spines['left'].set_visible(False)
