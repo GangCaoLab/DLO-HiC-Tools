@@ -97,7 +97,7 @@ def main(input, output_prefix, binsize, genome, figure, format_, chromosome):
                 continue
             except IndexError as ie:
                 print(str(ie), file=sys.stderr)
-                #print(line.strip(), file=sys.stderr)
+                print("Error line: \""+line.strip()+"\"", file=sys.stderr)
                 continue
 
     hicmat.save(output_prefix)
