@@ -13,11 +13,9 @@ import argparse
 
 import matplotlib
 import matplotlib.pyplot as plt
-import numpy as np
-from iced import filter, normalization
 
 from dlo_hic.IO.matrix import load_hicmat
-from dlo_hic import HicChrMatrix
+from dlo_hic.normalization import ice
 
 
 def argument_parser():
@@ -42,15 +40,7 @@ def argument_parser():
 
 def main(input, output_prefix, percentage, figure):
     hicmat = load_hicmat(args.input)
-    hicmat.matrix =np.array( hicmat.matrix.astype(np.float))
-    if isinstance(hicmat, HicChrMatrix):
-        filtered_mat = filter.filter_low_counts(hicmat.matrix,
-                lengths=hicmat.lengths, percentage=percentage)
-    else:
-        filtered_mat = filter.filter_low_counts(hicmat.matrix,
-                percentage=percentage)
-    normed_mat = normalization.ICE_normalization(filtered_mat)
-    hicmat.matrix = normed_mat
+    ice(hicmat, percentage=percentage)
 
     hicmat.save(output_prefix)
 

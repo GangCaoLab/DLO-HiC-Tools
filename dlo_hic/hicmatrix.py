@@ -8,6 +8,7 @@ import numpy as np
 
 from .plot.matrix import plot_hicmat, plot_chrmat
 from .IO.matrix import save_hicmat
+from .normalization import ice, remove_zero
 
 
 def mat_operation(func):
@@ -82,6 +83,18 @@ class HicMatrix:
         log2_fc = np.log2(fc)
         return log2_fc
 
+    def remove_zero(self, **kwargs):
+        """
+        remove zero values in self's matrix.
+        :method: 'min', replace zero by min val.
+                 'max', replace zero by max value.
+        """
+        remove_zero(self, **kwargs)
+
+    def ice(self, **kwargs):
+        """ICE(iterative correction and eigenvector decomposition)""" 
+        ice(self, **kwargs)
+
 
 class HicChrMatrix(HicMatrix):
     """
@@ -112,6 +125,7 @@ class HicChrMatrix(HicMatrix):
         """
         self.bin_size = bin_size
         self.chr_len = chr_len
+        self.iced = False
 
         # build a linner space to represent all chromosomes bin range
         chromosomes, lengths = [], []
@@ -137,7 +151,7 @@ class HicChrMatrix(HicMatrix):
         # number of all bins
         self.num_bins = sum(list(self.lengths))
         # init super class
-        self.matrix = np.zeros([num_bins, num_bins], dtype=np.int)
+        self.matrix = np.zeros([num_bins, num_bins], dtype=np.float)
         HicMatrix.__init__(self, self.matrix)
 
     def chromosome(self, chr_):
