@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 
 def plot_hicmat(hicmat, transform=np.log10, cmap="RdYlBu_r",
-        cbar=False, figsize=(10, 10)):
+        cbar=False, figsize=(10, 10), **kwargs):
     """ 
     plot the matrix.
     :transform: scale transformation function, default False.
@@ -18,7 +18,7 @@ def plot_hicmat(hicmat, transform=np.log10, cmap="RdYlBu_r",
         mat = hicmat.matrix
     fig, ax = plt.subplots(figsize=figsize)
     img = ax.imshow(mat, origin="lower",
-            cmap=cmap, extent=(0, mat.shape[0], 0, mat.shape[1]))
+            cmap=cmap, extent=(0, mat.shape[0], 0, mat.shape[1]), **kwargs)
     #img = ax.imshow(mat, origin="lower", cmap=cmap,
     #        extent=(0, mat.shape[0], 0, mat.shape[1]),
     #        norm=norm)
@@ -28,10 +28,10 @@ def plot_hicmat(hicmat, transform=np.log10, cmap="RdYlBu_r",
 
 
 def plot_chrmat(chrmat, transform=np.log10, cmap="RdYlBu_r", cbar=True,
-        figsize=(20, 14), ticks=True):
+        figsize=(20, 14), ticks=True, **kwargs):
     """ plot matrix with chromosomes information. """
     img = plot_hicmat(chrmat, transform=transform, cmap=cmap, cbar=cbar,
-            figsize=figsize)
+            figsize=figsize, **kwargs)
     ax = img.axes
     for i in chrmat.lengths.cumsum(): # plot line between chromosomes
         ax.axhline(i, linewidth=1, color="#222222", alpha=0.5)

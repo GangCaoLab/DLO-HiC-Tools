@@ -1,7 +1,7 @@
 import re
 
-from human import hg18, hg19, hg38
-from mouse import mm8, mm9, mm10
+from .human import hg18, hg19, hg38
+from .mouse import mm8, mm9, mm10
 
 def sort_chr_len(chr_len):
     num_chrlens = []
