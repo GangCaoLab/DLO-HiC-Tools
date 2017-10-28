@@ -23,10 +23,10 @@ def mat_operation(func):
     return warp
 
 
-class HicMatrix:
+class HicMatrix():
     """
     The basic abstrction of Hic result matrix.
-    provide some basic operation (e.g. plot, write and load)
+    provide some basic operation (e.g. plot, save, +,-,*,/)
     for hic result matrix.
     
     """
@@ -72,16 +72,6 @@ class HicMatrix:
     @mat_operation
     def __mul__(a, b):
         return a * b
-
-    @mat_operation
-    def log2_fold_change(a, b):
-        """
-        get the log2(Fold Change) from self to other
-        a.log2_fold_change(b) = log2(b / a)
-        """
-        fc = b / a
-        log2_fc = np.log2(fc)
-        return log2_fc
 
     def remove_zero(self, **kwargs):
         """
@@ -217,3 +207,17 @@ class HicChrMatrix(HicMatrix):
         """ plot matrix with chromosomes information. """
         img = plot_chrmat(self, *args, **kwargs)
         return img
+
+
+class DiffMatrix(HicChrMatrix):
+    """
+    The abstraction of diffed matrix, generated from dlo_hic.operation.call_diff
+    """
+
+    def plot(self, *args, **kwargs):
+        """ plot matrix with chromosomes information. """
+        img = plot_chrmat(self, transform=False, cmap="bwr", *args, **kwargs)
+        return img
+
+    def __repr__(self):
+        return "DiffMatrix: \n" + repr(self.matrix)
