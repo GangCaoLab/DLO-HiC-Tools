@@ -2,10 +2,8 @@ import numpy as np
 
 from .ICE import ice
 
-tiny = np.finfo(np.float).tiny
-small = np.float(1e-10)
 
-def remove_zero(hicmat, method='tiny'):
+def remove_zero(matrix, method='small'):
     """
     remove zero values in hicmat.matrix.
     :method: 'min', replace zero by min val.
@@ -13,13 +11,22 @@ def remove_zero(hicmat, method='tiny'):
              'tiny': replace zero by smallest float value.
              'small':  replace zero by a very small float value.(default)
     """
+    import dlo_hic.hicmatrix
+    tiny = np.finfo(np.float).tiny
+    small = np.float(1e-2)
+
+    if isinstance(matrix, dlo_hic.hicmatrix.HicMatrix):
+        mat = matrix.matrix
+    else:
+        mat = matrix
+
     if method == 'min':
-        min_val = hicmat.matrix[hicmat.matrix > 0].min()
-        hicmat.matrix[hicmat.matrix == 0] = min_val
+        min_val = mat[hicmat.matrix > 0].min()
+        mat[mat == 0] = min_val
     if method == 'max':
-        max_val = self.matrix.max()
-        hicmat.matrix[hicmat.matrix == 0] = max_val
+        max_val = mat.max()
+        mat[mat == 0] = max_val
     if method == 'tiny':
-        hicmat.matrix[hicmat.matrix == 0] = tiny
+        mat[mat == 0] = tiny
     if method == 'small':
-        hicmat.matrix[hicmat.matrix == 0] = small
+        mat[mat == 0] = small
