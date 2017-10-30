@@ -7,6 +7,7 @@ from functools import wraps
 import numpy as np
 
 from .plot.matrix import plot_hicmat, plot_chrmat
+from .plot.TAD import plot_TAD
 from .IO.matrix import save_hicmat
 from .normalization import ice, remove_zero
 
@@ -208,6 +209,19 @@ class HicChrMatrix(HicMatrix):
         img = plot_chrmat(self, *args, **kwargs)
         return img
 
+    def plot_TAD(self, *args, **kwargs):
+        """
+        plot TAD.
+        :chrmat: HicChrMatrix object
+        :chr_: TAD's chromosome
+        :start: TAD's start position
+        :end: TAD's end position
+
+        if start or end is 'False' or 'None', will plot whole chromosome.
+        """
+        img = plot_TAD(self, *args, **kwargs)
+        return img
+
 
 class DiffMatrix(HicChrMatrix):
     """
@@ -217,6 +231,11 @@ class DiffMatrix(HicChrMatrix):
     def plot(self, *args, **kwargs):
         """ plot matrix with chromosomes information. """
         img = plot_chrmat(self, transform=False, cmap="bwr", *args, **kwargs)
+        return img
+
+    def plot_TAD(self, *args, **kwargs):
+        """ plot TAD """
+        img = plot_TAD(self, transform=False, cmap="bwr", *args, **kwargs)
         return img
 
     def __repr__(self):
