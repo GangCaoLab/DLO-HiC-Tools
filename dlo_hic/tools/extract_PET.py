@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 
 """
-extract_hookers.py
+extract_PETs.py
 ~~~~~~~~~~~~~~~~~~
 
-Extract the hookers sequences on both sides of linker sequence.
-In DLO HiC, 'hooker' is a piece of short sequence,
+Extract the PETs sequences on both sides of linker sequence.
+In DLO HiC, 'PET'(Pair End Tag) is a piece of short sequence,
 which is used for mapping to the genome.
 
 
 This script accept a fastq or fasta file,
-and output two hookers files in fasta or fastq file format.
+and output two PETs files in fasta or fastq file format.
 
 """
 
@@ -20,20 +20,19 @@ import json
 import gzip
 import argparse
 from itertools import islice
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Manager
 
 from Bio import SeqIO
-import regex
+from Bio import pairwise2
 
-from dlo_hic.seq_utils import reverse_complement as rc
-
+from dlo_hic.utils import reverse_complement as rc
 
 QUEUE_TIME_OUT = 3
 
 
 def argument_parser():
     parser = argparse.ArgumentParser(
-            description="Extract the hookers sequences in both left and right side.")
+            description="Extract the PET(Pair End Tag) sequences in both left and right side.")
 
     subparsers = parser.add_subparsers(
             title="commands",
@@ -55,13 +54,13 @@ def argument_parser():
             help="The input fastq or fastq.gz file.")
 
     # other arguments
-    parser.add_argument("--out1",
+    parser.add_argument("--out1", '-o1',
             required=True,
-            help="output1: left side hookers file")
+            help="output1: left side PET fastq file")
 
-    parser.add_argument("--out2",
+    parser.add_argument("--out2", '-o2',
             required=True,
-            help="output2: right side hookers file")
+            help="output2: right side PET fastq file")
 
     parser.add_argument("--linker-A",
             dest="linker_a",
@@ -76,11 +75,11 @@ def argument_parser():
     parser.add_argument("--mismatch",
             type=int,
             default=3,
-            help="threshold of linkers base mismatch number, default 3")
+            help="threshold of linkers base mismatch(and gap open extends) number, default 3")
 
     parser.add_argument("--rest",
             type=str,
-            default="A*AGCTT",
+            default="A*AGCT*T",
             help="The sequence of restriction enzyme recognition site, "
                  "default HindIII: 'A*AGCT*T' ")
 
@@ -110,17 +109,23 @@ def load_linkers(linker_a, linker_b):
     compose linker A-A, A-B, B-A, B-B
     """
     linkers = {}
-    linkers['A-A'] = linker_a + linker_a
-    linkers['A-B'] = linker_a + linker_b
-    linkers['B-A'] = linker_b + linker_a
-    linkers['B-B'] = linker_b + linker_b
+    linkers['A-A'] = linker_a + rc(linker_a)
+    linkers['A-B'] = linker_a + rc(linker_b)
+    linkers['B-A'] = linker_b + rc(linker_a)
+    linkers['B-B'] = linker_b + rc(linker_b)
     return linkers
 
 
-def log_linkers(linkers):
-    print("linkers:", file=sys.stderr)
+def log_linkers(linkers, file=sys.stderr):
+    print("linkers:", file=file)
     for key, linker in linkers.items:
-        print("{}\t{}".format(key, linker), file=sys.stderr)
+        print("{}\t{}".format(key, linker), file=file)
+
+
+def log_counts(counts, file=sys.stderr):
+    print("Quality Control:", file=file)
+    for k, v in counts.items():
+        print("\t{}\t{}".format(k, v), file=file)
 
 
 def open_file(fname, mode='r'):
@@ -144,7 +149,8 @@ def read_fastq(fastq_iter, n=1000):
 
 
 def output(fastq_writer, output_queue):
-    """output extracted results"""
+    """ output extracted results """
+    from Queue import Empty
     while 1:
         try:
             records = output_queue.get(timeout=QUEUE_TIME_OUT)
@@ -153,23 +159,75 @@ def output(fastq_writer, output_queue):
             break
 
 
-def extract_hooker(record, matched_start, matched_end):
+def extract_PET(record, alignment, rest):
     """
-    extract hooker in matched record.
+    extract PET in matched record.
     """
-    hooker = record[matched_end:]
-    return hooker
+    start, end = alignment
+    PET = record[:start]
+    return PET
 
 
-def worker(records, linkers, rest):
-    pass
+def align_linker(seq, linker, mismatch_threshold, match_score=1, mismatch_score=0,
+                 gap_penalties=-1, extend_penalties=-1):
+    """
+    align linker within seq, use local alignment.
+    """
+    alignments = pairwise2.align.localms(seq, linker,
+        match_score, mismatch_score, gap_penalties, extend_penalties)
+    if not alignments:
+        # linker can't alignment to seq
+        return False
+    max_alignment = max(alignments, key=lambda t: t[2])
+    seq1, seq2, score, start, end = max_alignment
+    cutoff = len(linker) - mismatch_threshold
+    if score < cutoff:
+        # align quality too low
+        return False
+    return (start-1, end-1)
 
 
-def stream_processing(fastq_iter, fastq_writer, processes):
+def worker(task_queue, output_queue, global_counts, linkers, rest):
+    """ single stream processing(PET extract) task """
+    records = task_queue.get()
+    PETs = []
+    for r in records:
+        seq = r.seq
+        for ltype, linker in linkers.items():
+            align = linker.re.match(seq)
+            if align:
+                # linker matched
+                if   (ltype == 'A-B') or (ltype == 'B-A'):
+                    global_counts['inter-molecular'] += 1
+                elif (ltype == 'A-A') or (ltype == 'B-B'):
+                    global_counts['intra-molecular'] += 1
+                    PET = extract_PET(r, align, rest)
+                    PETs.append(PET)
+                break
+        else:
+            # all linkers can't match
+            global_counts['unmatchable'] += 1
+    output_queue.put(PETs)
+
+
+def stream_processing(fastq_iter, fastq_writer, processes, linkers, rest_site):
+    """ assign stream processing tasks using multiprocessing. """
+    manager = Manager()
     task_queue = Queue()
     output_queue = Queue()
-    workers = [Process(target=worker, args=())
-            for i in range(processes)]
+    # a global counter for record how many:
+    #   intra-molecular(A-A B-B)
+    #   inter-molecular(A-B B-A)
+    #   unmatchable
+    # reads were captured
+    global_counts = manager.dict({
+        'inter-molecular' : 0,
+        'intra-molecular' : 0,
+        'unmatchable': 0,
+    })
+    workers = [Process(target=worker, 
+                         args=(task_queue, output_queue, global_counts, linkers, rest_site))
+               for i in range(processes)]
     output_p = Process(target=output, 
             args=(fastq_writer, output_queue))
 
@@ -187,6 +245,8 @@ def stream_processing(fastq_iter, fastq_writer, processes):
         w.join()
     output_p.join()
 
+    return dict(global_counts)
+
 
 def mainPE(input1, input2, out1, out2,
         linekr_a, linker_b,
@@ -195,7 +255,7 @@ def mainPE(input1, input2, out1, out2,
     rest_site = parse_rest(rest)
 
     # load linkers
-    linkers = load_linkers(linekr_a, linker_b)
+    linkers = load_linkers(linekr_a, linker_b, mismatch)
     log_linkers(linkers)
 
     # open input file
@@ -217,11 +277,13 @@ def mainPE(input1, input2, out1, out2,
         fastq_writer_2 = SeqIO.QualityIO.FastqIlluminaWriter(file_out)
 
     fastq_writer_1.write_header()
-    stream_processing(fastq_iter_1, fastq_writer_1, processes)
+    counts_1 = stream_processing(fastq_iter_1, fastq_writer_1, processes)
+    log_counts(counts_1)
     fastq_writer_1.write_footer()
 
     fastq_writer_2.write_header()
-    stream_processing(fastq_iter_2, fastq_writer_2, processes)
+    counts_2 = stream_processing(fastq_iter_2, fastq_writer_2, processes)
+    log_counts(counts_2)
     fastq_writer_2.write_footer()
 
     # close files
@@ -238,7 +300,7 @@ def mainSE(input, out1, out2,
     rest_site = parse_rest(rest)
 
     # load linkers
-    linkers = load_linkers(linekr_a, linker_b)
+    linkers = load_linkers(linekr_a, linker_b, mismatch)
     log_linkers(linkers)
 
     # open input file
@@ -256,14 +318,19 @@ def mainSE(input, out1, out2,
         fastq_writer_1 = SeqIO.QualityIO.FastqIlluminaWriter(file_out)
         fastq_writer_2 = SeqIO.QualityIO.FastqIlluminaWriter(file_out)
 
+    def reverse_complement_iter(fastq_iter):
+        """ generate a sequences reverse complemented fastq iterator. """
+        yield next(fastq_iter).reverse_complement()
+
     fastq_iter_2 = reverse_complement_iter(fastq_iter_1)
 
     fastq_writer_1.write_header()
-    stream_processing(fastq_iter_1, fastq_writer_1, processes)
+    counts = stream_processing(fastq_iter_1, fastq_writer_1, processes)
     fastq_writer_1.write_footer()
 
     fastq_writer_2.write_header()
-    stream_processing(fastq_iter_2, fastq_writer_2, processes)
+    counts = stream_processing(fastq_iter_2, fastq_writer_2, processes)
+    log_counts(counts)
     fastq_writer_2.write_footer()
 
     # close files
