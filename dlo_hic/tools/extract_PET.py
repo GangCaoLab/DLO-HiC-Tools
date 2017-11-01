@@ -172,7 +172,6 @@ def open_file(fname, mode='r'):
         fh = open(fname, mode=mode)
     return fh
 
-
 def read_fastq(fastq_iter, n=CHUNK_SIZE):
     """
     read fastq file, return records chunk
@@ -252,55 +251,62 @@ def match_linker(seq, linker, mismatch_threshold, allow_gap, seed_ratio=0.25):
     return span
 
 
-def worker(task_queue, output_queue, global_counts, linkers, mismatch, allow_gap, rest):
+def worker(task_queue, output_queue, counter_queue, linkers, mismatch, allow_gap, rest):
     """ stream processing(PET extract) task """
     from Queue import Empty
     from time import time 
     while 1:
+        all, inter, intra, unmatch = 0,0,0,0 # variables for count reads
         try:
             records = task_queue.get(timeout=QUEUE_TIME_OUT)
         except Empty:
             break
         PETs = []
         for r in records:
-            global_counts['all'] += 1
+            all += 1
             seq = str(r.seq)
             for ltype, linker in linkers.items():
                 span = match_linker(seq, linker, mismatch, allow_gap)
                 if span:
                     # linker matched
                     if   (ltype == 'A-A') or (ltype == 'B-B'):
-                        global_counts['intra-molecular'] += 1
+                        # intra-molcular interaction
+                        intra += 1
                         PET = extract_PET(r, span, rest)
                         PETs.append(PET)
                     elif (ltype == 'A-B') or (ltype == 'B-A'):
-                        global_counts['inter-molecular'] += 1
+                        # inter-molcular interaction
+                        inter += 1
                     break
             else:
                 # all linkers can't match
-                global_counts['unmatchable'] += 1
+                unmatch += 1
         output_queue.put(PETs)
+        counter_queue.put((all, inter, intra, unmatch))
 
 
 def stream_processing(fastq_iter, fastq_writer, processes, linkers, mismatch, allow_gap, rest_site):
     """ assign stream processing tasks using multiprocessing. """
-    manager = Manager()
     task_queue = Queue()
     output_queue = Queue()
-    # a global counter for record how many:
+
+    # a global queue for count record how many:
     #   intra-molecular(A-A B-B)
     #   inter-molecular(A-B B-A)
     #   unmatchable
     # reads were captured
-    global_counts = manager.dict({
+    # element in queue: (all, intra-molecular, inter-molecular, unmatchable)
+    counter_queue = Queue()
+    counter = {
         'all' : 0,
         'inter-molecular' : 0,
         'intra-molecular' : 0,
         'unmatchable': 0,
-    })
+    }
+
     workers = [Process(target=worker, 
                          args=(task_queue, output_queue,
-                               global_counts, linkers, mismatch, allow_gap, rest_site))
+                               counter_queue, linkers, mismatch, allow_gap, rest_site))
                for i in range(processes)]
     output_p = Process(target=output, 
             args=(fastq_writer, output_queue))
@@ -324,7 +330,14 @@ def stream_processing(fastq_iter, fastq_writer, processes, linkers, mismatch, al
         time.sleep(0.01)        
     output_p.terminate()
 
-    return dict(global_counts)
+    while not counter_queue.empty():
+        all, inter, intra, un = counter_queue.get()
+        counter['all'] += all
+        counter['inter-molecular'] += inter
+        counter['intra-molecular'] += intra
+        counter['unmatchable'] += un
+
+    return counter
 
 
 def mainPE(input1, input2, out1, out2,
