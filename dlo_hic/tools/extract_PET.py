@@ -22,6 +22,7 @@ import gzip
 import argparse
 import itertools
 from math import floor
+from copy import copy
 from multiprocessing import Process, Queue, Manager
 
 import regex
@@ -186,6 +187,7 @@ def read_fastq(fastq_iter, n=CHUNK_SIZE):
         raise StopIteration
     return chunk
 
+
 def output(fastq_writer, output_queue):
     """ output extracted results """
     from Queue import Empty
@@ -193,7 +195,6 @@ def output(fastq_writer, output_queue):
         try:
             records = output_queue.get(timeout=TIME_OUT)
         except Empty:
-            print("empty")
             break
         c = fastq_writer.write_records(records)
 
@@ -207,6 +208,12 @@ def extract_PET(record, span, rest):
     """
     start, end = span
     PET = record[:start]
+    # add the end base to PET sequence
+    quality = PET.letter_annotations['phred_quality']
+    quality.append(38)
+    PET.letter_annotations = {}
+    PET.seq = PET.seq + rest[2]
+    PET.letter_annotations['phred_quality'] = quality
     return PET
 
 
@@ -386,11 +393,11 @@ def mainPE(input1, input2, out1, out2,
 
         counts_1 = stream_processing(fastq_iter_1, fastq_writer_1,
             processes, linkers, mismatch, allow_gap, rest_site)
-        log_counts(counts_1)
 
         counts_2 = stream_processing(fastq_iter_2, fastq_writer_2,
             processes, linkers, mismatch, allow_gap, rest_site)
-        log_counts(counts_2)
+    
+    return (counts_1, counts_2)
 
 
 def mainSE(input, out1, out2,
@@ -411,7 +418,6 @@ def mainSE(input, out1, out2,
         fastq_writer_1 = fastq_writer(file_out1, phred)
         fastq_writer_2 = fastq_writer(file_out2, phred)
 
-        from copy import copy
         def reverse_complement_record(record):
             """ reverse complement a fastq record """
             rc_record = copy(record)
@@ -427,13 +433,13 @@ def mainSE(input, out1, out2,
 
         fastq_iter_2 = reverse_complement_iter(fastq_iter_2)
 
-        counts = stream_processing(fastq_iter_1, fastq_writer_1,
+        counts_1 = stream_processing(fastq_iter_1, fastq_writer_1,
             processes, linkers, mismatch, allow_gap, rest_site)
-        log_counts(counts)
 
-        counts = stream_processing(fastq_iter_2, fastq_writer_2,
+        counts_2 = stream_processing(fastq_iter_2, fastq_writer_2,
             processes, linkers, mismatch, allow_gap, rest_site)
-        log_counts(counts)
+    
+    return (counts_1, counts_2)
 
 
 if __name__ == "__main__":
@@ -452,13 +458,17 @@ if __name__ == "__main__":
     command = args.command
     if command == 'SE':
         input = args.input
-        mainSE(input, out1, out2,
+        counts_1, counts_2 = mainSE(input, out1, out2,
                 linker_a, linker_b,
                 mismatch, allow_gap, rest, phred, processes)
+        log_counts(counts_1)
+        log_counts(counts_2)
 
     elif command == 'PE':
         input1 = args.input1
         input2 = args.input2
-        mainPE(input1, input2, out1, out2,
+        counts_1, counts_2 = mainPE(input1, input2, out1, out2,
                 linker_a, linker_b,
                 mismatch, allow_gap, rest, phred, processes)
+        log_counts(counts_1)
+        log_counts(counts_2)
