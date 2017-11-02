@@ -31,7 +31,7 @@ from Bio import pairwise2
 from dlo_hic.utils import reverse_complement as rc
 
 
-QUEUE_TIME_OUT = 1
+TIME_OUT = 1
 CHUNK_SIZE = 1000
 
 
@@ -65,7 +65,7 @@ def argument_parser():
 
         parser.add_argument("--mismatch",
                 type=int,
-                default=3,
+                default=4,
                 help="threshold of linkers base mismatch(and gap open extends) number, default 3")
 
         parser.add_argument("--allow-gap",
@@ -163,6 +163,8 @@ def log_counts(counts, file=sys.stderr):
     print("Quality Control:", file=file)
     for k, v in counts.items():
         print("\t{}\t{}".format(k, v), file=file)
+    ratio = counts['intra-molecular'] / float(counts['all'])
+    print("Valid reads ratio: {}".format(ratio))
 
 
 def open_file(fname, mode='r'):
@@ -171,6 +173,7 @@ def open_file(fname, mode='r'):
     else:
         fh = open(fname, mode=mode)
     return fh
+
 
 def read_fastq(fastq_iter, n=CHUNK_SIZE):
     """
@@ -183,12 +186,19 @@ def read_fastq(fastq_iter, n=CHUNK_SIZE):
         raise StopIteration
     return chunk
 
-
 def output(fastq_writer, output_queue):
     """ output extracted results """
+    from Queue import Empty
     while 1:
-        records = output_queue.get()
-        fastq_writer.write_records(records)
+        try:
+            records = output_queue.get(timeout=TIME_OUT)
+        except Empty:
+            print("empty")
+            break
+        c = fastq_writer.write_records(records)
+
+    fastq_writer.write_footer()
+    fastq_writer.handle.close()
 
 
 def extract_PET(record, span, rest):
@@ -258,7 +268,7 @@ def worker(task_queue, output_queue, counter_queue, linkers, mismatch, allow_gap
     while 1:
         all, inter, intra, unmatch = 0,0,0,0 # variables for count reads
         try:
-            records = task_queue.get(timeout=QUEUE_TIME_OUT)
+            records = task_queue.get(timeout=TIME_OUT)
         except Empty:
             break
         PETs = []
@@ -313,6 +323,8 @@ def stream_processing(fastq_iter, fastq_writer, processes, linkers, mismatch, al
 
     for w in workers:
         w.start()
+    
+    fastq_writer.write_header()
     output_p.start()
 
     try:
@@ -324,11 +336,7 @@ def stream_processing(fastq_iter, fastq_writer, processes, linkers, mismatch, al
     for w in workers:
         w.join()
 
-    import time
-    while not output_queue.empty():
-        # wait all output block be comsumed
-        time.sleep(0.01)        
-    output_p.terminate()
+    output_p.join()
 
     while not counter_queue.empty():
         all, inter, intra, un = counter_queue.get()
@@ -338,6 +346,24 @@ def stream_processing(fastq_iter, fastq_writer, processes, linkers, mismatch, al
         counter['unmatchable'] += un
 
     return counter
+
+
+def fastq_iter(file_in, phred):
+    """ return a fastq iterator """
+    if phred == 33:
+        fastq_iter = SeqIO.parse(file_in, 'fastq')
+    else:
+        fastq_iter = SeqIO.parse(file_in, 'fastq-illumina')
+    return fastq_iter
+
+
+def fastq_writer(file_out, phred):
+    """ return a fastq writer """
+    if phred == 33:
+        fastq_writer = SeqIO.QualityIO.FastqPhredWriter(file_out)
+    else:
+        fastq_writer = SeqIO.QualityIO.FastqIlluminaWriter(file_out)
+    return fastq_writer
 
 
 def mainPE(input1, input2, out1, out2,
@@ -353,28 +379,18 @@ def mainPE(input1, input2, out1, out2,
     with open_file(input1) as file_in1, open_file(input2) as file_in2,\
          open_file(out1, 'w') as file_out1, open_file(out2, 'w') as file_out2:
 
-        if phred == 33:
-            fastq_iter_1 = SeqIO.parse(file_in1, 'fastq')
-            fastq_iter_2 = SeqIO.parse(file_in2, 'fastq')
-            fastq_writer_1 = SeqIO.QualityIO.FastqPhredWriter(file_out)
-            fastq_writer_2 = SeqIO.QualityIO.FastqPhredWriter(file_out)
-        else:
-            fastq_iter_1 = SeqIO.parse(file_in1, 'fastq-illumina')
-            fastq_iter_2 = SeqIO.parse(file_in2, 'fastq-illumina')
-            fastq_writer_1 = SeqIO.QualityIO.FastqIlluminaWriter(file_out)
-            fastq_writer_2 = SeqIO.QualityIO.FastqIlluminaWriter(file_out)
+        fastq_iter_1 = fastq_iter(file_in1, phred)
+        fastq_iter_2 = fastq_iter(file_in2, phred)
+        fastq_writer_1 = fastq_writer(file_out1, phred)
+        fastq_writer_2 = fastq_writer(file_out2, phred)
 
-        fastq_writer_1.write_header()
         counts_1 = stream_processing(fastq_iter_1, fastq_writer_1,
             processes, linkers, mismatch, allow_gap, rest_site)
         log_counts(counts_1)
-        fastq_writer_1.write_footer()
 
-        fastq_writer_2.write_header()
         counts_2 = stream_processing(fastq_iter_2, fastq_writer_2,
             processes, linkers, mismatch, allow_gap, rest_site)
         log_counts(counts_2)
-        fastq_writer_2.write_footer()
 
 
 def mainSE(input, out1, out2,
@@ -390,16 +406,10 @@ def mainSE(input, out1, out2,
     with open_file(input) as file_in1, open_file(input) as file_in2,\
          open_file(out1, "w") as file_out1, open_file(out2, 'w') as file_out2:
 
-        if phred == 33:
-            fastq_iter_1 = SeqIO.parse(file_in1, 'fastq')
-            fastq_iter_2 = SeqIO.parse(file_in2, 'fastq')
-            fastq_writer_1 = SeqIO.QualityIO.FastqPhredWriter(file_out1)
-            fastq_writer_2 = SeqIO.QualityIO.FastqPhredWriter(file_out2)
-        else:
-            fastq_iter_1 = SeqIO.parse(file_in1, 'fastq-illumina')
-            fastq_iter_2 = SeqIO.parse(file_in2, 'fastq-illumina')
-            fastq_writer_1 = SeqIO.QualityIO.FastqIlluminaWriter(file_out1)
-            fastq_writer_2 = SeqIO.QualityIO.FastqIlluminaWriter(file_out2)
+        fastq_iter_1 = fastq_iter(file_in1, phred)
+        fastq_iter_2 = fastq_iter(file_in2, phred)
+        fastq_writer_1 = fastq_writer(file_out1, phred)
+        fastq_writer_2 = fastq_writer(file_out2, phred)
 
         from copy import copy
         def reverse_complement_record(record):
@@ -417,12 +427,10 @@ def mainSE(input, out1, out2,
 
         fastq_iter_2 = reverse_complement_iter(fastq_iter_2)
 
-        fastq_writer_1.write_header()
         counts = stream_processing(fastq_iter_1, fastq_writer_1,
             processes, linkers, mismatch, allow_gap, rest_site)
         log_counts(counts)
 
-        fastq_writer_2.write_header()
         counts = stream_processing(fastq_iter_2, fastq_writer_2,
             processes, linkers, mismatch, allow_gap, rest_site)
         log_counts(counts)
