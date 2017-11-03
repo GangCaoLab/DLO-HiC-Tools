@@ -30,6 +30,7 @@ from Bio import SeqIO
 from Bio import pairwise2
 
 from dlo_hic.utils import reverse_complement as rc
+from dlo_hic.utils import read_args
 
 
 TIME_OUT = 1
@@ -105,6 +106,11 @@ def argument_parser():
             help="option for single-end sequencing")
     SE_parser.add_argument("input",
             help="The input fastq or fastq.gz file.")
+    SE_parser.add_argument("--PET-len",
+            dest="PET_len",
+            type=int,
+            default=22,
+            help="The expected length of PET sequence")
     add_arguments(SE_parser)
 
     return parser
@@ -115,6 +121,15 @@ def parse_rest(rest_str):
     return left, nick and right sequence. """
     left, nick, right = re.split("[*^]", rest_str)
     return left, nick, right
+
+
+def reverse_complement_record(record):
+    """ reverse complement a fastq record """
+    rc_record = copy(record)
+    rc_record.seq = rc(str(rc_record.seq))
+    qua = rc_record.letter_annotations['phred_quality']
+    qua.reverse()
+    return rc_record
 
 
 def load_linkers(linker_a, linker_b):
@@ -202,19 +217,42 @@ def output(fastq_writer, output_queue):
     fastq_writer.handle.close()
 
 
-def extract_PET(record, span, rest):
+def add_base_to_PET(PET, base):
+    quality = PET.letter_annotations['phred_quality']
+    quality.append(38)
+    PET.letter_annotations = {}
+    PET.seq = PET.seq + base
+    PET.letter_annotations['phred_quality'] = quality
+
+
+def extract_PET(record, span, rest, PET_len=None, SE=False):
     """
     extract PET in matched record.
     """
     start, end = span
-    PET = record[:start]
-    # add the end base to PET sequence
-    quality = PET.letter_annotations['phred_quality']
-    quality.append(38)
-    PET.letter_annotations = {}
-    PET.seq = PET.seq + rest[2]
-    PET.letter_annotations['phred_quality'] = quality
-    return PET
+    if PET_len:
+        # PET_len decrease 1 because will add one base at end
+        PET_len = PET_len - 1
+        s = start - PET_len
+        e = end + PET_len
+        if s < 0:
+            s = 0
+        if e > len(record):
+            e = len(record)
+        record = record[s:e+1]
+
+    if not SE:
+        PET = record[:start]
+        # add the end base to PET sequence
+        add_base_to_PET(PET, rest[2])
+        return PET
+    else:
+        PET1 = record[:start]
+        PET2 = record[end+1:]
+        PET2 = reverse_complement_record(PET2)
+        add_base_to_PET(PET1, rest[2])
+        add_base_to_PET(PET2, rest[2])
+        return PET1, PET2
 
 
 def align_linker(seq, linker, mismatch_threshold, match_score=1, mismatch_score=0,
@@ -302,6 +340,43 @@ def worker(task_queue, output_queue, counter_queue, linkers, mismatch, allow_gap
         counter_queue.put((all, inter, intra, unmatch))
 
 
+def worker_SE(task_queue, output_queue_1, output_queue_2, counter_queue, linkers, mismatch, allow_gap, rest, PET_len):
+    """ stream processing(PET extract) task for SE mode """
+    from Queue import Empty
+    from time import time 
+    while 1:
+        all, inter, intra, unmatch = 0,0,0,0 # variables for count reads
+        try:
+            records = task_queue.get(timeout=TIME_OUT)
+        except Empty:
+            break
+        PETs_1 = []
+        PETs_2 = []
+        for r in records:
+            all += 1
+            seq = str(r.seq)
+            for ltype, linker in linkers.items():
+                span = match_linker(seq, linker, mismatch, allow_gap)
+                if span:
+                    # linker matched
+                    if   (ltype == 'A-A') or (ltype == 'B-B'):
+                        # intra-molcular interaction
+                        intra += 1
+                        PET_1, PET_2 = extract_PET(r, span, rest, PET_len, SE=True)
+                        PETs_1.append(PET_1)
+                        PETs_2.append(PET_2)
+                    elif (ltype == 'A-B') or (ltype == 'B-A'):
+                        # inter-molcular interaction
+                        inter += 1
+                    break
+            else:
+                # all linkers can't match
+                unmatch += 1
+        output_queue_1.put(PETs_1)
+        output_queue_2.put(PETs_2)
+        counter_queue.put((all, inter, intra, unmatch))
+
+
 def stream_processing(fastq_iter, fastq_writer, processes, linkers, mismatch, allow_gap, rest_site):
     """ assign stream processing tasks using multiprocessing. """
     task_queue = Queue()
@@ -344,6 +419,66 @@ def stream_processing(fastq_iter, fastq_writer, processes, linkers, mismatch, al
         w.join()
 
     output_p.join()
+
+    while not counter_queue.empty():
+        all, inter, intra, un = counter_queue.get()
+        counter['all'] += all
+        counter['inter-molecular'] += inter
+        counter['intra-molecular'] += intra
+        counter['unmatchable'] += un
+
+    return counter
+
+
+def stream_processing_SE(fastq_iter, fastq_writer_1, fastq_writer_2,
+        processes, linkers, mismatch, allow_gap, rest_site, PET_len):
+    """ assign stream processing tasks using multiprocessing. for SE mode """
+    task_queue = Queue()
+    output_queue_1 = Queue()
+    output_queue_2 = Queue()
+
+    # a global queue for count record how many:
+    #   intra-molecular(A-A B-B)
+    #   inter-molecular(A-B B-A)
+    #   unmatchable
+    # reads were captured
+    # element in queue: (all, intra-molecular, inter-molecular, unmatchable)
+    counter_queue = Queue()
+    counter = {
+        'all' : 0,
+        'inter-molecular' : 0,
+        'intra-molecular' : 0,
+        'unmatchable': 0,
+    }
+
+    workers = [Process(target=worker_SE, 
+                         args=(task_queue, output_queue_1, output_queue_2,
+                               counter_queue, linkers, mismatch, allow_gap, rest_site, PET_len))
+               for i in range(processes)]
+    output_p_1 = Process(target=output, 
+            args=(fastq_writer_1, output_queue_1))
+    output_p_2 = Process(target=output, 
+            args=(fastq_writer_2, output_queue_2))
+
+    for w in workers:
+        w.start()
+    
+    fastq_writer_1.write_header()
+    output_p_1.start()
+    fastq_writer_2.write_header()
+    output_p_2.start()
+
+    try:
+        while 1:
+            task_queue.put(read_fastq(fastq_iter))
+    except StopIteration:
+        pass
+
+    for w in workers:
+        w.join()
+
+    output_p_1.join()
+    output_p_2.join()
 
     while not counter_queue.empty():
         all, inter, intra, un = counter_queue.get()
@@ -402,7 +537,7 @@ def mainPE(input1, input2, out1, out2,
 
 def mainSE(input, out1, out2,
         linekr_a, linker_b,
-        mismatch, allow_gap, rest, phred, processes):
+        mismatch, allow_gap, rest, phred, processes, PET_len):
     # parse restriction enzyme site
     rest_site = parse_rest(rest)
 
@@ -413,60 +548,29 @@ def mainSE(input, out1, out2,
     with open_file(input) as file_in1, open_file(input) as file_in2,\
          open_file(out1, "w") as file_out1, open_file(out2, 'w') as file_out2:
 
-        fastq_iter_1 = fastq_iter(file_in1, phred)
-        fastq_iter_2 = fastq_iter(file_in2, phred)
+        fq_iter = fastq_iter(file_in1, phred)
         fastq_writer_1 = fastq_writer(file_out1, phred)
         fastq_writer_2 = fastq_writer(file_out2, phred)
 
-        def reverse_complement_record(record):
-            """ reverse complement a fastq record """
-            rc_record = copy(record)
-            rc_record.seq = rc(str(rc_record.seq))
-            qua = rc_record.letter_annotations['phred_quality']
-            qua.reverse()
-            return rc_record
-
-        def reverse_complement_iter(fastq_iter):
-            """ generate a sequences reverse complemented fastq iterator. """
-            while 1:
-                yield reverse_complement_record(next(fastq_iter))
-
-        fastq_iter_2 = reverse_complement_iter(fastq_iter_2)
-
-        counts_1 = stream_processing(fastq_iter_1, fastq_writer_1,
-            processes, linkers, mismatch, allow_gap, rest_site)
-
-        counts_2 = stream_processing(fastq_iter_2, fastq_writer_2,
-            processes, linkers, mismatch, allow_gap, rest_site)
+        counts = stream_processing_SE(fq_iter, fastq_writer_1, fastq_writer_2,
+            processes, linkers, mismatch, allow_gap, rest_site, PET_len)
     
-    return (counts_1, counts_2)
+    return counts
 
 
 if __name__ == "__main__":
     parser = argument_parser()
     args = parser.parse_args()
 
-    out1, out2 = args.out1, args.out2
-    linker_a = args.linker_a
-    linker_b = args.linker_b
-    rest = args.rest
-    mismatch = args.mismatch
-    allow_gap = args.allow_gap
-    phred = args.phred
-    processes = args.processes
-
-    command = args.command
+    read_args(args, globals())
+    
     if command == 'SE':
-        input = args.input
-        counts_1, counts_2 = mainSE(input, out1, out2,
+        counts = mainSE(input, out1, out2,
                 linker_a, linker_b,
-                mismatch, allow_gap, rest, phred, processes)
-        log_counts(counts_1)
-        log_counts(counts_2)
+                mismatch, allow_gap, rest, phred, processes, PET_len)
+        log_counts(counts)
 
     elif command == 'PE':
-        input1 = args.input1
-        input2 = args.input2
         counts_1, counts_2 = mainPE(input1, input2, out1, out2,
                 linker_a, linker_b,
                 mismatch, allow_gap, rest, phred, processes)
