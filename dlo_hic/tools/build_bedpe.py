@@ -17,19 +17,24 @@ def argument_parser():
     parser.add_argument("input1")
     parser.add_argument("input2")
     parser.add_argument("output")
+
     parser.add_argument("--file-format", "-f", dest="file_format", required=True,
         choices=['fastq', 'bam', 'sam'],
         help="The file type of input file, if 'fastq' will preform bwa alignment firstly.")
+
     parser.add_argument("--threads", "-t",
         type=int,
         default=multiprocessing.cpu_count(),
         help="how mant threads used to run bwa")
+
     parser.add_argument("--bwa-index", dest="bwa_index",
         help="The bwa index prefix.")
+
     parser.add_argument("--mapq",
         type=int,
         default=20,
         help="the mapq threshold used to filter mapped records.")
+
     return parser
 
 
@@ -44,8 +49,8 @@ def beds2bedpe(bed1, bed2, bedpe_filename):
         for i2 in bed2[:]:
             i1 = name2interval.get(i2.name, None)
             if i1:
-                fields = [i1.chrom, i1.start, i1.end, i1.strand,
-                          i2.chrom, i2.start, i2.end, i2.strand]
+                fields = [i1.chrom, i1.start, i1.end, i2.chrom, i2.start, i2.end,
+                          i1.name, 1, i1.strand, i2.strand]
                 fields = [str(i) for i in fields]
                 line = "\t".join(fields) + "\n"
                 f.write(line)
