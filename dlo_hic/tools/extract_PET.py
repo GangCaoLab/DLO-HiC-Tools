@@ -237,7 +237,7 @@ def align_linker(seq, linker, mismatch_threshold):
         # linker can't alignment to seq
         return False
     start, end, s_, e_, m, err = alignment
-    return (start, end)
+    return (start, end-1)
 
 
 def match_linker(seq, linker, mismatch_threshold, seed_ratio=0.25):
