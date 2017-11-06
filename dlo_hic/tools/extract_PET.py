@@ -109,8 +109,9 @@ def argument_parser():
     SE_parser.add_argument("--PET-len",
             dest="PET_len",
             type=int,
-            default=22,
-            help="The expected length of PET sequence")
+            default=0,
+            help="The expected length of PET sequence,"
+                 "if PET_len==0 (default) will not limit length.")
     add_arguments(SE_parser)
 
     return parser
