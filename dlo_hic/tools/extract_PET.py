@@ -70,11 +70,6 @@ def argument_parser():
                 default=4,
                 help="threshold of linkers base mismatch(and gap open extends) number, default 3")
 
-        parser.add_argument("--allow-gap",
-                action="store_true",
-                dest="allow_gap",
-                help="allow gap open when align linkers to sequence.")
-
         parser.add_argument("--rest",
                 type=str,
                 default="A*AGCT*T",
@@ -143,31 +138,6 @@ def load_linkers(linker_a, linker_b):
     linkers['B-A'] = linker_b + rc(linker_a)
     linkers['B-B'] = linker_b + rc(linker_b)
     return linkers
-
-
-def get_linker_regex(linker, mismatch_threshold, exact_flank_len=4):
-    """
-    get compiled linker regular expression object.
-    """
-    # construct global linker2regex for storage regex objects
-    global_vals = globals()
-    if 'linker2regex' not in global_vals:
-        global_vals['linker2regex'] = {}
-
-    linker_regex = linker2regex.get((linker, mismatch_threshold, exact_flank_len), False)
-    if not linker_regex: # linker regex object haven't built
-        ex = exact_flank_len
-        if mismatch_threshold == 0:
-            linker_regex =  regex.compile("%s"%linker)
-        else:
-            linker_regex = regex.compile("%s(%s){e<=%s}%s"%(
-                linker[:ex],
-                linker[ex:-ex],
-                mismatch_threshold,
-                linker[-ex:]
-            ))
-        linker2regex[(linker, mismatch_threshold, exact_flank_len)] = linker_regex
-    return linker_regex
 
 
 def log_linkers(linkers, file=sys.stderr):
@@ -270,18 +240,7 @@ def align_linker(seq, linker, mismatch_threshold):
     return (start, end)
 
 
-def regex_search_linker(seq, linker, mismatch_threshold):
-    """
-    match linker within seq, use regular expression(regex) do fuzzy match
-    """
-    reg = get_linker_regex(linker, mismatch_threshold)
-    m = reg.search(seq)
-    if not m:
-        return False
-    return m.span()
-
-
-def match_linker(seq, linker, mismatch_threshold, allow_gap, seed_ratio=0.25):
+def match_linker(seq, linker, mismatch_threshold, seed_ratio=0.25):
     """ linker match algorithm """
     seed_len = int(floor(seed_ratio * len(linker)))
     seed = linker[:seed_len]
@@ -294,17 +253,14 @@ def match_linker(seq, linker, mismatch_threshold, allow_gap, seed_ratio=0.25):
         span = (start, end)
         return span
 
-    if allow_gap:
-        span = align_linker(seq, linker, mismatch_threshold)
-    else:
-        span = regex_search_linker(seq, linker, mismatch_threshold)
+    span = align_linker(seq, linker, mismatch_threshold)
     return span
 
 
-def worker(task_queue, output_queue, counter_queue, linkers, mismatch, allow_gap, rest):
+def worker(task_queue, output_queue, counter_queue, linkers, mismatch, rest):
     """ stream processing(PET extract) task """
     from Queue import Empty
-    from time import time 
+    from time import time
     while 1:
         all, inter, intra, unmatch = 0,0,0,0 # variables for count reads
         try:
@@ -316,14 +272,13 @@ def worker(task_queue, output_queue, counter_queue, linkers, mismatch, allow_gap
             all += 1
             seq = str(r.seq)
             for ltype, linker in linkers.items():
-                span = match_linker(seq, linker, mismatch, allow_gap)
+                span = match_linker(seq, linker, mismatch)
                 if span:
                     # linker matched
                     if   (ltype == 'A-A') or (ltype == 'B-B'):
                         # intra-molcular interaction
                         intra += 1
                         PET = extract_PET(r, span, rest)
-                        PETs.append(PET)
                     elif (ltype == 'A-B') or (ltype == 'B-A'):
                         # inter-molcular interaction
                         inter += 1
@@ -335,7 +290,7 @@ def worker(task_queue, output_queue, counter_queue, linkers, mismatch, allow_gap
         counter_queue.put((all, inter, intra, unmatch))
 
 
-def worker_SE(task_queue, output_queue_1, output_queue_2, counter_queue, linkers, mismatch, allow_gap, rest, PET_len):
+def worker_SE(task_queue, output_queue_1, output_queue_2, counter_queue, linkers, mismatch, rest, PET_len):
     """ stream processing(PET extract) task for SE mode """
     from Queue import Empty
     from time import time 
@@ -351,7 +306,7 @@ def worker_SE(task_queue, output_queue_1, output_queue_2, counter_queue, linkers
             all += 1
             seq = str(r.seq)
             for ltype, linker in linkers.items():
-                span = match_linker(seq, linker, mismatch, allow_gap)
+                span = match_linker(seq, linker, mismatch)
                 if span:
                     # linker matched
                     if   (ltype == 'A-A') or (ltype == 'B-B'):
@@ -372,7 +327,7 @@ def worker_SE(task_queue, output_queue_1, output_queue_2, counter_queue, linkers
         counter_queue.put((all, inter, intra, unmatch))
 
 
-def stream_processing(fastq_iter, fastq_writer, processes, linkers, mismatch, allow_gap, rest_site):
+def stream_processing(fastq_iter, fastq_writer, processes, linkers, mismatch, rest_site):
     """ assign stream processing tasks using multiprocessing. """
     task_queue = Queue()
     output_queue = Queue()
@@ -393,7 +348,7 @@ def stream_processing(fastq_iter, fastq_writer, processes, linkers, mismatch, al
 
     workers = [Process(target=worker, 
                          args=(task_queue, output_queue,
-                               counter_queue, linkers, mismatch, allow_gap, rest_site))
+                               counter_queue, linkers, mismatch, rest_site))
                for i in range(processes)]
     output_p = Process(target=output, 
             args=(fastq_writer, output_queue))
@@ -426,7 +381,7 @@ def stream_processing(fastq_iter, fastq_writer, processes, linkers, mismatch, al
 
 
 def stream_processing_SE(fastq_iter, fastq_writer_1, fastq_writer_2,
-        processes, linkers, mismatch, allow_gap, rest_site, PET_len):
+        processes, linkers, mismatch, rest_site, PET_len):
     """ assign stream processing tasks using multiprocessing. for SE mode """
     task_queue = Queue()
     output_queue_1 = Queue()
@@ -448,7 +403,7 @@ def stream_processing_SE(fastq_iter, fastq_writer_1, fastq_writer_2,
 
     workers = [Process(target=worker_SE, 
                          args=(task_queue, output_queue_1, output_queue_2,
-                               counter_queue, linkers, mismatch, allow_gap, rest_site, PET_len))
+                               counter_queue, linkers, mismatch, rest_site, PET_len))
                for i in range(processes)]
     output_p_1 = Process(target=output, 
             args=(fastq_writer_1, output_queue_1))
@@ -505,7 +460,7 @@ def fastq_writer(file_out, phred):
 
 def mainPE(input1, input2, out1, out2,
         linekr_a, linker_b,
-        mismatch, allow_gap, rest, phred, processes):
+        mismatch, rest, phred, processes):
     # parse restriction enzyme site
     rest_site = parse_rest(rest)
 
@@ -522,17 +477,17 @@ def mainPE(input1, input2, out1, out2,
         fastq_writer_2 = fastq_writer(file_out2, phred)
 
         counts_1 = stream_processing(fastq_iter_1, fastq_writer_1,
-            processes, linkers, mismatch, allow_gap, rest_site)
+            processes, linkers, mismatch, rest_site)
 
         counts_2 = stream_processing(fastq_iter_2, fastq_writer_2,
-            processes, linkers, mismatch, allow_gap, rest_site)
+            processes, linkers, mismatch, rest_site)
     
     return (counts_1, counts_2)
 
 
 def mainSE(input, out1, out2,
         linekr_a, linker_b,
-        mismatch, allow_gap, rest, phred, processes, PET_len):
+        mismatch, rest, phred, processes, PET_len):
     # parse restriction enzyme site
     rest_site = parse_rest(rest)
 
@@ -548,7 +503,7 @@ def mainSE(input, out1, out2,
         fastq_writer_2 = fastq_writer(file_out2, phred)
 
         counts = stream_processing_SE(fq_iter, fastq_writer_1, fastq_writer_2,
-            processes, linkers, mismatch, allow_gap, rest_site, PET_len)
+            processes, linkers, mismatch, rest_site, PET_len)
     
     return counts
 
@@ -562,12 +517,12 @@ if __name__ == "__main__":
     if command == 'SE':
         counts = mainSE(input, out1, out2,
                 linker_a, linker_b,
-                mismatch, allow_gap, rest, phred, processes, PET_len)
+                mismatch, rest, phred, processes, PET_len)
         log_counts(counts)
 
     elif command == 'PE':
         counts_1, counts_2 = mainPE(input1, input2, out1, out2,
                 linker_a, linker_b,
-                mismatch, allow_gap, rest, phred, processes)
+                mismatch, rest, phred, processes)
         log_counts(counts_1)
         log_counts(counts_2)
