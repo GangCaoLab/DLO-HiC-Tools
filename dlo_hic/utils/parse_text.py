@@ -26,7 +26,8 @@ def parse_line_bedpe(line):
     return  chr_a, pos_a, chr_b, pos_b, val
     """
     items = line.strip().split()
-    chr_a, a_s, a_e, chr_b, b_s, b_e, val = items[:7]
+    chr_a, a_s, a_e, chr_b, b_s, b_e, name, score, strand_a, strand_b = items[:11]
+    val = score
     a_s, a_e, b_s, b_e, val = [int(i) for i in (a_s, a_e, b_s, b_e, val)]
     pos_a, pos_b = (a_s + a_e)//2, (b_s + b_e)//2
     chr_a, chr_b = add_chr_prefix(chr_a, chr_b)
