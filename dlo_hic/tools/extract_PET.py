@@ -27,7 +27,7 @@ from multiprocessing import Process, Queue, Manager
 
 import regex
 from Bio import SeqIO
-from Bio import pairwise2
+from cutadapt._align import Aligner
 
 from dlo_hic.utils import reverse_complement as rc
 from dlo_hic.utils import read_args
@@ -255,23 +255,17 @@ def extract_PET(record, span, rest, PET_len=None, SE=False):
         return PET1, PET2
 
 
-def align_linker(seq, linker, mismatch_threshold, match_score=1, mismatch_score=0,
-                 gap_penalties=-1, extend_penalties=-1):
+def align_linker(seq, linker, mismatch_threshold):
     """
     align linker within seq, use local alignment.
     """
-    align = pairwise2.align.localms
-    alignments = align(seq, linker,
-        match_score, mismatch_score, gap_penalties, extend_penalties)
-    if not alignments:
+    err_rate = float(mismatch_threshold)/len(linker)
+    aligner = Aligner(seq, err_rate)
+    alignment = aligner.locate(linker)
+    if not alignment:
         # linker can't alignment to seq
         return False
-    max_alignment = max(alignments, key=lambda t: t[2])
-    seq1, seq2, score, start, end = max_alignment
-    cutoff = len(linker) - mismatch_threshold
-    if score < cutoff:
-        # align quality too low
-        return False
+    start, end, s_, e_, m, err = alignment
     return (start, end)
 
 
