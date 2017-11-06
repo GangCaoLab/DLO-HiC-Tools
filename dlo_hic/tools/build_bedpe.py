@@ -64,7 +64,7 @@ def main(file_format, input1, input2, output, threads, bwa_index, mapq):
         assert bwa_index is not None
         bwa = BWA(bwa_index)
         bwa.run(input1, pre_1, thread=threads, mem=False)
-        bwa.run(input1, pre_2, thread=threads, mem=False)
+        bwa.run(input2, pre_2, thread=threads, mem=False)
         sam1 = pre_1 + '.sam'
         sam2 = pre_2 + '.sam'
     else:
