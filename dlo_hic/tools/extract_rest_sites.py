@@ -3,19 +3,20 @@ Extract all restriction sites from fasta file, save to BED6 file format.
 """
 
 from __future__ import print_function
-import sys
 import re
-import argparse
-from multiprocessing import Process, Queue
-from Queue import Empty
-import subprocess
-import tempfile
+import sys
 import signal
+import argparse
+import tempfile
+import subprocess
+from Queue import Empty
+from multiprocessing import Process, Queue
 
 import pyfaidx
 
 from dlo_hic.utils import read_args
 from dlo_hic.utils import reverse_complement as rc
+from dlo_hic.utils.itree import build_bed6_itree
 
 
 TIME_OUT = 1
@@ -115,6 +116,8 @@ def main(fasta, rest, output, processes):
         print("sorting bed file ...", file=sys.stderr)
         cmd = "sort -k1,1 -k2,2n -u {} > {}".format(tmp.name, output)
         subprocess.check_call(cmd, shell=True)
+        print("building interval tree..." ,file=sys.stderr)
+        build_bed6_itree(output, output+'.itree')
 
 
 if __name__ == "__main__":
