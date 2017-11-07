@@ -5,11 +5,6 @@ import cPickle
 import numpy as np
 from scipy import sparse
 
-try:
-    from dlo_hic.hicmatrix import HicMatrix
-except ImportError:
-    pass
-
 
 def save_hicmat(hicmat, file_prefix, use_sparse=True):
     """ 

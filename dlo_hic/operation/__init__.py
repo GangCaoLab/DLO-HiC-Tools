@@ -2,7 +2,6 @@ from copy import copy
 
 import numpy as np
 
-from dlo_hic.normalization import remove_zero
 import dlo_hic.hicmatrix
 
 def call_diff(hicmatA, hicmatB):
