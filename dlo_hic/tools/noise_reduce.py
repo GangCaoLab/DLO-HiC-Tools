@@ -12,7 +12,7 @@ There are two kinds of self-ligation in intra chromosomal interacting pair:
 
 In first situation, 
 there shold no restriction site within pair, in the genome. 
-But sometime resriction enzyme can not cutting complemently, 
+But sometime restriction enzyme can not cutting complemently, 
 so maybe there are few restriction sites within pair:
 
 normal:
@@ -60,7 +60,7 @@ from intervaltree import Interval, IntervalTree
 
 from dlo_hic.utils import read_args
 from dlo_hic.utils.parse_text import parse_line_bed6, parse_line_bedpe
-from dlo_hic.utils.itree import build_bed6_itree, load_bed6_itree
+from dlo_hic.utils.tabix_wrap import query_bed6
 
 
 TIME_OUT = 1
@@ -105,21 +105,10 @@ def argument_parser():
     return parser
 
 
-def load_rest_sites(sites_file):
-    """ load all restriction sites. """
-    itree_file = sites_file + '.itree'
-    if os.path.exists(itree_file):
-        rest_sites = load_bed6_itree(itree_file)
-    else:
-        rest_sites = build_bed6_itree(sites_file, itree_file)
-    return rest_sites
-
-
-def find_interval_rests(span, chr_, rest_sites):
+def find_interval_rests(sites_file, chr_, span):
     """ find all rests within span. """
-    itree = rest_sites[chr_]
     start, end = span
-    intervals = itree[start:end]
+    intervals = list(query_bed6(sites_file, chr_, start, end))
     return intervals
 
 
@@ -140,7 +129,7 @@ def read_chunk(file, chunk_size=CHUNK_SIZE):
     return chunk
 
 
-def bedpe_type(rest_sites, bedpe_items):
+def bedpe_type(restriction, bedpe_items):
     """ judge interaction type,
     types:
         "normal"
@@ -163,7 +152,7 @@ def bedpe_type(rest_sites, bedpe_items):
             return "normal"
         else:
             # unsafe span, need to be check
-            interval_rests = find_interval_rests((end1, start2), chr1, rest_sites)
+            interval_rests = find_interval_rests(restriction, chr1, (end1, start2))
             if len(interval_rests) <= threshold_num_rest:
                 return "normal"
             else:
@@ -178,7 +167,7 @@ def bedpe_type(rest_sites, bedpe_items):
             return "normal"
         else:
             # unsafe span, need to be check
-            interval_rests = find_interval_rests((end2, start1), chr1, rest_sites)
+            interval_rests = find_interval_rests(restriction, chr1, (end1, start2))
             if len(interval_rests) <= threshold_num_rest:
                 return "normal"
             else:
@@ -196,7 +185,7 @@ def bedpe_type(rest_sites, bedpe_items):
         return "abnormal-2"
 
 
-def worker(task_queue, output_queue, err_queue, rest_sites):
+def worker(task_queue, output_queue, err_queue, restriction):
     while 1:
         try:
             chunk = task_queue.get(timeout=TIME_OUT)
@@ -205,7 +194,7 @@ def worker(task_queue, output_queue, err_queue, rest_sites):
         out_chunk = []
         err_chunk = []
         for items in chunk:
-            type_ = bedpe_type(rest_sites, items)
+            type_ = bedpe_type(restriction, items)
             if type_ == 'normal':
                 out_chunk.append(items)
             else:
@@ -218,7 +207,7 @@ def outputer(out_file, output_p):
     f = open(out_file, 'w')
     def signal_handeler(signal, frame):
         f.close()
-        sys.exit(0) 
+        sys.exit(0)
     signal.signal(signal.SIGTERM, signal_handeler)
     while 1:
         chunk = output_p.get()
@@ -232,15 +221,12 @@ def main(input, output,
          restriction, processes,
          threshold_num_rest, threshold_span,
          debug):
-    print("loding restriction sites", file=sys.stderr)
-    rest_sites = load_rest_sites(restriction)
-    print("done")
     task_queue = Queue()
     output_queue = Queue()
     err_queue = Queue()
 
     workers = [Process(target=worker,
-                       args=(task_queue, output_queue, err_queue, rest_sites))
+                       args=(task_queue, output_queue, err_queue, restriction))
                for i in range(processes)]
 
     output_p = Process(target=outputer, args=(output, output_queue))
