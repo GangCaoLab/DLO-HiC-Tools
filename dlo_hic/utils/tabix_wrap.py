@@ -8,6 +8,8 @@ def sort_bed6(file_in, file_out):
     cmd = "sort -k1,1V -k2,2n -k3,3n -u {} > {}".format(file_in, file_out)
     subprocess.check_call(cmd, shell=True)
 
+sort_bedpe_reads1 = sort_bed6
+
 def index_bed6(bedfile):
     """ build tabix index for bedfile.
     please ensure bed file is sorted """

@@ -23,20 +23,22 @@ for example:
 
 import sys
 import argparse
+import subprocess
 
-import pandas as pd
-
+from dlo_hic.utils import read_args
+from dlo_hic.utils.tabix_wrap import sort_bedpe_reads1
+from dlo_hic.utils.parse_text import parse_line_bedpe
 
 class Bedpe:
     """ The abstract of bedpe record. """
     def __init__(self, line):
         self.line = line.strip()
-        items = self.line.split("\t")
-        self.items = items 
+        items = parse_line_bedpe(line)
+        self.items = items
         self.chr1 = items[0]
         self.chr2 = items[3]
-        self.start1, self.start2 = int(items[1]), int(items[4])
-        self.end1, self.end2 = int(items[2]), int(items[5])
+        self.start1, self.start2 = items[1], items[4]
+        self.end1, self.end2 = items[2], items[5]
         self.center1 = (self.start1 + self.end1) // 2
         self.center2 = (self.start2 + self.end2) // 2
 
@@ -56,10 +58,11 @@ def argument_parser():
     parser = argparse.ArgumentParser(
             description="Remove the redundancy within pairs.")
 
-    parser.add_argument("--input", "-i",
-            type=argparse.FileType(mode="r"),
-            default=sys.stdin,
-            help="Input bedpe file, column 1-3 must be sorted.")
+    parser.add_argument("input",
+            help="Input bedpe file.")
+
+    parser.add_argument("output",
+            help="Output bedpe file.")
 
     parser.add_argument("--distance", "-d",
             type=int,
@@ -70,26 +73,35 @@ def argument_parser():
     return parser
 
 
-def main():
-    parser = argument_parser()
-    args = parser.parse_args()
-    dis = args.distance
+def main(input, output, distance):
+    # sort input file firstly
+    tmp = input + '.tmp'
+    sort_bedpe_reads1(input, tmp)
 
-    with args.input as f:
-        base = Bedpe(f.readline())
-        while True:
+    with open(tmp, 'r') as f, open(output, 'w') as fo:
+       base = Bedpe(f.readline())
+       while True:
             for line in f:
                 another = Bedpe(line)
-                if base.is_rep_with(another, dis): # is replication, check next line.
+                if base.is_rep_with(another, distance): # is replication, check next line.
                     continue
                 else: # not replication, output base line and change base line.
-                    print(str(base))
+                    out_line = str(base) + "\n"
+                    fo.write(out_line)
                     base = another 
                     break
             else: # arrive at end of file.
-                print(str(base))
+                out_line = str(base) + "\n"
+                fo.write(out_line)
                 break
+    
+    subprocess.check_call(['rm', tmp]) # remove tmp file
 
 
 if __name__ == "__main__":
-    main()
+    parser = argument_parser()
+    args = parser.parse_args()
+
+    read_args(args, globals())
+
+    main(input, output, distance)
