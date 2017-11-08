@@ -16,7 +16,7 @@ import pyfaidx
 
 from dlo_hic.utils import read_args
 from dlo_hic.utils import reverse_complement as rc
-from dlo_hic.utils.itree import build_bed6_itree
+from dlo_hic.utils.tabix_wrap import sort_bed6, index_bed6
 
 
 TIME_OUT = 1
@@ -114,10 +114,9 @@ def main(fasta, rest, output, processes):
 
         # sort output bed file
         print("sorting bed file ...", file=sys.stderr)
-        cmd = "sort -k1,1 -k2,2n -u {} > {}".format(tmp.name, output)
-        subprocess.check_call(cmd, shell=True)
-        print("building interval tree..." ,file=sys.stderr)
-        build_bed6_itree(output, output+'.itree')
+        sort_bed6(tmp.name, output)
+        print("building tabidx...", file=sys.stderr)
+        index_bed6(output)
 
 
 if __name__ == "__main__":
