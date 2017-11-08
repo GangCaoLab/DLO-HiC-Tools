@@ -5,10 +5,13 @@ from .parse_text import parse_line_bed6
 
 def sort_bed6(file_in, file_out):
     """ sort bed file. """
-    cmd = "sort -k1,1V -k2,2n -k3,3n -u {} > {}".format(file_in, file_out)
+    cmd = "sort -k1,1V -k2,2n -k3,3n {} > {}".format(file_in, file_out)
     subprocess.check_call(cmd, shell=True)
 
-sort_bedpe_reads1 = sort_bed6
+def sort_bedpe_reads1(file_in, file_out):
+    """ sort bedpe file according to first 3 col(reads1). """
+    cmd = "sort -k1,1V -k2,2n -k3,3n {} > {}".format(file_in, file_out)
+    subprocess.check_call(cmd, shell=True)
 
 def index_bed6(bedfile):
     """ build tabix index for bedfile.

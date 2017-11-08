@@ -47,7 +47,9 @@ class Bedpe:
         if (self.chr1 != another.chr1) or (self.chr2 != another.chr2):
             return False
         else:
-            return abs(self.center1 - another.center1) <= dis and abs(self.center2 - another.center2) <= dis
+            center1_close = abs(self.center1 - another.center1) <= dis
+            center2_close = abs(self.center2 - another.center2) <= dis
+            return center1_close and center2_close
 
     def __str__(self):
         return self.line
@@ -94,7 +96,7 @@ def main(input, output, distance):
                 out_line = str(base) + "\n"
                 fo.write(out_line)
                 break
-    
+
     subprocess.check_call(['rm', tmp]) # remove tmp file
 
 
