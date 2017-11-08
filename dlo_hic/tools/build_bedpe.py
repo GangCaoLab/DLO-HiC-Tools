@@ -65,13 +65,13 @@ def main(file_format, input1, input2, output, threads, bwa_index, mapq):
         bwa = BWA(bwa_index)
         bwa.run(input1, pre_1, thread=threads, mem=False)
         bwa.run(input2, pre_2, thread=threads, mem=False)
-        sam1 = pre_1 + '.sam'
-        sam2 = pre_2 + '.sam'
+        bam1 = pre_1 + '.bam'
+        bam2 = pre_2 + '.bam'
     else:
-        sam1 = input1
-        sam2 = input2
-    subprocess.check_call("samtools view {} -b -q {} > {}.filtered.bam".format(sam1, mapq, pre_1), shell=True)
-    subprocess.check_call("samtools view {} -b -q {} > {}.filtered.bam".format(sam2, mapq, pre_2), shell=True)
+        bam1 = input1
+        bam2 = input2
+    subprocess.check_call("samtools view {} -b -q {} > {}.filtered.bam".format(bam1, mapq, pre_1), shell=True)
+    subprocess.check_call("samtools view {} -b -q {} > {}.filtered.bam".format(bam2, mapq, pre_2), shell=True)
     bed1 = pybedtools.BedTool(pre_1+".filtered.bam").bam_to_bed().saveas(pre_1+".bed")
     bed2 = pybedtools.BedTool(pre_2+".filtered.bam").bam_to_bed().saveas(pre_2+".bed")
     beds2bedpe(bed1, bed2, output)
