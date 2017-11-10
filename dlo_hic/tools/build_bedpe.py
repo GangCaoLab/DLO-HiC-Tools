@@ -6,7 +6,6 @@ import argparse
 
 import os
 import subprocess
-import pybedtools
 import multiprocessing
 
 from dlo_hic.utils import BWA
@@ -40,20 +39,18 @@ def argument_parser():
 
 def beds2bedpe(bed1, bed2, bedpe_filename):
     # build bed's index
-    name2interval = {}
-    for interval in bed1[:]:
-        if interval.name in name2interval:
-            raise ValueError("one reads occurred twice")
-        name2interval[interval.name] = interval
+    cmd = "join -j 4 {} {}".format(bed1, bed2)
+    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
     with open(bedpe_filename, 'w') as f:
-        for i2 in bed2[:]:
-            i1 = name2interval.get(i2.name, None)
-            if i1:
-                fields = [i1.chrom, i1.start, i1.end, i2.chrom, i2.start, i2.end,
-                          i1.name, 1, i1.strand, i2.strand]
-                fields = [str(i) for i in fields]
-                line = "\t".join(fields) + "\n"
-                f.write(line)
+        for line in p.stdout:
+            items = line.strip().split()
+            name, chr_a, s_a, e_a, score_a, strand_a,\
+                  chr_b, s_b, e_b, score_b, strand_b = items
+            outitems = [chr_a, s_a, e_a,
+                        chr_b, s_a, e_a,
+                        name, "1", strand_a, strand_b]
+            outline = "\t".join(outitems) + "\n"
+            f.write(outline)
 
 
 def main(file_format, input1, input2, output, threads, bwa_index, mapq):
@@ -72,8 +69,10 @@ def main(file_format, input1, input2, output, threads, bwa_index, mapq):
         bam2 = input2
     subprocess.check_call("samtools view {} -b -q {} > {}.filtered.bam".format(bam1, mapq, pre_1), shell=True)
     subprocess.check_call("samtools view {} -b -q {} > {}.filtered.bam".format(bam2, mapq, pre_2), shell=True)
-    bed1 = pybedtools.BedTool(pre_1+".filtered.bam").bam_to_bed().saveas(pre_1+".bed")
-    bed2 = pybedtools.BedTool(pre_2+".filtered.bam").bam_to_bed().saveas(pre_2+".bed")
+    bed1 = pre_1 + ".bed"
+    bed2 = pre_2 + ".bed"
+    subprocess.check_call("bedtools bamtobed -i {} | sort -k4,4 > {}".format(pre_1+'.filtered.bam', bed1), shell=True)
+    subprocess.check_call("bedtools bamtobed -i {} | sort -k4,4 > {}".format(pre_2+'.filtered.bam', bed2), shell=True)
     beds2bedpe(bed1, bed2, output)
 
 
