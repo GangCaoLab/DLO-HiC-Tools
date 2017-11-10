@@ -51,6 +51,7 @@ import sys
 import time
 import cPickle
 import argparse
+import subprocess
 import signal
 from Queue import Empty
 import multiprocessing
@@ -64,7 +65,7 @@ from dlo_hic.utils.tabix_wrap import query_bed6
 
 
 TIME_OUT = 1
-CHUNK_SIZE = 1000
+CHUNK_SIZE = 10000
 
 
 def argument_parser():
@@ -185,58 +186,45 @@ def bedpe_type(restriction, bedpe_items):
         return "abnormal-2"
 
 
-def worker(task_queue, output_queue, err_queue, restriction):
+def worker(task_queue, output, restriction, debug, err_queue):
+    output_f = open(output, 'w')
     while 1:
         try:
             chunk = task_queue.get(timeout=TIME_OUT)
         except Empty:
+            output_f.close()
             break
-        out_chunk = []
         err_chunk = []
+
         for items in chunk:
             type_ = bedpe_type(restriction, items)
             if type_ == 'normal':
-                out_chunk.append(items)
+                # normal, will output this line
+                out_line = "\t".join([str(i) for i in items]) + "\n"
+                output_f.write(out_line)
             else:
-                err_chunk.append((type_, items))
-        output_queue.put(out_chunk)
-        err_queue.put(err_chunk)
+                if debug:
+                    err_chunk.append((type_, items))
 
-
-def outputer(out_file, output_p):
-    f = open(out_file, 'w')
-    def signal_handeler(signal, frame):
-        f.close()
-        sys.exit(0)
-    signal.signal(signal.SIGTERM, signal_handeler)
-    while 1:
-        chunk = output_p.get()
-        for items in chunk:
-            items = [str(i) for i in items]
-            line = "\t".join(items) + "\n"
-            f.write(line)
+        if debug:
+            err_queue.put(err_chunk)
 
 
 def main(input, output,
          restriction, processes,
          threshold_num_rest, threshold_span,
          debug):
-    task_queue = Queue()
-    output_queue = Queue()
+    task_queue = Queue() 
     err_queue = Queue()
 
     workers = [Process(target=worker,
-                       args=(task_queue, output_queue, err_queue, restriction))
+                       args=(task_queue, output+".tmp.%d"%i, restriction, debug, err_queue))
                for i in range(processes)]
-
-    output_p = Process(target=outputer, args=(output, output_queue))
     
     for w in workers:
         w.start()
 
-    output_p.start()
-
-    with open (input) as f:
+    with open(input) as f:
         while 1:
             try:
                 task_queue.put(read_chunk(f))
@@ -245,9 +233,13 @@ def main(input, output,
 
     for w in workers:
         w.join()
-    while not output_queue.empty():
-        time.sleep(TIME_OUT)
-    output_p.terminate()
+
+    # merge tmp files
+    tmp_files = [output+".tmp.%d"%i for i in range(processes)]
+    cmd = "cat " + " ".join(tmp_files) + " > " + output
+    subprocess.check_call(cmd, shell=True)
+    cmd = "rm " + " ".join(tmp_files) 
+    subprocess.check_call(cmd, shell=True)
 
     if debug:
         while not err_queue.empty():
