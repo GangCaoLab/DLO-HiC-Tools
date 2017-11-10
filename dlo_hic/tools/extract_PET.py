@@ -21,8 +21,10 @@ import json
 import gzip
 import argparse
 import itertools
+import signal
 from math import floor
 from copy import copy
+from time import time
 from multiprocessing import Process, Queue, Manager
 
 import regex
@@ -176,16 +178,14 @@ def read_fastq(fastq_iter, n=CHUNK_SIZE):
 
 def output(fastq_writer, output_queue):
     """ output extracted results """
-    from Queue import Empty
+    def signal_handeler(signal, frame):
+        fastq_writer.write_footer()
+        fastq_writer.handle.close()
+        sys.exit(0) 
+    signal.signal(signal.SIGTERM, signal_handeler)
     while 1:
-        try:
-            records = output_queue.get(timeout=TIME_OUT)
-        except Empty:
-            break
+        records = output_queue.get()
         c = fastq_writer.write_records(records)
-
-    fastq_writer.write_footer()
-    fastq_writer.handle.close()
 
 
 def add_base_to_PET(PET, base):
@@ -368,7 +368,9 @@ def stream_processing(fastq_iter, fastq_writer, processes, linkers, mismatch, re
     for w in workers:
         w.join()
 
-    output_p.join()
+    while not output_queue.empty():
+        time.sleep(TIME_OUT)
+    output_p.terminate()
 
     while not counter_queue.empty():
         all, inter, intra, un = counter_queue.get()
@@ -427,8 +429,12 @@ def stream_processing_SE(fastq_iter, fastq_writer_1, fastq_writer_2,
     for w in workers:
         w.join()
 
-    output_p_1.join()
-    output_p_2.join()
+    while not output_queue_1.empty():
+        time.sleep(TIME_OUT)
+    output_p_1.terminate()
+    while not output_queue_2.empty():
+        time.sleep(TIME_OUT)
+    output_p_2.terminate()
 
     while not counter_queue.empty():
         all, inter, intra, un = counter_queue.get()
