@@ -59,3 +59,105 @@ def parse_line_short(line):
     pos_a, pos_b, score = int(pos_a), int(pos_b), int(score)
     chr_a, chr_b = add_chr_prefix(chr_a, chr_b)
     return chr_a, pos_a, chr_b, pos_b, score
+
+
+class Bedpe():
+    """ The abstract of bedpe record. """
+    def __init__(self, line):
+        items = parse_line_bedpe(line)
+        self.items = items
+        self.chr1 = items[0]
+        self.chr2 = items[3]
+        self.name, self.score = items[6], items[7]
+        self.start1, self.start2 = items[1], items[4]
+        self.end1, self.end2 = items[2], items[5]
+        self.strand1, self.strand2 = items[8], items[9]
+        self.center1 = (self.start1 + self.end1) // 2
+        self.center2 = (self.start2 + self.end2) // 2
+
+    def is_rep_with(self, another, dis=50):
+        """ Judge another bedpe record is replection of self or not. """
+        if (self.chr1 != another.chr1) or (self.chr2 != another.chr2):
+            return False
+        else:
+            center1_close = abs(self.center1 - another.center1) <= dis
+            center2_close = abs(self.center2 - another.center2) <= dis
+            return center1_close and center2_close
+
+    def to_upper_trangle(self):
+        """
+        rearrange item to upper trangle form.abs
+        upper trangle:
+                chr1    chr2    chr3 ...
+        chr1     x       x       x   ...
+        chr2             x       x   ...
+        chr3                     x   ...
+        ...                          ...
+        """
+        if self.chr1 > self.chr2:
+            self.chr1, self.start1, self.end1, self.strand1 = \
+                self.chr2, self.start2, self.end2, self.strand2
+        if self.chr1 == self.chr2:
+            if self.start1 > self.start2:
+                self.start1, self.end1, self.strand1 = self.start2, self.end2, self.strand2
+                
+
+    def __str__(self):
+        line = "\t".join([self.chr1, str(self.start1), str(self.end1),
+                          self.chr2, str(self.start2), str(self.end2),
+                          self.name, str(self.score), self.strand1, self.strand2])
+        return line
+
+    def to_pairs_line(self):
+        """
+        convert to pairs format line.
+        about pairs format:
+        https://github.com/4dn-dcic/pairix/blob/master/pairs_format_specification.md
+        """
+        line = " ".join([self.name, 
+                         self.chr1, str(self.end1),
+                         self.chr2, str(self.start2),
+                         self.strand1, self.strand2])
+        return line
+
+
+def parse_line_pairs(line):
+    """ parse pairs file format file line
+    return read_id, chr1, pos1, chr2, pos2, strand1, strand2 """
+    items = line.strip().split()
+    read_id, chr1, pos1, chr2, pos2, strand1, strand2 = items
+    pos1, pos2 = int(pos1), int(pos2)
+    return read_id, chr1, pos1, chr2, pos2, strand1, strand2
+
+
+class Pairs():
+    """ The abstract of bedpe record. """
+    def __init__(self, line):
+        items = parse_line_pairs(line)
+        self.items = items
+        self.name = items[0]
+        self.chr1, self.chr2 = items[1], items[3]
+        self.pos1, self.pos2 = items[2], items[4]
+        self.strand1, self.strand2 = items[5], items[6]
+
+    def __str__(self):
+        return ' '.join([self.name,
+                         self.chr1, str(self.pos1),
+                         self.chr2, str(self.pos2),
+                         self.strand1, self.strand2])
+
+    def to_upper_trangle(self):
+        """
+        rearrange item to upper trangle form.abs
+        upper trangle:
+                chr1    chr2    chr3 ...
+        chr1     x       x       x   ...
+        chr2             x       x   ...
+        chr3                     x   ...
+        ...                          ...
+        """
+        if self.chr1 > self.chr2:
+            self.chr1, self.pos1, self.strand1 = self.chr2, self.pos2, self.strand2
+        if self.chr1 == self.chr2:
+            if self.start1 > self.start2:
+                self.pos1, self.strand1 = self.pos2, self.strand2
