@@ -27,33 +27,7 @@ import subprocess
 
 from dlo_hic.utils import read_args
 from dlo_hic.utils.tabix_wrap import sort_bedpe_reads1
-from dlo_hic.utils.parse_text import parse_line_bedpe
-
-class Bedpe:
-    """ The abstract of bedpe record. """
-    def __init__(self, line):
-        self.line = line.strip()
-        items = parse_line_bedpe(line)
-        self.items = items
-        self.chr1 = items[0]
-        self.chr2 = items[3]
-        self.start1, self.start2 = items[1], items[4]
-        self.end1, self.end2 = items[2], items[5]
-        self.center1 = (self.start1 + self.end1) // 2
-        self.center2 = (self.start2 + self.end2) // 2
-
-    def is_rep_with(self, another, dis=50):
-        """ Judge another bedpe record is replection of self or not. """
-        if (self.chr1 != another.chr1) or (self.chr2 != another.chr2):
-            return False
-        else:
-            center1_close = abs(self.center1 - another.center1) <= dis
-            center2_close = abs(self.center2 - another.center2) <= dis
-            return center1_close and center2_close
-
-    def __str__(self):
-        return self.line
-
+from dlo_hic.utils.parse_text import Bedpe
 
 
 def argument_parser():
@@ -75,12 +49,24 @@ def argument_parser():
     return parser
 
 
-def main(input, output, distance):
-    # sort input file firstly
-    tmp = input + '.tmp'
-    sort_bedpe_reads1(input, tmp)
+def bedpe_upper_triangle(bedpe_file, output):
+    """
+    transform bedpe file's all line to upper trangle form.
+    """
+    with open(bedpe_file) as fi, open(output, 'w') as fo:
+        for line in fi:
+            bpe = Bedpe(line)
+            bpe.to_upper_trangle()
+            outline = str(bpe) + "\n"
+            fo.write(outline)
 
-    with open(tmp, 'r') as f, open(output, 'w') as fo:
+
+def remove_redundancy(bedpe_file, output, distance):
+    """
+    remove redundancy lines in the bedpe file,
+    input file must in upper trangle form and sorted according to reads1(first 3 cols).
+    """
+    with open(bedpe_file, 'r') as f, open(output, 'w') as fo:
        base = Bedpe(f.readline())
        while True:
             for line in f:
@@ -97,7 +83,17 @@ def main(input, output, distance):
                 fo.write(out_line)
                 break
 
-    subprocess.check_call(['rm', tmp]) # remove tmp file
+
+def main(input, output, distance):
+    # sort input file firstly
+    tmp0 = input + '.tmp.0'
+    bedpe_upper_triangle(input, tmp0)
+    tmp1 = input + '.tmp.1'
+    sort_bedpe_reads1(tmp0, tmp1)
+    remove_redundancy(tmp1, output, distance)
+
+    subprocess.check_call(['rm', tmp0]) # remove tmp files
+    subprocess.check_call(['rm', tmp1])
 
 
 if __name__ == "__main__":
