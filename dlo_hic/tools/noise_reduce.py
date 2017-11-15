@@ -186,15 +186,17 @@ def bedpe_type(restriction, bedpe_items):
         return "abnormal-2"
 
 
-def worker(task_queue, output, restriction, debug, err_queue):
+def worker(task_queue, output, restriction, debug, err_file):
     output_f = open(output, 'w')
+    if debug:
+        err_file = open(err_file, 'w')
+
     while 1:
         try:
             chunk = task_queue.get(timeout=TIME_OUT)
         except Empty:
             output_f.close()
             break
-        err_chunk = []
 
         for items in chunk:
             type_ = bedpe_type(restriction, items)
@@ -204,10 +206,7 @@ def worker(task_queue, output, restriction, debug, err_queue):
                 output_f.write(out_line)
             else:
                 if debug:
-                    err_chunk.append((type_, items))
-
-        if debug:
-            err_queue.put(err_chunk)
+                    err_file.write("\t".join([type_] + items))
 
 
 def main(input, output,
@@ -218,9 +217,10 @@ def main(input, output,
     err_queue = Queue()
 
     workers = [Process(target=worker,
-                       args=(task_queue, output+".tmp.%d"%i, restriction, debug, err_queue))
+                       args=(task_queue, output+".tmp.%d"%i,
+                             restriction, debug, output+".tmp.e.%d"%i))
                for i in range(processes)]
-    
+
     for w in workers:
         w.start()
 
@@ -238,16 +238,15 @@ def main(input, output,
     tmp_files = [output+".tmp.%d"%i for i in range(processes)]
     cmd = "cat " + " ".join(tmp_files) + " > " + output
     subprocess.check_call(cmd, shell=True)
-    cmd = "rm " + " ".join(tmp_files) 
+    cmd = "rm " + " ".join(tmp_files)
     subprocess.check_call(cmd, shell=True)
 
     if debug:
-        while not err_queue.empty():
-            chunk = err_queue.get()
-            for type_, items in chunk:
-                items = [str(i) for i in items]
-                line = "\t".join(items)
-                print("[{}]\t{}".format(type_, line), file=sys.stderr)
+        err_files = [output+".tmp.e.%d"%i for i in range(processes)]
+        cmd = "cat " + " ".join(err_files) + " > " + output + ".err"
+        subprocess.check_call(cmd, shell=True)
+        cmd = "rm " + " ".join(err_files)
+        subprocess.check_call(cmd, shell=True)
 
 
 if __name__ == "__main__":
