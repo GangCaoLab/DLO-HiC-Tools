@@ -24,8 +24,9 @@ import itertools
 import subprocess
 from math import floor
 from copy import copy
-from time import time
-from multiprocessing import Process, Queue, Manager
+import time
+import multiprocessing
+from multiprocessing import Process, Manager, Queue
 
 from Bio import SeqIO
 from cutadapt._align import Aligner
@@ -133,7 +134,10 @@ def log_counts(counts, file=sys.stderr):
     print("Quality Control:", file=file)
     for k, v in counts.items():
         print("\t{}\t{}".format(k, v), file=file)
-    ratio = counts['intra-molecular'] / float(counts['all'])
+    try:
+        ratio = counts['intra-molecular'] / float(counts['all'])
+    except ZeroDivisionError:
+        ratio = 0
     print("Valid reads ratio: {}".format(ratio))
 
 
@@ -226,9 +230,10 @@ def match_linker(seq, linker, mismatch_threshold, seed_ratio=0.25):
     return span
 
 
-def worker_SE(task_queue, out1, out2, phred, counter_queue, linkers, mismatch, rest, PET_len):
+def worker_SE(task_queue, out1, out2, phred, counter, linkers, mismatch, rest, PET_len):
     """ stream processing(PET extract) task for SE mode """
     from Queue import Empty
+    current = multiprocessing.current_process().pid
 
     file_out1 = open_file(out1, 'w')
     file_out2 = open_file(out2, 'w')
@@ -238,16 +243,26 @@ def worker_SE(task_queue, out1, out2, phred, counter_queue, linkers, mismatch, r
     fastq_writer_1.write_header()
     fastq_writer_2.write_header()
 
+    all, inter, intra, unmatch = 0,0,0,0 # variables for count reads
     while 1:
-        all, inter, intra, unmatch = 0,0,0,0 # variables for count reads
         try:
             records = task_queue.get(timeout=TIME_OUT)
+            if records is None:
+                raise Empty
         except Empty:
             fastq_writer_1.write_footer()
             fastq_writer_1.handle.close()
             fastq_writer_2.write_footer()
             fastq_writer_2.handle.close()
+            # update counter dict
+            counter['all'] += all
+            counter['inter-molecular'] += inter
+            counter['intra-molecular'] += intra
+            counter['unmatchable'] += unmatch
+            # log
+            print("Process-%d"%current , "exit.", file=sys.stderr)
             break
+
         for r in records:
             all += 1
             seq = str(r.seq)
@@ -268,7 +283,6 @@ def worker_SE(task_queue, out1, out2, phred, counter_queue, linkers, mismatch, r
             else:
                 # all linkers can't match
                 unmatch += 1
-        counter_queue.put((all, inter, intra, unmatch))
 
 
 def fastq_iter(file_in, phred):
@@ -289,29 +303,6 @@ def fastq_writer(file_out, phred):
     return fastq_writer
 
 
-def counts_reads_type(counter_queue):
-    """
-    count all reads type
-      intra-molecular(A-A B-B)
-      inter-molecular(A-B B-A)
-      unmatchable
-    element in queue: (all, intra-molecular, inter-molecular, unmatchable)
-    """
-    counter = {
-        'all' : 0,
-        'inter-molecular' : 0,
-        'intra-molecular' : 0,
-        'unmatchable': 0,
-    }
-    while not counter_queue.empty():
-        all, inter, intra, un = counter_queue.get()
-        counter['all'] += all
-        counter['inter-molecular'] += inter
-        counter['intra-molecular'] += intra
-        counter['unmatchable'] += un
-    return counter
-
-
 def mainSE(input, out1, out2,
         linekr_a, linker_b,
         mismatch, rest, phred, processes, PET_len):
@@ -322,12 +313,17 @@ def mainSE(input, out1, out2,
     linkers = load_linkers(linekr_a, linker_b)
     log_linkers(linkers)
 
+    manager = Manager()
     task_queue = Queue()
-    counter_queue = Queue() # a global queue for count record how many:
+    counter = manager.dict() # a global queue for count record how many:
+    counter['all'] = 0
+    counter['inter-molecular'] = 0
+    counter['intra-molecular'] = 0
+    counter['unmatchable'] = 0
 
     workers = [Process(target=worker_SE, 
                          args=(task_queue, out1+".tmp.%d"%i, out2+".tmp.%d"%i, phred,
-                               counter_queue, linkers, mismatch, rest_site, PET_len))
+                               counter, linkers, mismatch, rest_site, PET_len))
                for i in range(processes)]
 
     for w in workers:
@@ -351,13 +347,12 @@ def mainSE(input, out1, out2,
     tmpfiles_2 = [out2+".tmp.%d"%i for i in range(processes)]
     cmd = "cat " + " ".join(tmpfiles_1) + " > " + out1
     subprocess.check_call(cmd, shell=True)
-    cmd = "cat " + " ".join(tmpfiles_2) + " > " + out1
+    cmd = "cat " + " ".join(tmpfiles_2) + " > " + out2
     subprocess.check_call(cmd, shell=True)
     cmd = "rm " + " ".join(tmpfiles_1 + tmpfiles_2)
     subprocess.check_call(cmd, shell=True)
 
-    # count reads type
-    counts = counts_reads_type(counter_queue)
+    counts = dict(counter)
 
     return counts
 
