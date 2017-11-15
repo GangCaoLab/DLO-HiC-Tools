@@ -28,3 +28,14 @@ def query_bed6(bedfile, chr_, start, end):
     process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
     for line in process.stdout:
         yield parse_line_bed6(line)
+
+def sort_pairs(file_in, file_out):
+    """ sort pairs file. """
+    cmd = "sort -k2,2 -k4,4 -k3,3n -k5,5n {} > {}".format(file_in, file_out)
+    subprocess.check_call(cmd, shell=True)
+
+def index_pairs(pairs_file):
+    """ build index for pairs file. """
+    cmd = "cat {} | bgzip > {}".format(pairs_file, pairs_file+".gz")
+    subprocess.check_call(cmd, shell=True)
+    cmd = "pairix {}".format(pairs_file+".gz")
