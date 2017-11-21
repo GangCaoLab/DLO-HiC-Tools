@@ -31,14 +31,30 @@ def bedpe2pairs(input, output):
             fo.write(pairs_line + "\n")
 
 
+def add_pairs_header(input):
+    """ add header to pairs file. """
+    header = "## pairs format v1.0\\n" +\
+             "#columns: readID chr1 position1 chr2 position2 strand1 strand2"
+    tmp0 = input + '.tmp'
+    tmp1 = ".header"
+    cmd = "echo \"{}\" > {}".format(header, tmp1)
+    subprocess.check_call(cmd, shell=True)
+    cmd = "cat {} {} > {}".format(tmp1, input, tmp0)
+    subprocess.check_call(cmd, shell=True)
+    cmd = "mv {} {}".format(tmp0, input)
+    subprocess.check_call(cmd, shell=True)
+    cmd = "rm {}".format(tmp1)
+    subprocess.check_call(cmd, shell=True)
+
+
 def main(input, output):
     # sort input file firstly
     tmp0 = input + '.tmp.0'
     bedpe2pairs(input, tmp0)
     sort_pairs(tmp0, output)
-    index_pairs(output)
-
     subprocess.check_call(['rm', tmp0]) # remove tmp files
+    index_pairs(output)
+    add_pairs_header(output)
 
 
 if __name__ == "__main__":

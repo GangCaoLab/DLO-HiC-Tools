@@ -95,11 +95,15 @@ class Bedpe():
         ...                          ...
         """
         if self.chr1 > self.chr2:
-            self.chr1, self.start1, self.end1, self.strand1 = \
-                self.chr2, self.start2, self.end2, self.strand2
+            self.chr1,    self.chr2    = self.chr2, self.chr1
+            self.start1,  self.start2  = self.start2, self.start1
+            self.end1,    self.end2    = self.end2, self.end1
+            self.strand1, self.strand2 = self.strand2, self.strand1
         if self.chr1 == self.chr2:
             if self.start1 > self.start2:
-                self.start1, self.end1, self.strand1 = self.start2, self.end2, self.strand2
+                self.start1,  self.start2  = self.start2, self.start1
+                self.end1,    self.end2    = self.end2, self.end1
+                self.strand1, self.strand2 = self.strand2, self.strand1
                 
 
     def __str__(self):
@@ -114,10 +118,10 @@ class Bedpe():
         about pairs format:
         https://github.com/4dn-dcic/pairix/blob/master/pairs_format_specification.md
         """
-        line = " ".join([self.name, 
-                         self.chr1, str(self.end1),
-                         self.chr2, str(self.start2),
-                         self.strand1, self.strand2])
+        line = "\t".join([self.name, 
+                          self.chr1, str(self.end1),
+                          self.chr2, str(self.start2),
+                          self.strand1, self.strand2])
         return line
 
 
@@ -141,10 +145,10 @@ class Pairs():
         self.strand1, self.strand2 = items[5], items[6]
 
     def __str__(self):
-        return ' '.join([self.name,
-                         self.chr1, str(self.pos1),
-                         self.chr2, str(self.pos2),
-                         self.strand1, self.strand2])
+        return "\t".join([self.name,
+                          self.chr1, str(self.pos1),
+                          self.chr2, str(self.pos2),
+                          self.strand1, self.strand2])
 
     def to_upper_trangle(self):
         """

@@ -38,4 +38,5 @@ def index_pairs(pairs_file):
     """ build index for pairs file. """
     cmd = "cat {} | bgzip > {}".format(pairs_file, pairs_file+".gz")
     subprocess.check_call(cmd, shell=True)
-    cmd = "pairix {}".format(pairs_file+".gz")
+    cmd = "pairix -f {}".format(pairs_file+".gz")
+    subprocess.check_call(cmd, shell=True)
