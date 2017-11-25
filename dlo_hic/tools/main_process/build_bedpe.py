@@ -21,7 +21,7 @@ def argument_parser():
         choices=['fastq', 'bam', 'sam'],
         help="The file type of input file, if 'fastq' will preform bwa alignment firstly.")
 
-    parser.add_argument("--threads", "-t",
+    parser.add_argument("--ncpu", "-p",
         type=int,
         default=multiprocessing.cpu_count(),
         help="how mant threads used to run bwa")
@@ -53,15 +53,15 @@ def beds2bedpe(bed1, bed2, bedpe_filename):
             f.write(outline)
 
 
-def main(file_format, input1, input2, output, threads, bwa_index, mapq):
+def main(file_format, input1, input2, output, ncpu, bwa_index, mapq):
     pre_1 = os.path.splitext(input1)[0] # prefix
     pre_2 = os.path.splitext(input2)[0]
     if file_format == 'fastq':
         # alignment firstly if the input format is fastq
         assert bwa_index is not None
         bwa = BWA(bwa_index)
-        bwa.run(input1, pre_1, thread=threads, mem=False)
-        bwa.run(input2, pre_2, thread=threads, mem=False)
+        bwa.run(input1, pre_1, thread=ncpu, mem=False)
+        bwa.run(input2, pre_2, thread=ncpu, mem=False)
         bam1 = pre_1 + '.bam'
         bam2 = pre_2 + '.bam'
     else:
@@ -80,4 +80,4 @@ if __name__ == "__main__":
     parser = argument_parser()
     args = parser.parse_args()
     read_args(args, globals())
-    main(file_format, input1, input2, output, threads, bwa_index, mapq)
+    main(file_format, input1, input2, output, ncpu, bwa_index, mapq)
