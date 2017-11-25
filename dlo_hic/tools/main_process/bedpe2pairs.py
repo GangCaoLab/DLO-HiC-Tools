@@ -20,6 +20,11 @@ def argument_parser():
     parser.add_argument("output",
             help="Output pairs file.")
 
+    parser.add_argument("--keep",
+            action="store_true",
+            help="keep non compressed pairs file," + \
+                 " if you need create .hic file use this option.")
+
     return parser
 
 
@@ -47,14 +52,17 @@ def add_pairs_header(input):
     subprocess.check_call(cmd, shell=True)
 
 
-def main(input, output):
+def main(input, output, keep):
     # sort input file firstly
     tmp0 = input + '.tmp.0'
     bedpe2pairs(input, tmp0)
     sort_pairs(tmp0, output)
     subprocess.check_call(['rm', tmp0]) # remove tmp files
     index_pairs(output)
-    add_pairs_header(output)
+    if keep:
+        add_pairs_header(output) # if keep uncompressed file, add header to it
+    else:
+        subprocess.check_call(['rm', output]) # remove uncompressed file
 
 
 if __name__ == "__main__":
@@ -63,4 +71,4 @@ if __name__ == "__main__":
 
     read_args(args, globals())
 
-    main(input, output)
+    main(input, output, keep)
