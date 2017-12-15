@@ -1,49 +1,25 @@
-"""
-Extract all restriction sites from fasta file, save to BED6 file format.
-"""
-
 from __future__ import print_function
 import re
 import sys
+import time
 import signal
-import argparse
 import tempfile
-import subprocess
 from Queue import Empty
 from multiprocessing import Process, Queue
 
 import pyfaidx
+import click
 
 from dlo_hic.utils import read_args
 from dlo_hic.utils import reverse_complement as rc
-from dlo_hic.utils.tabix_wrap import sort_bed6, index_bed6
+from dlo_hic.utils.wrap.tabix import sort_bed6, index_bed6
 
 
 TIME_OUT = 1
 
 
-def argument_parser():
-    parser = argparse.ArgumentParser(
-        description='Extract all restriction sites from fasta file, save to BED6 file format.')
-
-    parser.add_argument('fasta', help='The input fasta file.')
-
-    parser.add_argument('--rest-seq', '-r',
-        dest="rest", required=True,
-        help='The sequence of restriction site')
-
-    parser.add_argument('output', help='Name for the resulting bed file.')
-
-    parser.add_argument("--processes", "-p",
-        type=int,
-        default=1,
-        help='Use how many processes to run.')
-
-    return parser
-
-
 def worker(task_queue, output_queue, count_queue, rest, fasta):
-    rc_rest = rc(rest)
+    rest_rc = rc(rest)
     faidx = pyfaidx.Fasta(fasta)
     while 1:
         c = 0
@@ -58,7 +34,7 @@ def worker(task_queue, output_queue, count_queue, rest, fasta):
                 (chr_, str(match.start()), str(match.end()), '.', '0', '+')
             )
             c += 1
-        if rc_rest != rest: # find reverse complement restriction site
+        if rest_rc != rest: # find reverse complement restriction site
             for match in re.finditer(rest_rc, seq, re.IGNORECASE):
                 output_queue.put(
                     (chr_, str(match.start()), str(match.end()), '.', '0', '-')
@@ -79,7 +55,15 @@ def outputer(output_file, output_queue):
         output_file.write(line)
 
 
-def main(fasta, rest, output, processes):
+@click.command(name="extract_rest_sites")
+@click.argument("fasta", nargs=1)
+@click.option("--rest-seq", "-r", required=True,
+    help="The sequence of restriction site")
+@click.argument("output", nargs=1)
+@click.option("--processes", "-p", default=1,
+    help="Use how many processes to run. default 1")
+def _main(fasta, rest, output, processes):
+    """ Extract all restriction sites from fasta file, save to BED6 file format. """
     faidx = pyfaidx.Fasta(fasta)
     chrs = faidx.keys()
     task_queue   = Queue()
@@ -118,9 +102,7 @@ def main(fasta, rest, output, processes):
         print("building tabidx...", file=sys.stderr)
         index_bed6(output)
 
+main = _main.callback
 
 if __name__ == "__main__":
-    parser = argument_parser()
-    args = parser.parse_args()
-    read_args(args, globals())
-    main(fasta, rest, output, processes)
+    _main()

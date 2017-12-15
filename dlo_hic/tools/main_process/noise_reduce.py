@@ -1,109 +1,23 @@
-# -*- coding: utf-8 -*-
-
-"""
-noise_reduce.py
-~~~~~~~~~~~~~~~
-
-Remove DLO-HiC noise (self-ligation).
-
-There are two kinds of self-ligation in intra chromosomal interacting pair:
-    1. circle ligation.
-    2. non-interacting restriction enzyme cutting site.
-
-In first situation, 
-there shold no restriction site within pair, in the genome. 
-But sometime restriction enzyme can not cutting complemently, 
-so maybe there are few restriction sites within pair:
-
-normal:
-                         many restriction site
-             
-                 left PET      |  ...  |        right PET
-                    V          V       V            V     
-    genome    <-+++..+++--..---*---..--*----..--+++..+++->
-
-abnormal(self-ligation-1):
-                     no or few restriction site
-
-                 left PET      |                right PET
-                    V          V                    V     
-    genome    <-+++..+++--..---*---..-------..--+++..+++->
-
-
-In second situation,
-left and right PETs will overlap like:
-
-abnormal(self-ligation-2):
-            
-                              +++++++..++ right PET
-             left PET ++..+++++++
-    genome    <---..--------------------------------..--->
-
-Therefore, with the propose of clean the noise, here shold remove the pair,
-which there are no restriction site or just very few restriction(e.g. one)
-within it, or the left and right PETs overlapped.
-
-"""
-
 from __future__ import print_function
 import os
 import sys
 import time
 import cPickle
-import argparse
 import subprocess
 import signal
 from Queue import Empty
 import multiprocessing
 from multiprocessing import Queue, Process
 
-from intervaltree import Interval, IntervalTree
+import click
 
 from dlo_hic.utils import read_args
 from dlo_hic.utils.parse_text import parse_line_bed6, parse_line_bedpe
-from dlo_hic.utils.tabix_wrap import query_bed6
+from dlo_hic.utils.wrap.tabix import query_bed6
 
 
 TIME_OUT = 1
 CHUNK_SIZE = 10000
-
-
-def argument_parser():
-    parser = argparse.ArgumentParser(
-            description="Remove DLO-HiC noise (self-ligation).")
-
-    parser.add_argument("input",
-            help="Input file, in bedpe file format.")
-
-    parser.add_argument("output",
-            help="Output file, default stdout.")
-
-    parser.add_argument("--restriction", "-r",
-            required=True,
-            help="bed file which recorded the position of all restriction sites"
-                 "in the genome.")
-
-    parser.add_argument("--processes", "-p",
-            type=int,
-            default=1,
-            help="Use how many processes to run.")
-
-    parser.add_argument("--threshold_num_rest", "-n",
-            type=int,
-            default=1,
-            help="Threshold of number of restriction sites with pair, default 1.")
-
-    parser.add_argument("--threshold_span", "-s",
-            type=int,
-            default=2000,
-            help="Threshold of span, check the pair is noise or not,"
-                 "only the pair span less than this parameter, default 2000.")
-
-    parser.add_argument("--debug",
-            action="store_true",
-            help="If specified, program will write abnormal pairs to stderr.")
-
-    return parser
 
 
 def find_interval_rests(sites_file, chr_, span):
@@ -130,7 +44,7 @@ def read_chunk(file, chunk_size=CHUNK_SIZE):
     return chunk
 
 
-def bedpe_type(restriction, bedpe_items):
+def bedpe_type(restriction, bedpe_items, threshold_span, threshold_num_rest):
     """ judge interaction type,
     types:
         "normal"
@@ -186,7 +100,7 @@ def bedpe_type(restriction, bedpe_items):
         return "abnormal-2"
 
 
-def worker(task_queue, output, restriction, debug, err_file):
+def worker(threshold_span, threshold_num_rest, task_queue, output, restriction, debug, err_file):
     output_f = open(output, 'w')
     if debug:
         err_file = open(err_file, 'w')
@@ -199,7 +113,7 @@ def worker(task_queue, output, restriction, debug, err_file):
             break
 
         for items in chunk:
-            type_ = bedpe_type(restriction, items)
+            type_ = bedpe_type(restriction, items, threshold_span, threshold_num_rest)
             if type_ == 'normal':
                 # normal, will output this line
                 out_line = "\t".join([str(i) for i in items]) + "\n"
@@ -208,23 +122,84 @@ def worker(task_queue, output, restriction, debug, err_file):
                 if debug:
                     err_file.write("\t".join([type_] + items))
 
-
-def main(input, output,
+@click.command(name="noise_reduce")
+@click.argument("bedpe")
+@click.argument("output")
+@click.option("--restriction", "-r",
+    required=True,
+    help="bed file which recorded the position of all restriction sites"
+        "in the genome.")
+@click.option("--processes", "-p", 
+    default=1,
+    help="Use how many processes to run.")
+@click.option("--threshold_num_rest", "-n",
+    default=1,
+    help="Threshold of number of restriction sites with pair, default 1.")
+@click.option("--debug",
+    default=False, 
+    help="If specified, program will write abnormal pairs to stderr.")
+def _main(bedpe, output,
          restriction, processes,
          threshold_num_rest, threshold_span,
          debug):
+    """
+    Remove DLO-HiC noise (self-ligation).
+
+    \b
+    There are two kinds of self-ligation in intra chromosomal interacting pair:
+        1. circle ligation.
+        2. non-interacting restriction enzyme cutting site.
+
+    \b
+    In first situation, 
+    there shold no restriction site within pair, in the genome. 
+    But sometime restriction enzyme can not cutting complemently, 
+    so maybe there are few restriction sites within pair:
+
+    \b
+    normal:
+                             many restriction site
+
+                     left PET      |  ...  |        right PET
+                        V          V       V            V     
+        genome    <-+++..+++--..---*---..--*----..--+++..+++->
+
+    \b
+    abnormal(self-ligation-1):
+                         no or few restriction site
+
+                     left PET      |                right PET
+                        V          V                    V     
+        genome    <-+++..+++--..---*---..-------..--+++..+++->
+
+
+    \b
+    In second situation,
+    left and right PETs will overlap like:
+
+    \b
+    abnormal(self-ligation-2):
+                                  +++++++..++ right PET
+                 left PET ++..+++++++
+        genome    <---..--------------------------------..--->
+
+    Therefore, with the propose of clean the noise, here shold remove the pair,
+    which there are no restriction site or just very few restriction(e.g. one)
+    within it, or the left and right PETs overlapped.
+
+    """
     task_queue = Queue() 
     err_queue = Queue()
 
     workers = [Process(target=worker,
-                       args=(task_queue, output+".tmp.%d"%i,
+                       args=(threshold_span, threshold_num_rest, task_queue, output+".tmp.%d"%i,
                              restriction, debug, output+".tmp.e.%d"%i))
                for i in range(processes)]
 
     for w in workers:
         w.start()
 
-    with open(input) as f:
+    with open(bedpe) as f:
         while 1:
             try:
                 task_queue.put(read_chunk(f))
@@ -249,11 +224,8 @@ def main(input, output,
         subprocess.check_call(cmd, shell=True)
 
 
+main = _main.callback
+
+
 if __name__ == "__main__":
-    parser = argument_parser()
-    args = parser.parse_args()
-    read_args(args, globals())
-    main(input, output,
-         restriction, processes,
-         threshold_num_rest, threshold_span,
-         debug)
+    _main()

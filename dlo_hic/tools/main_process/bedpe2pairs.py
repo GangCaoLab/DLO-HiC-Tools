@@ -1,31 +1,9 @@
-import sys
-import argparse
 import subprocess
 
-from dlo_hic.utils import read_args
-from dlo_hic.utils.tabix_wrap import sort_pairs, index_pairs
+import click
+
+from dlo_hic.utils.wrap.tabix import sort_pairs, index_pairs
 from dlo_hic.utils.parse_text import Bedpe
-
-
-def argument_parser():
-    parser = argparse.ArgumentParser(
-            description="transform bedpe format file to pairs format."
-                        "about pairs format: \n"
-                        "https://github.com/4dn-dcic/pairix/blob/master/pairs_format_specification.md \n"
-                        "and index it use pairix")
-
-    parser.add_argument("input",
-            help="Input bedpe file.")
-
-    parser.add_argument("output",
-            help="Output pairs file.")
-
-    parser.add_argument("--keep",
-            action="store_true",
-            help="keep non compressed pairs file," + \
-                 " if you need create .hic file use this option.")
-
-    return parser
 
 
 def bedpe2pairs(input, output):
@@ -52,23 +30,34 @@ def add_pairs_header(input):
     subprocess.check_call(cmd, shell=True)
 
 
-def main(input, output, keep):
+@click.command(name="bedpe2pairs")
+@click.argument("bedpe", nargs=1)
+@click.argument("pairs", nargs=1)
+@click.option("--keep/--no-keep", default=True,
+    help="keep non compressed pairs file, " + \
+         "if you need create .hic file use --keep option.")
+def _main(bedpe, pairs, keep):
+    """
+    Transform bedpe format file to pairs format, and index it use pairix"
+
+    \b
+    about pairs format:
+    https://github.com/4dn-dcic/pairix/blob/master/pairs_format_specification.md
+    """
     # sort input file firstly
-    tmp0 = input + '.tmp.0'
-    bedpe2pairs(input, tmp0)
-    sort_pairs(tmp0, output)
+    tmp0 = bedpe + '.tmp.0'
+    bedpe2pairs(bedpe, tmp0)
+    sort_pairs(tmp0, pairs)
     subprocess.check_call(['rm', tmp0]) # remove tmp files
-    index_pairs(output)
+    index_pairs(pairs)
     if keep:
-        add_pairs_header(output) # if keep uncompressed file, add header to it
+        add_pairs_header(pairs) # if keep uncompressed file, add header to it
     else:
-        subprocess.check_call(['rm', output]) # remove uncompressed file
+        subprocess.check_call(['rm', pairs]) # remove uncompressed file
+
+
+main = _main.callback
 
 
 if __name__ == "__main__":
-    parser = argument_parser()
-    args = parser.parse_args()
-
-    read_args(args, globals())
-
-    main(input, output, keep)
+    _main()

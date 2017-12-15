@@ -1,25 +1,8 @@
-# -*- coding: utf-8 -*-
-
-"""
-extract_PETs.py
-~~~~~~~~~~~~~~~~~~
-
-Extract the PETs sequences on both sides of linker sequence.
-In DLO HiC, 'PET'(Pair End Tag) is a piece of short sequence,
-which is used for mapping to the genome.
-
-
-This script accept a fastq or fasta file,
-and output two PETs files in fasta or fastq file format.
-
-"""
-
 from __future__ import print_function
 import re
 import sys
 import json
 import gzip
-import argparse
 import itertools
 import subprocess
 from math import floor
@@ -28,72 +11,16 @@ import time
 import multiprocessing
 from multiprocessing import Process, Manager, Queue
 
+import click
 from Bio import SeqIO
-from cutadapt._align import Aligner
 
+from dlo_hic.utils.align import Aligner
 from dlo_hic.utils import reverse_complement as rc
 from dlo_hic.utils import read_args
 
 
 TIME_OUT = 1
 CHUNK_SIZE = 1000
-
-
-def argument_parser():
-    parser = argparse.ArgumentParser(
-            description="Extract the PET(Pair End Tag) sequences in both left and right side.")
-
-    parser.add_argument("input",
-            help="The input fastq or fastq.gz file.")
-
-    parser.add_argument("--PET-len",
-            dest="PET_len",
-            type=int,
-            default=0,
-            help="The expected length of PET sequence,"
-                 "if PET_len==0 (default) will not limit length.")
-
-    parser.add_argument("--out1", '-o1',
-            required=True,
-            help="output1: left side PET fastq file")
-
-    parser.add_argument("--out2", '-o2',
-            required=True,
-            help="output2: right side PET fastq file")
-
-    parser.add_argument("--linker-A",
-            dest="linker_a",
-            required=True,
-            help="linker-A")
-
-    parser.add_argument("--linker-B",
-            dest="linker_b",
-            required=True,
-            help="linker-B")
-
-    parser.add_argument("--mismatch",
-            type=int,
-            default=4,
-            help="threshold of linkers base mismatch(and gap open extends) number, default 3")
-
-    parser.add_argument("--rest",
-            type=str,
-            default="A*AGCT*T",
-            help="The sequence of restriction enzyme recognition site, "
-                 "default HindIII: 'A*AGCT*T' ")
-
-    parser.add_argument("--phred",
-            type=int,
-            choices=[33, 64],
-            default=33,
-            help="The Phred score encode offset type, 33 or 64. default 33")
-
-    parser.add_argument("--processes", "-p",
-            type=int,
-            default=1,
-            help="Use how many processes do calculation. default 1")
-
-    return parser
 
 
 def parse_rest(rest_str):
@@ -117,10 +44,13 @@ def load_linkers(linker_a, linker_b):
     compose linker A-A, A-B, B-A, B-B
     """
     linkers = {}
-    linkers['A-A'] = linker_a + rc(linker_a)
-    linkers['A-B'] = linker_a + rc(linker_b)
-    linkers['B-A'] = linker_b + rc(linker_a)
-    linkers['B-B'] = linker_b + rc(linker_b)
+    if linker_b:
+        linkers['A-A'] = linker_a + rc(linker_a)
+        linkers['A-B'] = linker_a + rc(linker_b)
+        linkers['B-A'] = linker_b + rc(linker_a)
+        linkers['B-B'] = linker_b + rc(linker_b)
+    else:
+        linkers['A-A'] = linker_a + rc(linker_a)
     return linkers
 
 
@@ -287,7 +217,7 @@ def worker_SE(task_queue, out1, out2, phred, counter, linkers, mismatch, rest, P
 
 def fastq_iter(file_in, phred):
     """ return a fastq iterator """
-    if phred == 33:
+    if str(phred) == '33':
         fastq_iter = SeqIO.parse(file_in, 'fastq')
     else:
         fastq_iter = SeqIO.parse(file_in, 'fastq-illumina')
@@ -303,9 +233,38 @@ def fastq_writer(file_out, phred):
     return fastq_writer
 
 
-def mainSE(input, out1, out2,
+@click.command(name="extract_PET")
+@click.argument("fastq", nargs=1)
+@click.option("--out1", '-o1', required=True,
+    help="output1: right side PET fastq file")
+@click.option("--out2", '-o2', required=True,
+    help="output2: right side PET fastq file")
+@click.option("--linker-A", required=True,
+    help="The sequence of linkerA")
+@click.option("--linker-B",
+    help="The sequence of linkerB")
+@click.option("--mismatch", default=4,
+    help="threshold of linkers base mismatch(and gap open extends) number, default 3")
+@click.option("--rest", default="A*AGCT*T",
+    help="The sequence of restriction enzyme recognition site, " +\
+         "default HindIII: 'A*AGCT*T' ")
+@click.option("--phred", default='33', type=click.Choice(['33', '64']),
+    help="The Phred score encode offset type, 33 or 64. default 33")
+@click.option("--processes", "-p", default=1,
+    help="Use how many processes do calculation. default 1")
+@click.option("--PET-len", default=0, 
+    help="The expected length of PET sequence," +\
+         "if PET_len==0 (default) will not limit length.")
+def _main(fastq, out1, out2,
         linekr_a, linker_b,
         mismatch, rest, phred, processes, PET_len):
+    """
+    Extract the PETs sequences on both sides of linker sequence.
+
+    This script accept a fastq or fasta file,
+    and output two PETs files in fastq file format.
+
+    """
     # parse restriction enzyme site
     rest_site = parse_rest(rest)
 
@@ -330,7 +289,7 @@ def mainSE(input, out1, out2,
         w.start()
 
     # put reads in queue
-    with open_file(input) as file_in:
+    with open_file(fastq) as file_in:
         fq_iter = fastq_iter(file_in, phred)
         try:
             while 1:
@@ -357,14 +316,9 @@ def mainSE(input, out1, out2,
     return counts
 
 
+main = _main.callback
+
+
 if __name__ == "__main__":
-    parser = argument_parser()
-    args = parser.parse_args()
-
-    read_args(args, globals())
-
-    counts = mainSE(input, out1, out2,
-            linker_a, linker_b,
-            mismatch, rest, phred, processes, PET_len)
-
+    counts = _main()
     log_counts(counts)

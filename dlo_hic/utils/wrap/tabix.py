@@ -1,7 +1,7 @@
 import sys
 import subprocess
 
-from .parse_text import parse_line_bed6
+from dlo_hic.utils.parse_text import parse_line_bed6
 
 def sort_bed6(file_in, file_out):
     """ sort bed file. """

@@ -1,6 +1,8 @@
 import os
 from codecs import open
-from setuptools import setup, find_packages
+from setuptools import setup, Extension, find_packages
+
+from Cython.Build import cythonize
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -11,6 +13,11 @@ requires = [
     "matplotlib >= 2.0.0",
     "biopython >= 1.70",
     "iced >= 0.4.2",
+    "Cython >= 0.25.2",
+]
+
+extensions = [
+    Extension('dlo_hic.utils.align', sources=['dlo_hic/utils/align.pyx'])
 ]
 
 setup(
@@ -28,6 +35,7 @@ setup(
         },
     package_dir={'dlo_hic': 'dlo_hic'},
     install_requires=requires,
+    ext_modules=cythonize(extensions),
     license='MIT License',
     classifiers=[
         'Natural Language :: English',
@@ -38,5 +46,6 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: Implementation :: CPython',
+        "Programming Language :: Cython",
     ]
 )

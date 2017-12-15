@@ -6,7 +6,11 @@
 *.swo
 
 # data directory
-example_data/
+test/data/
+try/
+
+# cython tmp file
+dlo_hic/utils/*.c
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
