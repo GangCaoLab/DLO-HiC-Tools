@@ -1,7 +1,3 @@
-"""
-Draw the distribution plot of fragment legth.
-"""
-
 import os
 import itertools
 
@@ -86,6 +82,7 @@ def load_frag_len(fname):
 def _main(rest_sites_files, labels, keep,
           fig_type, figure, dpi,
           rmext):
+    """ Draw the distribution plot of fragment legth. """
     if labels:
         labels = labels.split(",")
         if len(labels) != len(rest_sites_files):

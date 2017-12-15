@@ -38,7 +38,7 @@ def add_pairs_header(input):
          "if you need create .hic file use --keep option.")
 def _main(bedpe, pairs, keep):
     """
-    Transform bedpe format file to pairs format, and index it use pairix"
+    Transform bedpe format file to pairs format, and index it use pairix
 
     \b
     about pairs format:
