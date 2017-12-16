@@ -1,4 +1,5 @@
 import sys
+import logging
 import subprocess
 
 import click
@@ -6,6 +7,9 @@ import click
 from dlo_hic.utils import read_args
 from dlo_hic.utils.wrap.tabix import sort_bedpe_reads1
 from dlo_hic.utils.parse_text import Bedpe
+
+
+log = logging.getLogger(__name__)
 
 
 def bedpe_upper_triangle(bedpe_file, output):
@@ -68,6 +72,8 @@ def _main(bedpe, output, distance):
 
 
     """
+
+    log.info("remove redundancy on file %s"%bedpe)
 
     # sort input file firstly
     tmp0 = bedpe + '.tmp.0'

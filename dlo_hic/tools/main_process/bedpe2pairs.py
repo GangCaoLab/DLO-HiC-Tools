@@ -1,9 +1,12 @@
+import logging
 import subprocess
 
 import click
 
 from dlo_hic.utils.wrap.tabix import sort_pairs, index_pairs
 from dlo_hic.utils.parse_text import Bedpe
+
+log = logging.getLogger(__name__)
 
 
 def bedpe2pairs(input, output):
@@ -16,6 +19,7 @@ def bedpe2pairs(input, output):
 
 def add_pairs_header(input):
     """ add header to pairs file. """
+    log.info("add header to pairs file %s"%input)
     header = "## pairs format v1.0\\n" +\
              "#columns: readID chr1 position1 chr2 position2 strand1 strand2"
     tmp0 = input + '.tmp'
@@ -44,6 +48,7 @@ def _main(bedpe, pairs, keep):
     about pairs format:
     https://github.com/4dn-dcic/pairix/blob/master/pairs_format_specification.md
     """
+    log.info("convert %s to pairs file ..."%bedpe)
     # sort input file firstly
     tmp0 = bedpe + '.tmp.0'
     bedpe2pairs(bedpe, tmp0)

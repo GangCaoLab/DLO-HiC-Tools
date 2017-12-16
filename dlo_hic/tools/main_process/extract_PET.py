@@ -1,8 +1,8 @@
-from __future__ import print_function
 import re
 import sys
 import json
 import gzip
+import logging
 import itertools
 import subprocess
 from math import floor
@@ -21,6 +21,8 @@ from dlo_hic.utils import read_args
 
 TIME_OUT = 1
 CHUNK_SIZE = 1000
+
+log = logging.getLogger(__name__)
 
 
 def parse_rest(rest_str):
@@ -44,31 +46,35 @@ def load_linkers(linker_a, linker_b):
     compose linker A-A, A-B, B-A, B-B
     """
     linkers = {}
+    # convert linker sequence from unicode to str
+    linker_a = str(linker_a)
+    linker_b = str(linker_b) if linker_b else None
     if linker_b:
         linkers['A-A'] = linker_a + rc(linker_a)
         linkers['A-B'] = linker_a + rc(linker_b)
         linkers['B-A'] = linker_b + rc(linker_a)
         linkers['B-B'] = linker_b + rc(linker_b)
     else:
+        log.warning("using single linker.")
         linkers['A-A'] = linker_a + rc(linker_a)
     return linkers
 
 
-def log_linkers(linkers, file=sys.stderr):
-    print("linkers:", file=file)
+def log_linkers(linkers):
+    log.info("linkers:")
     for key, linker in linkers.items():
-        print("{}\t{}".format(key, linker), file=file)
+        log.info("{}\t{}".format(key, linker))
 
 
-def log_counts(counts, file=sys.stderr):
-    print("Quality Control:", file=file)
+def log_counts(counts):
+    log.info("Quality Control:")
     for k, v in counts.items():
-        print("\t{}\t{}".format(k, v), file=file)
+        log.info("\t{}\t{}".format(k, v))
     try:
         ratio = counts['intra-molecular'] / float(counts['all'])
     except ZeroDivisionError:
         ratio = 0
-    print("Valid reads ratio: {}".format(ratio))
+    log.info("Valid reads ratio: {}".format(ratio))
 
 
 def open_file(fname, mode='r'):
@@ -91,15 +97,16 @@ def read_fastq(fastq_iter, n=CHUNK_SIZE):
     return chunk
 
 
-def add_base_to_PET(PET, base):
+def add_base_to_PET(PET, base, base_qual=38):
+    """ add one base to fastq record object """
     quality = PET.letter_annotations['phred_quality']
-    quality.append(38)
+    quality.append(base_qual)
     PET.letter_annotations = {}
     PET.seq = PET.seq + base
     PET.letter_annotations['phred_quality'] = quality
 
 
-def extract_PET(record, span, rest, PET_len=None, SE=False):
+def extract_PET(record, span, rest, PET_len=None, SE=True):
     """
     extract PET in matched record.
     """
@@ -132,6 +139,7 @@ def extract_PET(record, span, rest, PET_len=None, SE=False):
 def align_linker(seq, linker, mismatch_threshold):
     """
     align linker within seq, use local alignment.
+    if not matched return False.
     """
     err_rate = float(mismatch_threshold)/len(linker)
     aligner = Aligner(seq, err_rate)
@@ -140,18 +148,21 @@ def align_linker(seq, linker, mismatch_threshold):
         # linker can't alignment to seq
         return False
     start, end, s_, e_, m, err = alignment
+    if m < len(linker) - mismatch_threshold:
+        # too many unmatched
+        return False
     return (start, end-1)
 
 
-def match_linker(seq, linker, mismatch_threshold, seed_ratio=0.25):
-    """ linker match algorithm """
-    seed_len = int(floor(seed_ratio * len(linker)))
-    seed = linker[:seed_len]
-    if seed not in seq:
-        return False
-
+def match_linker(seq, linker, mismatch_threshold):
+    """ 
+    linker match algorithm.
+    if not matched return False.
+    """
     if mismatch_threshold == 0:
         start = seq.find(linker)
+        if start == -1:
+            return False
         end = start + len(linker)
         span = (start, end)
         return span
@@ -160,7 +171,7 @@ def match_linker(seq, linker, mismatch_threshold, seed_ratio=0.25):
     return span
 
 
-def worker_SE(task_queue, out1, out2, phred, counter, linkers, mismatch, rest, PET_len):
+def worker(task_queue, out1, out2, phred, counter, linkers, mismatch, rest, PET_len):
     """ stream processing(PET extract) task for SE mode """
     from Queue import Empty
     current = multiprocessing.current_process().pid
@@ -189,17 +200,14 @@ def worker_SE(task_queue, out1, out2, phred, counter, linkers, mismatch, rest, P
             counter['inter-molecular'] += inter
             counter['intra-molecular'] += intra
             counter['unmatchable'] += unmatch
-            # log
-            print("Process-%d"%current , "exit.", file=sys.stderr)
             break
 
         for r in records:
             all += 1
-            seq = str(r.seq)
+            seq = str(r.seq) # extract reocrd's sequence
             for ltype, linker in linkers.items():
                 span = match_linker(seq, linker, mismatch)
-                if span:
-                    # linker matched
+                if span: # linker matched
                     if   (ltype == 'A-A') or (ltype == 'B-B'):
                         # intra-molcular interaction
                         intra += 1
@@ -210,14 +218,13 @@ def worker_SE(task_queue, out1, out2, phred, counter, linkers, mismatch, rest, P
                         # inter-molcular interaction
                         inter += 1
                     break
-            else:
-                # all linkers can't match
+            else: # all linkers can't match
                 unmatch += 1
 
 
 def fastq_iter(file_in, phred):
     """ return a fastq iterator """
-    if str(phred) == '33':
+    if phred == '33':
         fastq_iter = SeqIO.parse(file_in, 'fastq')
     else:
         fastq_iter = SeqIO.parse(file_in, 'fastq-illumina')
@@ -226,7 +233,7 @@ def fastq_iter(file_in, phred):
 
 def fastq_writer(file_out, phred):
     """ return a fastq writer """
-    if phred == 33:
+    if phred == '33':
         fastq_writer = SeqIO.QualityIO.FastqPhredWriter(file_out)
     else:
         fastq_writer = SeqIO.QualityIO.FastqIlluminaWriter(file_out)
@@ -252,11 +259,11 @@ def fastq_writer(file_out, phred):
     help="The Phred score encode offset type, 33 or 64. default 33")
 @click.option("--processes", "-p", default=1,
     help="Use how many processes do calculation. default 1")
-@click.option("--PET-len", default=0, 
+@click.option("--PET-len", 'PET_len', default=0, 
     help="The expected length of PET sequence," +\
-         "if PET_len==0 (default) will not limit length.")
+         "if 0 (default) will not limit length.")
 def _main(fastq, out1, out2,
-        linekr_a, linker_b,
+        linker_a, linker_b,
         mismatch, rest, phred, processes, PET_len):
     """
     Extract the PETs sequences on both sides of linker sequence.
@@ -265,28 +272,33 @@ def _main(fastq, out1, out2,
     and output two PETs files in fastq file format.
 
     """
+    log.info("Extract PETs from file %s"%fastq)
+
     # parse restriction enzyme site
     rest_site = parse_rest(rest)
 
     # load linkers
-    linkers = load_linkers(linekr_a, linker_b)
+    linkers = load_linkers(linker_a, linker_b)
     log_linkers(linkers)
 
     manager = Manager()
     task_queue = Queue()
     counter = manager.dict() # a global queue for count record how many:
+    # init counter
     counter['all'] = 0
     counter['inter-molecular'] = 0
     counter['intra-molecular'] = 0
     counter['unmatchable'] = 0
 
-    workers = [Process(target=worker_SE, 
+    workers = [Process(target=worker, 
                          args=(task_queue, out1+".tmp.%d"%i, out2+".tmp.%d"%i, phred,
                                counter, linkers, mismatch, rest_site, PET_len))
                for i in range(processes)]
 
     for w in workers:
         w.start()
+
+    log.info("%d worker process spawned for extract PETs."%len(workers))
 
     # put reads in queue
     with open_file(fastq) as file_in:
@@ -304,14 +316,19 @@ def _main(fastq, out1, out2,
     # merge all tmp files
     tmpfiles_1 = [out1+".tmp.%d"%i for i in range(processes)]
     tmpfiles_2 = [out2+".tmp.%d"%i for i in range(processes)]
+    # merge tmp files
+    log.info("merging temporary files...")
     cmd = "cat " + " ".join(tmpfiles_1) + " > " + out1
     subprocess.check_call(cmd, shell=True)
     cmd = "cat " + " ".join(tmpfiles_2) + " > " + out2
     subprocess.check_call(cmd, shell=True)
+    # delete tmp files
+    log.info("delete temporary files.")
     cmd = "rm " + " ".join(tmpfiles_1 + tmpfiles_2)
     subprocess.check_call(cmd, shell=True)
 
     counts = dict(counter)
+    log_counts(counts)
 
     return counts
 
@@ -320,5 +337,4 @@ main = _main.callback
 
 
 if __name__ == "__main__":
-    counts = _main()
-    log_counts(counts)
+    main()

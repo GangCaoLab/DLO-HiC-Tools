@@ -1,7 +1,7 @@
-from __future__ import print_function
 import os
 import sys
 import time
+import logging
 import cPickle
 import subprocess
 import signal
@@ -18,6 +18,8 @@ from dlo_hic.utils.wrap.tabix import query_bed6
 
 TIME_OUT = 1
 CHUNK_SIZE = 10000
+
+log = logging.getLogger(__name__)
 
 
 def find_interval_rests(sites_file, chr_, span):
@@ -100,16 +102,15 @@ def bedpe_type(restriction, bedpe_items, threshold_span, threshold_num_rest):
         return "abnormal-2"
 
 
-def worker(threshold_span, threshold_num_rest, task_queue, output, restriction, debug, err_file):
+def worker(threshold_span, threshold_num_rest, task_queue, output, restriction, err_file):
     output_f = open(output, 'w')
-    if debug:
-        err_file = open(err_file, 'w')
-
+    err_f = open(err_file, 'w')
     while 1:
         try:
             chunk = task_queue.get(timeout=TIME_OUT)
         except Empty:
             output_f.close()
+            err_f.close()
             break
 
         for items in chunk:
@@ -119,8 +120,7 @@ def worker(threshold_span, threshold_num_rest, task_queue, output, restriction, 
                 out_line = "\t".join([str(i) for i in items]) + "\n"
                 output_f.write(out_line)
             else:
-                if debug:
-                    err_file.write("\t".join([type_] + items))
+                err_f.write("\t".join([type_] + items) + "\n")
 
 @click.command(name="noise_reduce")
 @click.argument("bedpe")
@@ -135,13 +135,9 @@ def worker(threshold_span, threshold_num_rest, task_queue, output, restriction, 
 @click.option("--threshold_num_rest", "-n",
     default=1,
     help="Threshold of number of restriction sites with pair, default 1.")
-@click.option("--debug",
-    default=False, 
-    help="If specified, program will write abnormal pairs to stderr.")
 def _main(bedpe, output,
          restriction, processes,
-         threshold_num_rest, threshold_span,
-         debug):
+         threshold_num_rest, threshold_span):
     """
     Remove DLO-HiC noise (self-ligation).
 
@@ -188,13 +184,17 @@ def _main(bedpe, output,
     within it, or the left and right PETs overlapped.
 
     """
+
+    log.info("noise reduce on tile %s"%bedpe)
+
     task_queue = Queue() 
-    err_queue = Queue()
 
     workers = [Process(target=worker,
                        args=(threshold_span, threshold_num_rest, task_queue, output+".tmp.%d"%i,
-                             restriction, debug, output+".tmp.e.%d"%i))
+                             restriction, output+".tmp.e.%d"%i))
                for i in range(processes)]
+
+    log.info("%d workers spawned for noise refuce"%len(workers))
 
     for w in workers:
         w.start()
@@ -209,19 +209,19 @@ def _main(bedpe, output,
     for w in workers:
         w.join()
 
+    log.info("merging tmporary files.")
     # merge tmp files
     tmp_files = [output+".tmp.%d"%i for i in range(processes)]
     cmd = "cat " + " ".join(tmp_files) + " > " + output
     subprocess.check_call(cmd, shell=True)
     cmd = "rm " + " ".join(tmp_files)
     subprocess.check_call(cmd, shell=True)
-
-    if debug:
-        err_files = [output+".tmp.e.%d"%i for i in range(processes)]
-        cmd = "cat " + " ".join(err_files) + " > " + output + ".err"
-        subprocess.check_call(cmd, shell=True)
-        cmd = "rm " + " ".join(err_files)
-        subprocess.check_call(cmd, shell=True)
+    # merge error tmp files
+    err_files = [output+".tmp.e.%d"%i for i in range(processes)]
+    cmd = "cat " + " ".join(err_files) + " > " + output + ".err"
+    subprocess.check_call(cmd, shell=True)
+    cmd = "rm " + " ".join(err_files)
+    subprocess.check_call(cmd, shell=True)
 
 
 main = _main.callback
