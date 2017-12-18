@@ -1,7 +1,7 @@
 import os
 import logging
 import subprocess
-import multiprocessing
+import multiprocessing as mp
 
 import click
 
@@ -40,7 +40,7 @@ def beds2bedpe(bed1, bed2, bedpe_filename):
 @click.argument("bedpe", nargs=1)
 @click.option("--ncpu", "-p",
     type=int,
-    default=multiprocessing.cpu_count(),
+    default=mp.cpu_count(),
     help="how many threads used to run bwa")
 @click.option("--bwa-index", required=True, help="The bwa index prefix.")
 @click.option("--mapq",

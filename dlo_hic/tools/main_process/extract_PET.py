@@ -8,8 +8,7 @@ import subprocess
 from math import floor
 from copy import copy
 import time
-import multiprocessing
-from multiprocessing import Process, Manager, Queue
+import multiprocessing as mp
 
 import click
 from Bio import SeqIO
@@ -18,8 +17,6 @@ from dlo_hic.utils.align import Aligner
 from dlo_hic.utils import reverse_complement as rc
 from dlo_hic.utils import read_args
 
-
-TIME_OUT = 3
 CHUNK_SIZE = 1000
 
 log = logging.getLogger(__name__)
@@ -169,10 +166,12 @@ def match_linker(seq, linker, mismatch_threshold):
     return span
 
 
-def worker(task_queue, out1, out2, phred, counter, linkers, mismatch, rest, PET_len):
-    """ stream processing(PET extract) task for SE mode """
+def worker(task_queue, counter, lock, # objects for multi process work
+           out1, out2, # output file name
+           phred, linkers, mismatch, rest, PET_len): # parameters
+    """ stream processing(PET extract) task """
     from queue import Empty
-    current = multiprocessing.current_process().pid
+    current = mp.current_process().pid
 
     file_out1 = open_file(out1, 'w')
     file_out2 = open_file(out2, 'w')
@@ -185,7 +184,7 @@ def worker(task_queue, out1, out2, phred, counter, linkers, mismatch, rest, PET_
     all, inter, intra, unmatch = 0,0,0,0 # variables for count reads
     while 1:
         try:
-            records = task_queue.get(timeout=TIME_OUT)
+            records = task_queue.get()
             if records is None:
                 raise Empty
         except Empty:
@@ -193,11 +192,24 @@ def worker(task_queue, out1, out2, phred, counter, linkers, mismatch, rest, PET_
             fastq_writer_1.handle.close()
             fastq_writer_2.write_footer()
             fastq_writer_2.handle.close()
+
             # update counter dict
+            lock.acquire()
             counter['all'] += all
             counter['inter-molecular'] += inter
             counter['intra-molecular'] += intra
             counter['unmatchable'] += unmatch
+            log.debug("conter increse, %d, %d, %d, %d"%(all, inter, intra, unmatch))
+            log.debug("%d, %d, %d, %d"%(
+                counter['all'],
+                counter['inter-molecular'],
+                counter['intra-molecular'],
+                counter['unmatchable'],
+            ))
+            lock.release()
+
+            log.debug("Process-%d done"%current)
+            task_queue.task_done()
             break
 
         for r in records:
@@ -218,6 +230,8 @@ def worker(task_queue, out1, out2, phred, counter, linkers, mismatch, rest, PET_
                     break
             else: # all linkers can't match
                 unmatch += 1
+        
+        task_queue.task_done()
 
 
 def fastq_iter(file_in, phred):
@@ -280,18 +294,19 @@ def _main(fastq, out1, out2,
     linkers = load_linkers(linker_a, linker_b)
     log_linkers(linkers)
 
-    manager = Manager()
-    task_queue = Queue()
+    manager = mp.Manager()
+    task_queue = mp.JoinableQueue()
     counter = manager.dict() # a global queue for count record how many:
+    lock = mp.Lock()
     # init counter
     counter['all'] = 0
     counter['inter-molecular'] = 0
     counter['intra-molecular'] = 0
     counter['unmatchable'] = 0
 
-    workers = [Process(target=worker, 
-                         args=(task_queue, out1+".tmp.%d"%i, out2+".tmp.%d"%i, phred,
-                               counter, linkers, mismatch, rest_site, PET_len))
+    workers = [mp.Process(target=worker, 
+                          args=(task_queue, counter, lock, out1+".tmp.%d"%i, out2+".tmp.%d"%i, phred,
+                                linkers, mismatch, rest_site, PET_len))
                for i in range(processes)]
 
     for w in workers:
@@ -307,10 +322,12 @@ def _main(fastq, out1, out2,
                 task_queue.put(read_fastq(fq_iter))
         except StopIteration:
             pass
+    
+    for w in workers:
+        task_queue.put(None)
 
     # wait subprocesses end
-    for w in workers:
-        w.join()
+    task_queue.join()
 
     # merge all tmp files
     tmpfiles_1 = [out1+".tmp.%d"%i for i in range(processes)]

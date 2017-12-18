@@ -50,10 +50,10 @@ def remove_redundancy(bedpe_file, output, distance):
 @click.command(name="remove_redundancy")
 @click.argument("bedpe")
 @click.argument("output")
-@click.option("--distance", "-d", default=20,
+@click.option("--distance", "-d", default=0,
     help="The threshold of distance, if pairs both ends's distance,"
          "small than this at same time, consider them as the redundancy."
-         "default 20")
+         "default 0(exactly same)")
 def _main(bedpe, output, distance):
     """
     Remove the redundancy within pairs.

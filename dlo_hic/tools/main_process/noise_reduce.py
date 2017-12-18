@@ -5,7 +5,7 @@ import logging
 import subprocess
 import signal
 from queue import Empty
-import multiprocessing
+import multiprocessing as mp
 from multiprocessing import Queue, Process
 
 import click
@@ -101,15 +101,23 @@ def bedpe_type(restriction, bedpe_items, threshold_span, threshold_num_rest):
         return "abnormal-2"
 
 
-def worker(threshold_span, threshold_num_rest, task_queue, output, restriction, err_file):
-    output_f = open(output, 'w')
+def worker(task_queue,
+           restriction,
+           output_file, err_file,
+           threshold_span, threshold_num_rest):
+    current = mp.current_process().pid
+    output_f = open(output_file, 'w')
     err_f = open(err_file, 'w')
     while 1:
         try:
-            chunk = task_queue.get(timeout=TIME_OUT)
+            chunk = task_queue.get()
+            if chunk is None:
+                raise Empty
         except Empty:
             output_f.close()
             err_f.close()
+            log.debug("Process-%d done."%current)
+            task_queue.task_done()
             break
 
         for items in chunk:
@@ -121,6 +129,8 @@ def worker(threshold_span, threshold_num_rest, task_queue, output, restriction, 
             else:
                 out_line = "\t".join([type_] + [str(i) for i in items]) + "\n"
                 err_f.write(out_line)
+        task_queue.task_done()
+
 
 @click.command(name="noise_reduce")
 @click.argument("bedpe")
@@ -193,11 +203,13 @@ def _main(bedpe, output,
     if restriction.endswith(".gz"): # remove .gz suffix
         restriction = restriction.replace(".gz", "")
 
-    task_queue = Queue() 
+    task_queue = mp.JoinableQueue() 
 
-    workers = [Process(target=worker,
-                       args=(threshold_span, threshold_num_rest, task_queue, output+".tmp.%d"%i,
-                             restriction, output+".tmp.e.%d"%i))
+    workers = [mp.Process(target=worker,
+                          args=(task_queue,
+                                restriction,
+                                output+".tmp.%d"%i, output+".tmp.e.%d"%i,
+                                threshold_num_rest, threshold_span))
                for i in range(processes)]
 
     log.info("%d workers spawned for noise refuce"%len(workers))
@@ -211,9 +223,11 @@ def _main(bedpe, output,
                 task_queue.put(read_chunk(f))
             except StopIteration:
                 break
-
+    
     for w in workers:
-        w.join()
+        task_queue.put(None)
+
+    task_queue.join()
 
     log.info("merging tmporary files.")
     # merge tmp files
