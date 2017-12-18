@@ -10,11 +10,11 @@ import importlib
 
 import click
 
-import dlo_hic
+from .config import LOGGING_FMT, LOGGING_DATE_FMT
 
 log = logging.getLogger(__name__)
 handler = logging.StreamHandler(sys.stderr)
-handler.setFormatter(logging.Formatter(fmt="%(name)s:%(levelname)s: %(message)s"))
+handler.setFormatter(logging.Formatter(fmt=LOGGING_FMT, datefmt=LOGGING_DATE_FMT))
 log.addHandler(handler)
 log.setLevel(logging.DEBUG)
 
@@ -28,10 +28,10 @@ def cli(log_file, debug):
     if log_file:
         handler = logging.FileHandler(log_file)
     else:
-        handler = logging.StreamHandler(sys.stdout)
+        handler = logging.StreamHandler(sys.stderr)
     fomatter = logging.Formatter(
-        fmt="%(name)-25s %(levelname)-7s @ %(asctime)s: %(message)s",
-        datefmt="%m/%d/%y %H:%M:%S")
+        fmt=LOGGING_FMT,
+        datefmt=LOGGING_DATE_FMT)
     handler.setFormatter(fomatter)
     log.addHandler(handler)
 

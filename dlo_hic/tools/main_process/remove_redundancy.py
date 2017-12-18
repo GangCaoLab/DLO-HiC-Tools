@@ -50,9 +50,10 @@ def remove_redundancy(bedpe_file, output, distance):
 @click.command(name="remove_redundancy")
 @click.argument("bedpe")
 @click.argument("output")
-@click.option("--distance", "-d", default=50,
+@click.option("--distance", "-d", default=20,
     help="The threshold of distance, if pairs both ends's distance,"
-         "small than this at same time, consider them as the redundancy.")
+         "small than this at same time, consider them as the redundancy."
+         "default 20")
 def _main(bedpe, output, distance):
     """
     Remove the redundancy within pairs.
@@ -70,15 +71,16 @@ def _main(bedpe, output, distance):
         reads2 can be consider as the replection of reads1.
         reads2 will be remove.
 
-
     """
 
     log.info("remove redundancy on file %s"%bedpe)
 
     # sort input file firstly
     tmp0 = bedpe + '.tmp.0'
+    log.info("transform to upper triangle form.")
     bedpe_upper_triangle(bedpe, tmp0)
     tmp1 = bedpe + '.tmp.1'
+    log.info("sorting bedpe ...")
     sort_bedpe_reads1(tmp0, tmp1)
     remove_redundancy(tmp1, output, distance)
 

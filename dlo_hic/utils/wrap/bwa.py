@@ -1,5 +1,6 @@
 import os
 import sys
+from datetime import datetime
 import logging
 import subprocess
 from subprocess import Popen, PIPE
@@ -21,9 +22,12 @@ class BWA():
         """ 
         call cmd and log to self.log_file
         """
-        process = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
-        with process.stdout:
-            for line in process.stdout:
+        process = Popen(cmd, stderr=PIPE, shell=True)
+        with process.stderr:
+            for line in process.stderr:
+                line = line.decode("utf-8")
+                timestr = datetime.now().strftime("%m/%d/%y %H:%M:%S")
+                line = "[{}]".format(timestr) + line # add datetime information
                 self.log_file.write(line)
         exitcode = process.wait() 
         if exitcode != 0:
@@ -61,7 +65,7 @@ class BWA():
             log.info("run bwa backtrack algorithm on %s"%input)
             aln_cmd = "bwa aln -t {} {} {} > {}.sai".format(
                 thread, self.index_prefix, input, output_prefix)
-            subprocess.check_call(aln_cmd, shell=True)
+            self._check_call(aln_cmd)
             if not bam:
                 trans_cmd = "bwa samse {} {}.sai {} > {}.sam".format(
                     self.index_prefix, output_prefix, input, output_prefix)

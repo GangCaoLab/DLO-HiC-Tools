@@ -37,7 +37,7 @@ def add_pairs_header(input):
 @click.command(name="bedpe2pairs")
 @click.argument("bedpe", nargs=1)
 @click.argument("pairs", nargs=1)
-@click.option("--keep/--no-keep", default=True,
+@click.option("--keep/--no-keep", default=False,
     help="keep non compressed pairs file, " + \
          "if you need create .hic file use --keep option.")
 def _main(bedpe, pairs, keep):
@@ -48,16 +48,20 @@ def _main(bedpe, pairs, keep):
     about pairs format:
     https://github.com/4dn-dcic/pairix/blob/master/pairs_format_specification.md
     """
-    log.info("convert %s to pairs file ..."%bedpe)
+    log.info("convert %s to pairs file %s ..."%(bedpe, pairs))
     # sort input file firstly
     tmp0 = bedpe + '.tmp.0'
     bedpe2pairs(bedpe, tmp0)
+    log.info("sorting pairs ...")
     sort_pairs(tmp0, pairs)
     subprocess.check_call(['rm', tmp0]) # remove tmp files
     index_pairs(pairs)
     if keep:
         add_pairs_header(pairs) # if keep uncompressed file, add header to it
+        log.info("pairs file with header storaged at %s"%pairs)
+        log.info("pairix indexed bgziped pairs file storaged at %s"%(pairs+'.gz'))
     else:
+        log.info("pairix indexed bgziped pairs file storaged at %s"%(pairs+'.gz'))
         subprocess.check_call(['rm', pairs]) # remove uncompressed file
 
 

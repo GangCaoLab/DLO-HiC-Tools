@@ -2,10 +2,9 @@ import os
 import sys
 import time
 import logging
-import cPickle
 import subprocess
 import signal
-from Queue import Empty
+from queue import Empty
 import multiprocessing
 from multiprocessing import Queue, Process
 
@@ -120,7 +119,8 @@ def worker(threshold_span, threshold_num_rest, task_queue, output, restriction, 
                 out_line = "\t".join([str(i) for i in items]) + "\n"
                 output_f.write(out_line)
             else:
-                err_f.write("\t".join([type_] + items) + "\n")
+                out_line = "\t".join([type_] + [str(i) for i in items]) + "\n"
+                err_f.write(out_line)
 
 @click.command(name="noise_reduce")
 @click.argument("bedpe")
@@ -132,9 +132,12 @@ def worker(threshold_span, threshold_num_rest, task_queue, output, restriction, 
 @click.option("--processes", "-p", 
     default=1,
     help="Use how many processes to run.")
-@click.option("--threshold_num_rest", "-n",
+@click.option("--threshold-num-rest", "-n",
     default=1,
     help="Threshold of number of restriction sites with pair, default 1.")
+@click.option("--threshold-span", "-s",
+    default=50,
+    help="Threshold of pair span, default 50.")
 def _main(bedpe, output,
          restriction, processes,
          threshold_num_rest, threshold_span):
@@ -186,6 +189,9 @@ def _main(bedpe, output,
     """
 
     log.info("noise reduce on tile %s"%bedpe)
+
+    if restriction.endswith(".gz"): # remove .gz suffix
+        restriction = restriction.replace(".gz", "")
 
     task_queue = Queue() 
 

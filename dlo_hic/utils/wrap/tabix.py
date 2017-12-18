@@ -27,6 +27,7 @@ def query_bed6(bedfile, chr_, start, end):
     cmd = "tabix {} {}:{}-{}".format(bedfile+'.gz', chr_, start, end)
     process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
     for line in process.stdout:
+        line = line.decode("utf-8") # note: subprocess stdout is bytes stream
         yield parse_line_bed6(line)
 
 def sort_pairs(file_in, file_out):

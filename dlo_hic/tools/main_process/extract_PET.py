@@ -19,7 +19,7 @@ from dlo_hic.utils import reverse_complement as rc
 from dlo_hic.utils import read_args
 
 
-TIME_OUT = 1
+TIME_OUT = 3
 CHUNK_SIZE = 1000
 
 log = logging.getLogger(__name__)
@@ -143,19 +143,17 @@ def align_linker(seq, linker, mismatch_threshold):
     """
     err_rate = float(mismatch_threshold)/len(linker)
     aligner = Aligner(seq, err_rate)
+    aligner.min_overlap = len(linker) - mismatch_threshold
     alignment = aligner.locate(linker)
     if not alignment:
         # linker can't alignment to seq
         return False
     start, end, s_, e_, m, err = alignment
-    if m < len(linker) - mismatch_threshold:
-        # too many unmatched
-        return False
     return (start, end-1)
 
 
 def match_linker(seq, linker, mismatch_threshold):
-    """ 
+    """
     linker match algorithm.
     if not matched return False.
     """
@@ -173,7 +171,7 @@ def match_linker(seq, linker, mismatch_threshold):
 
 def worker(task_queue, out1, out2, phred, counter, linkers, mismatch, rest, PET_len):
     """ stream processing(PET extract) task for SE mode """
-    from Queue import Empty
+    from queue import Empty
     current = multiprocessing.current_process().pid
 
     file_out1 = open_file(out1, 'w')
@@ -251,7 +249,7 @@ def fastq_writer(file_out, phred):
 @click.option("--linker-B",
     help="The sequence of linkerB")
 @click.option("--mismatch", default=4,
-    help="threshold of linkers base mismatch(and gap open extends) number, default 3")
+    help="threshold of linkers base mismatch(and gap open extends) number, default 4")
 @click.option("--rest", default="A*AGCT*T",
     help="The sequence of restriction enzyme recognition site, " +\
          "default HindIII: 'A*AGCT*T' ")
@@ -277,6 +275,7 @@ def _main(fastq, out1, out2,
     # parse restriction enzyme site
     rest_site = parse_rest(rest)
 
+    log.info("enzyme cutting site: %s"%rest)
     # load linkers
     linkers = load_linkers(linker_a, linker_b)
     log_linkers(linkers)
@@ -317,7 +316,7 @@ def _main(fastq, out1, out2,
     tmpfiles_1 = [out1+".tmp.%d"%i for i in range(processes)]
     tmpfiles_2 = [out2+".tmp.%d"%i for i in range(processes)]
     # merge tmp files
-    log.info("merging temporary files...")
+    log.info("merging temporary files ...")
     cmd = "cat " + " ".join(tmpfiles_1) + " > " + out1
     subprocess.check_call(cmd, shell=True)
     cmd = "cat " + " ".join(tmpfiles_2) + " > " + out2

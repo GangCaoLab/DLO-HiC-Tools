@@ -1,3 +1,7 @@
+import sys
+if sys.version_info < (3, 4):
+    sys.exit("Only suppert >= 3.4 Python Version")
+
 import os
 from codecs import open
 from setuptools import setup, Extension, find_packages
@@ -12,8 +16,11 @@ requires = [
     "scipy >= 0.18.1",
     "matplotlib >= 2.0.0",
     "biopython >= 1.70",
-    "iced >= 0.4.2",
     "Cython >= 0.25.2",
+    "click >= 6.7",
+    "seaborn >= 0.8.1",
+    "pandas >= 0.20.3",
+    "pyfaidx >= 0.5.1"
 ]
 
 extensions = [
@@ -41,8 +48,7 @@ setup(
         'Natural Language :: English',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2.6',
-        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: Implementation :: CPython',
