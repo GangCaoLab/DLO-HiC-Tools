@@ -1,4 +1,5 @@
 import re
+import io
 import sys
 import json
 import gzip
@@ -63,20 +64,27 @@ def log_linkers(linkers):
         log.info("{}\t{}".format(key, linker))
 
 
-def log_counts(counts):
-    log.info("Quality Control:")
-    for k, v in counts.items():
-        log.info("\t{}\t{}".format(k, v))
-    try:
-        ratio = counts['intra-molecular'] / float(counts['all'])
-    except ZeroDivisionError:
-        ratio = 0
-    log.info("Valid reads ratio: {}".format(ratio))
+def log_counts(counts, log_file=None):
+    if not log_file:
+        log.info("Quality Control:")
+        for k, v in counts.items():
+            log.info("\t{}\t{}".format(k, v))
+        try:
+            ratio = counts['intra-molecular'] / float(counts['all'])
+        except ZeroDivisionError:
+            ratio = 0
+        log.info("Valid reads ratio: {}".format(ratio))
+    else:
+        with open(log_file, 'w') as f:
+            for k, v in counts.items():
+                outline = "\t".join([str(k), str(v)]) + "\n"
+                f.write(outline)
 
 
 def open_file(fname, mode='r'):
     if fname.endswith('.gz'):
         fh = gzip.open(fname, mode=mode+'b')
+        fh = io.TextIOWrapper(fh)
     else:
         fh = open(fname, mode=mode)
     return fh
@@ -209,7 +217,6 @@ def worker(task_queue, counter, lock, # objects for multi process work
             lock.release()
 
             log.debug("Process-%d done"%current)
-            task_queue.task_done()
             break
 
         for r in records:
@@ -230,8 +237,6 @@ def worker(task_queue, counter, lock, # objects for multi process work
                     break
             else: # all linkers can't match
                 unmatch += 1
-        
-        task_queue.task_done()
 
 
 def fastq_iter(file_in, phred):
@@ -273,10 +278,14 @@ def fastq_writer(file_out, phred):
     help="Use how many processes do calculation. default 1")
 @click.option("--PET-len", 'PET_len', default=0, 
     help="The expected length of PET sequence," +\
-         "if 0 (default) will not limit length.")
+         "if 0 (default) will not limit length," +\
+         "NOTE: Adapter for sequencing must be trimmed in this situation.")
+@click.option("--log-file",
+    help="Sperate log file record reads count information.")
 def _main(fastq, out1, out2,
         linker_a, linker_b,
-        mismatch, rest, phred, processes, PET_len):
+        mismatch, rest, phred, processes, PET_len,
+        log_file):
     """
     Extract the PETs sequences on both sides of linker sequence.
 
@@ -295,7 +304,7 @@ def _main(fastq, out1, out2,
     log_linkers(linkers)
 
     manager = mp.Manager()
-    task_queue = mp.JoinableQueue()
+    task_queue = mp.Queue()
     counter = manager.dict() # a global queue for count record how many:
     lock = mp.Lock()
     # init counter
@@ -327,7 +336,8 @@ def _main(fastq, out1, out2,
         task_queue.put(None)
 
     # wait subprocesses end
-    task_queue.join()
+    for w in workers:
+        w.join
 
     # merge all tmp files
     tmpfiles_1 = [out1+".tmp.%d"%i for i in range(processes)]
@@ -345,6 +355,9 @@ def _main(fastq, out1, out2,
 
     counts = dict(counter)
     log_counts(counts)
+
+    if log_file: # write counts info to sperate file
+        log_counts(counts, log_file)
 
     return counts
 

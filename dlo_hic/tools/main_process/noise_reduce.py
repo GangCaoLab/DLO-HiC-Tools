@@ -6,7 +6,6 @@ import subprocess
 import signal
 from queue import Empty
 import multiprocessing as mp
-from multiprocessing import Queue, Process
 
 import click
 
@@ -117,7 +116,6 @@ def worker(task_queue,
             output_f.close()
             err_f.close()
             log.debug("Process-%d done."%current)
-            task_queue.task_done()
             break
 
         for items in chunk:
@@ -129,7 +127,6 @@ def worker(task_queue,
             else:
                 out_line = "\t".join([type_] + [str(i) for i in items]) + "\n"
                 err_f.write(out_line)
-        task_queue.task_done()
 
 
 @click.command(name="noise_reduce")
@@ -203,7 +200,7 @@ def _main(bedpe, output,
     if restriction.endswith(".gz"): # remove .gz suffix
         restriction = restriction.replace(".gz", "")
 
-    task_queue = mp.JoinableQueue() 
+    task_queue = mp.Queue() 
 
     workers = [mp.Process(target=worker,
                           args=(task_queue,
@@ -227,7 +224,8 @@ def _main(bedpe, output,
     for w in workers:
         task_queue.put(None)
 
-    task_queue.join()
+    for w in workers:
+        w.join()
 
     log.info("merging tmporary files.")
     # merge tmp files

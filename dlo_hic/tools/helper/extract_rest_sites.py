@@ -1,12 +1,11 @@
 import re
 import sys
 import time
-import signal
 import tempfile
 import logging
 import subprocess
 from queue import Empty
-from multiprocessing import Process, Queue
+import multiprocessing as mp
 
 import pyfaidx
 import click
@@ -19,42 +18,38 @@ from dlo_hic.utils.wrap.tabix import sort_bed6, index_bed6
 log = logging.getLogger(__name__)
 
 
-TIME_OUT = 1
-
-
-def worker(task_queue, output_queue, count_queue, rest, fasta):
+def worker(task_queue, output_queue, rest, fasta):
     rest = str(rest)
     rest_rc = rc(rest)
     faidx = pyfaidx.Fasta(fasta)
     while 1:
-        c = 0
-        try:
-            chr_ = task_queue.get(timeout=TIME_OUT)
-        except Empty:
+        chr_ = task_queue.get()
+        if chr_ is None:
+            log.debug("Process-%d done"%mp.current_process().pid)
             break
-        seq = faidx[chr_][:].seq
+
+        seq = faidx[chr_][:].seq # read sequence
+
         for match in re.finditer(rest, seq, re.IGNORECASE):
             output_queue.put(
                 (chr_, str(match.start()), str(match.end()), '.', '0', '+')
             )
-            c += 1
+
         if rest_rc != rest: # find reverse complement restriction site
             for match in re.finditer(rest_rc, seq, re.IGNORECASE):
                 output_queue.put(
                     (chr_, str(match.start()), str(match.end()), '.', '0', '-')
                 )
-                c += 1
-        count_queue.put(c)
 
 
 def outputer(output_file, output_queue):
     """ output extracted results """
-    def signal_handeler(signal, frame):
-        output_file.flush()
-        sys.exit(0) 
-    signal.signal(signal.SIGTERM, signal_handeler)
     while 1:
         record = output_queue.get()
+        if record is None:
+            log.debug("Process-output done.")
+            output_file.flush()
+            break
         line = "\t".join(record) + "\n"
         output_file.write(line)
 
@@ -71,39 +66,44 @@ def _main(fasta, rest, output, processes):
 
     log.info("Extract restriction sites %s from %s"%(rest, fasta))
 
+    if output.endswith(".gz"):
+        output = output.replace(".gz", "")
+
     faidx = pyfaidx.Fasta(fasta)
     chrs = faidx.keys()
-    task_queue   = Queue()
-    output_queue = Queue()
-    count_queue = Queue()
-    processes = min(processes, len(chrs))
-    workers = [Process(target=worker,
-                       args=(task_queue, output_queue, count_queue, rest, fasta))
-               for i in range(processes)]
 
-    log.info("%d workers spawned for extract restriction sites"%len(workers))
+    task_queue   = mp.Queue()
+    output_queue = mp.Queue()
+
+    processes = min(processes, len(chrs))
+
+    workers = [mp.Process(target=worker,
+                       args=(task_queue, output_queue, rest, fasta))
+               for i in range(processes)]
 
     for chr_ in chrs:
         task_queue.put(chr_)
+    for w in workers: # put end flag to task queue
+        task_queue.put(None)
 
     with tempfile.NamedTemporaryFile(mode='w') as tmp:
-        output_p = Process(target=outputer, args=(tmp, output_queue))
+        output_p = mp.Process(target=outputer, args=(tmp, output_queue))
 
+        # launch processes
         for w in workers:
             w.start()
         output_p.start()
 
+        log.info("%d workers spawned for extract restriction sites"%len(workers))
+
+        # wait all tasks done
         for w in workers:
             w.join()
 
-        c = 0
-        while not count_queue.empty():
-            c += count_queue.get()
-        log.info("%d restriction sites found"%c)
+        # put end flag to output queue
+        output_queue.put(None)
 
-        while not output_queue.empty():
-            time.sleep(TIME_OUT)
-        output_p.terminate()
+        output_p.join() # wait all result outputed
 
         # sort output bed file
         log.info("sorting bed file ...")
