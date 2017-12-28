@@ -191,11 +191,8 @@ def worker(task_queue, counter, lock, # objects for multi process work
 
     all, inter, intra, unmatch = 0,0,0,0 # variables for count reads
     while 1:
-        try:
-            records = task_queue.get()
-            if records is None:
-                raise Empty
-        except Empty:
+        records = task_queue.get()
+        if records is None:
             fastq_writer_1.write_footer()
             fastq_writer_1.handle.close()
             fastq_writer_2.write_footer()
@@ -337,7 +334,7 @@ def _main(fastq, out1, out2,
 
     # wait subprocesses end
     for w in workers:
-        w.join
+        w.join()
 
     # merge all tmp files
     tmpfiles_1 = [out1+".tmp.%d"%i for i in range(processes)]

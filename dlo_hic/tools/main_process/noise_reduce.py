@@ -82,7 +82,7 @@ def bedpe_type(restriction, bedpe_items, threshold_span, threshold_num_rest):
             return "normal"
         else:
             # unsafe span, need to be check
-            interval_rests = find_interval_rests(restriction, chr1, (end1, start2))
+            interval_rests = find_interval_rests(restriction, chr1, (end2, start1))
             if len(interval_rests) <= threshold_num_rest:
                 return "normal"
             else:

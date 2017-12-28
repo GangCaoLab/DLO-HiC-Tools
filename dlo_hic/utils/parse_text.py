@@ -61,7 +61,7 @@ def parse_line_short(line):
     return chr_a, pos_a, chr_b, pos_b, score
 
 
-class Bedpe():
+class Bedpe(object):
     """ The abstract of bedpe record. """
     def __init__(self, line):
         items = parse_line_bedpe(line)
@@ -72,17 +72,32 @@ class Bedpe():
         self.start1, self.start2 = items[1], items[4]
         self.end1, self.end2 = items[2], items[5]
         self.strand1, self.strand2 = items[8], items[9]
+
         self.center1 = (self.start1 + self.end1) // 2
         self.center2 = (self.start2 + self.end2) // 2
 
-    def is_rep_with(self, another, dis=50):
+        self.pos1, self.pos2 = self.end1, self.start2 # mimic pairs obj
+
+    def is_rep_with(self, another, dis=10):
         """ Judge another bedpe record is replection of self or not. """
+        if dis == 0:
+            return (self.start1 == another.start1) and \
+                   (self.start2 == another.start1) and \
+                   (self.end1 == another.end1) and \
+                   (self.end2 == another.end2)
+
         if (self.chr1 != another.chr1) or (self.chr2 != another.chr2):
             return False
         else:
-            center1_close = abs(self.center1 - another.center1) <= dis
-            center2_close = abs(self.center2 - another.center2) <= dis
-            return center1_close and center2_close
+            if abs(self.start1 - another.start1) > dis:
+                return False
+            if abs(self.end1 - another.end1) > dis:
+                return False
+            if abs(self.start2 - another.start2) > dis:
+                return False
+            if abs(self.end2 - another.end2) > dis:
+                return False
+        return True
 
     def to_upper_trangle(self):
         """
@@ -99,11 +114,13 @@ class Bedpe():
             self.start1,  self.start2  = self.start2, self.start1
             self.end1,    self.end2    = self.end2, self.end1
             self.strand1, self.strand2 = self.strand2, self.strand1
+            self.pos1, self.pos2 = self.end1, self.start2
         if self.chr1 == self.chr2:
             if self.start1 > self.start2:
                 self.start1,  self.start2  = self.start2, self.start1
                 self.end1,    self.end2    = self.end2, self.end1
                 self.strand1, self.strand2 = self.strand2, self.strand1
+                self.pos1, self.pos2 = self.end1, self.start2
                 
 
     def __str__(self):
@@ -118,9 +135,10 @@ class Bedpe():
         about pairs format:
         https://github.com/4dn-dcic/pairix/blob/master/pairs_format_specification.md
         """
+        self.to_upper_trangle()
         line = "\t".join([self.name, 
-                          self.chr1, str(self.end1),
-                          self.chr2, str(self.start2),
+                          self.chr1, str(self.pos1),
+                          self.chr2, str(self.pos2),
                           self.strand1, self.strand2])
         return line
 
@@ -134,7 +152,7 @@ def parse_line_pairs(line):
     return read_id, chr1, pos1, chr2, pos2, strand1, strand2
 
 
-class Pairs():
+class Pairs(object):
     """ The abstract of bedpe record. """
     def __init__(self, line):
         items = parse_line_pairs(line)
@@ -163,5 +181,5 @@ class Pairs():
         if self.chr1 > self.chr2:
             self.chr1, self.pos1, self.strand1 = self.chr2, self.pos2, self.strand2
         if self.chr1 == self.chr2:
-            if self.start1 > self.start2:
+            if self.pos1 > self.pos2:
                 self.pos1, self.strand1 = self.pos2, self.strand2
