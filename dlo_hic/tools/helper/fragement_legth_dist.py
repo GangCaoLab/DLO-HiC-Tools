@@ -88,13 +88,37 @@ def load_frag_len(fname):
     return chr2lens
 
 
-@click.command(name="draw_fragment_length_dist")
+def log_statistic_info(infos, log_file=None):
+    """
+    log statistic infos to sperate file or stdout.
+    """
+    if not log_file:
+        for info in infos:
+            log.info(info.name + ":\n" + str(info))
+    else:
+        if log_file == '-':
+            f = sys.stdout
+        else:
+            f = open(log_file, 'a')
+
+        for info in infos:
+            f.write(info.name + ":\n")
+            f.write(info.to_csv(sep="\t"))
+
+        if log_file != '-':
+            f.close()
+
+
+@click.command(name="fragment_length_dist")
 @click.argument("rest-sites-files", nargs=-1,
     type=click.Path())
 @click.option("--labels",
     help="Label list of each plot, like HindIII,MseI,MbolI ")
 @click.option("--keep/--no-keep", default=False,
     help="Keep fragment lengths file. default False")
+@click.option("--log-file", default="frag_len.txt",
+    help="Sperate file for record statistic information of fragements length. " +\
+         "default 'frag_len.txt', use '-' to stdout.")
 @click.option("--fig-type",
     type=click.Choice(['box', 'kde']),
     default="box",
@@ -107,16 +131,19 @@ def load_frag_len(fname):
     help="Remove extream values(values are > 0.95 or < 0.05 quantile).")
 @click.option("--right-lim", default=2000,
     help="Right limit for kde plot on x axis. default 2000")
-def _main(rest_sites_files, labels, keep,
+def _main(rest_sites_files, labels,
+          keep, log_file,
           fig_type, figure, dpi,
           rmext, right_lim):
     """ Draw the distribution plot of fragment legth. """
     if len(rest_sites_files) == 0:
         sys.exit(1)
-    
+
+    # process "," joined arg list
     if len(rest_sites_files) == 1 and ',' in rest_sites_files[0]:
         rest_sites_files = rest_sites_files[0].split(",")
 
+    # process label list
     if labels:
         labels = labels.split(",")
         if len(labels) != len(rest_sites_files):
@@ -156,8 +183,13 @@ def _main(rest_sites_files, labels, keep,
             all_lens.extend(lens)
         all_ser.append(pd.Series(all_lens, name=label))
 
-    df = pd.DataFrame({s.name:s for s in all_ser})
-    for k in list(df):
+    # output statistic description of fraglen datasets
+    infos = [s.describe() for s in all_ser]
+    log_statistic_info(infos)
+    log_statistic_info(infos, log_file=log_file)
+
+    df = pd.DataFrame({s.name:s for s in all_ser}) # Series list to Dataframe
+    for k in list(df): # iter over Dataframe remove extream value and plot kde
         s = df[k]
         if rmext:
             #
