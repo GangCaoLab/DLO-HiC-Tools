@@ -1,10 +1,8 @@
-import sys
 import logging
 import subprocess
 
 import click
 
-from dlo_hic.utils import read_args
 from dlo_hic.utils.wrap.tabix import sort_bedpe_reads1
 from dlo_hic.utils.parse_text import Bedpe
 
@@ -30,8 +28,8 @@ def remove_redundancy(bedpe_file, output, distance):
     input file must in upper trangle form and sorted according to reads1(first 3 cols).
     """
     with open(bedpe_file, 'r') as f, open(output, 'w') as fo:
-       base = Bedpe(f.readline())
-       while True:
+        base = Bedpe(f.readline())
+        while True:
             for line in f:
                 another = Bedpe(line)
                 if base.is_rep_with(another, distance): # is replication, check next line.
@@ -39,7 +37,7 @@ def remove_redundancy(bedpe_file, output, distance):
                 else: # not replication, output base line and change base line.
                     out_line = str(base) + "\n"
                     fo.write(out_line)
-                    base = another 
+                    base = another
                     break
             else: # arrive at end of file.
                 out_line = str(base) + "\n"
