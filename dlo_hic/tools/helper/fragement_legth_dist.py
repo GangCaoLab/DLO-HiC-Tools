@@ -135,8 +135,14 @@ def _main(rest_sites_files, labels,
           keep, log_file,
           fig_type, figure, dpi,
           rmext, right_lim):
-    """ Draw the distribution plot of fragment legth. """
-    if len(rest_sites_files) == 0:
+    """
+    Draw the distribution figure(kde/box plot),
+    and output statistic information(quantiles) of fragment legth.
+    """
+    if fig_type == 'kde' and not rmext:
+        log.warning("kde plot should remove extream values. try '--rmext' option.")
+
+    if not rest_sites_files:
         sys.exit(1)
 
     # process "," joined arg list
