@@ -16,27 +16,6 @@ from dlo_hic.utils.parse_text import Bedpe, Pairs, is_comment
 log = logging.getLogger(__name__)
 
 
-def log_statistic_info(infos, log_file=None):
-    """
-    log statistic infos to sperate file or stdout.
-    """
-    if not log_file:
-        for info in infos:
-            log.info(info.name + ":\n" + str(info))
-    else:
-        if log_file == '-':
-            f = sys.stdout
-        else:
-            f = open(log_file, 'a')
-
-        for info in infos:
-            f.write(info.name + ":\n")
-            f.write(info.to_csv(sep="\t"))
-
-        if log_file != '-':
-            f.close()
-
-
 def open_file(file_name):
     if file_name.endswith(".gz"):
         f = io.TextIOWrapper(gzip.open(file_name))
@@ -70,11 +49,11 @@ def _main(input, log_file,  box_plot, kde_plot, dpi, sample, seed):
     Input:
         bedpe file or pairs file, support gziped file.
 
+    \b
     Output:
         1. quantiles information
         2. box plot
         3. kde plot
-        4. PET span text file (optional)
     """
 
     # conform input file format
@@ -101,23 +80,34 @@ def _main(input, log_file,  box_plot, kde_plot, dpi, sample, seed):
                     continue
             if is_comment(line):
                 continue
+
             record = fmt(line)
+
+            if record.chr1 != record.chr2: # skip inter-chromosome interaction
+                continue
+
             span = abs(record.pos1 - record.pos2)
             spans.append(span)
 
     ser = pd.Series(spans)
-    ser.name = re.sub(".bedpe.gz$|.bedpe$|.pairs.gz$|.pairs", "", input)
+    ser.name = re.sub(".bedpe.gz$|.bedpe$|.pairs.gz$|.pairs", "", input) + " span"
 
     # draw box plot
-    ser.plot.box()
+    fig, ax = plt.subplots()
+    ser.plot.box(ax=ax, logy=True)
     plt.savefig(box_plot, dpi=dpi)
+    log.info("save box-plot figure to {}".format(box_plot))
 
     # draw kde plot
-    ser.plot.kde()
+    fig, ax = plt.subplots()
+    ser.plot.kde(ax=ax)
+    ax.set_xlim(left=0)
     plt.savefig(kde_plot, dpi=dpi)
+    log.info("save kde-plot figure to {}".format(kde_plot))
 
     # write description(quantiles information)
     ser.to_csv(log_file, sep="\t")
+    log.info("save quantiles information to {}".format(log_file))
 
 
 main = _main.callback

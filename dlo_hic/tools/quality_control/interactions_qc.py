@@ -11,11 +11,13 @@ log = logging.getLogger(__name__)
 
 
 def log_counts(counts, log_file=None):
+    total = counts['total']
     if not log_file:
         log.info("Interaction Quality Control:")
-        total = counts.pop('total')
         log.info("total: %d"%total)
         for k, v in counts.items():
+            if k == 'total':
+                continue
             try:
                 ratio = v / total
             except ZeroDivisionError:
@@ -24,8 +26,11 @@ def log_counts(counts, log_file=None):
     else:
         with open(log_file, 'w') as f:
             for k, v in counts.items():
+                if k == 'total':
+                    continue
                 outline = "\t".join([str(k), str(v)]) + "\n"
                 f.write(outline)
+            f.write("total\t{}\n".format(total))
 
 
 def open_file(file_name):
@@ -41,15 +46,11 @@ def open_file(file_name):
 @click.option("--log-file",
     default="interactions_qc.txt",
     help="Sperate to store qc information. default: interactions_qc.txt")
-@click.option("--file-format",
-    default="pairs",
-    type=click.Choice(["pairs", "bedpe"]),
-    help="The file format of interactions data. default pairs format")
 @click.option("--long-range-cutoff",
     default=20*(10**3),
     help="The cutoff of intra long range interaction, "
          "span larger than this count as long-range. default 20Kb")
-def _main(input, log_file, file_format, long_range_cutoff):
+def _main(input, log_file, long_range_cutoff):
     """
     Count ratio of:
 
@@ -60,6 +61,16 @@ def _main(input, log_file, file_format, long_range_cutoff):
 
     in interactions data (in bedpe or pairs format, support gziped file).
     """
+    # conform input file format
+    if input.endswith("pairs") or input.endswith("pairs.gz"):
+        fmt = Pairs
+        log.info("input pairs file.")
+    elif input.endswith("bedpe") or input.endswith("bedpe.gz"):
+        fmt = Bedpe
+        log.info("input bedpe file.")
+    else:
+        raise NotImplementedError("Only support pairs and bedpe file format.")
+
     # init counter dict
     counter = {
         "total": 0,
@@ -67,8 +78,6 @@ def _main(input, log_file, file_format, long_range_cutoff):
         "intra-chromosome": 0,
         "long-range": 0,
     }
-
-    fmt = Pairs if file_format == 'pairs' else Bedpe
 
     with open_file(input) as f:
         for line in f:
