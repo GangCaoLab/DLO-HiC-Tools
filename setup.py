@@ -12,8 +12,8 @@ here = os.path.abspath(os.path.dirname(__file__))
 
 # load about information
 requires = [
-    "numpy >= 1.13.3",
-    "scipy >= 0.18.1",
+    "numpy >= 1.13.0",
+    "scipy >= 0.18.0",
     "matplotlib >= 2.0.0",
     "biopython >= 1.70",
     "Cython >= 0.25.2",

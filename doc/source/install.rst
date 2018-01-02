@@ -15,6 +15,17 @@ Recommend install them with `Anaconda <https://conda.io/miniconda.html>`_, just 
 
     $ conda -c bioconda install bwa samtools pairix tabix
 
+Install Python packages
+^^^^^^^^^^^^^^^^^^^^^^^
+Python packages requirements check and install process is integrated in setup.py,
+but should install install Cython moudlue firstly.::
+
+    $ pip install cython
+
+And suggest install and update numpy, scipy and matplotlib with conda: ::
+
+    $ conda install numpy scipy matplotlib
+
 Install DLO-HiC-Tools
 ---------------------
 
