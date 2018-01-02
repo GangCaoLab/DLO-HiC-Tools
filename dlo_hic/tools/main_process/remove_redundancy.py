@@ -55,7 +55,7 @@ def remove_redundancy(bedpe_file, output, distance):
 def _main(bedpe, output, distance):
     """
     Remove the redundancy within pairs.
-    
+
     If pairs both ends's distance,
     small than the threshold distance at same time,
     consider them as the redundancy.

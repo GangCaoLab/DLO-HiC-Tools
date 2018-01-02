@@ -278,7 +278,8 @@ def fastq_writer(file_out, phred):
          "if 0 (default) will not limit length," +\
          "NOTE: Adapter for sequencing must be trimmed in this situation.")
 @click.option("--log-file",
-    help="Sperate log file record reads count information.")
+    default="PET_count.txt",
+    help="Sperate log file record reads count information. default PET_count.txt")
 def _main(fastq, out1, out2,
         linker_a, linker_b,
         mismatch, rest, phred, processes, PET_len,
@@ -286,8 +287,11 @@ def _main(fastq, out1, out2,
     """
     Extract the PETs sequences on both sides of linker sequence.
 
-    This script accept a fastq or fasta file,
-    and output two PETs files in fastq file format.
+    Input:
+        fastq file, support gziped file.
+
+    Output:
+        two fastq files contain PETs sequences.
 
     """
     log.info("Extract PETs from file %s"%fastq)
@@ -353,8 +357,8 @@ def _main(fastq, out1, out2,
     counts = dict(counter)
     log_counts(counts)
 
-    if log_file: # write counts info to sperate file
-        log_counts(counts, log_file)
+    # write counts info to sperate file
+    log_counts(counts, log_file)
 
     return counts
 
