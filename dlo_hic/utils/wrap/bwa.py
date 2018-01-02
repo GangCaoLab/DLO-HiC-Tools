@@ -70,8 +70,8 @@ class BWA():
                 trans_cmd = "bwa samse {} {}.sai {} > {}.sam".format(
                     self.index_prefix, output_prefix, input, output_prefix)
             else:
-                trans_cmd = "bwa samse {} {}.sai {} | samtools view -bh > {}.bam".format(
-                    self.index_prefix, output_prefix, input, output_prefix)
+                trans_cmd = "bwa samse {} {}.sai {} | samtools view -@ {} -bh > {}.bam".format(
+                    self.index_prefix, output_prefix, input, thread, output_prefix)
             self._check_call(trans_cmd)
             os.remove(output_prefix+'.sai')
     
