@@ -34,8 +34,9 @@ setup(
     description='Tools for DLO-HiC data analyze',
     author='nanguage',
     author_email='nanguage@yahoo.com',
-    url='',
+    url='https://github.com/Nanguage/DLO-HiC-Tools',
     packages=find_packages(),
+    scripts=['scripts/dlohic'],
     package_data={
         '':['LICENSE'],
         'dlo_hic': [],
