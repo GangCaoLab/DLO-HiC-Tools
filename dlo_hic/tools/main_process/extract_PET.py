@@ -238,7 +238,7 @@ def worker(task_queue, counter, lock, # objects for multi process work
 
 def fastq_iter(file_in, phred):
     """ return a fastq iterator """
-    if phred == '33':
+    if str(phred) == '33':
         fastq_iter = SeqIO.parse(file_in, 'fastq')
     else:
         fastq_iter = SeqIO.parse(file_in, 'fastq-illumina')
@@ -247,7 +247,7 @@ def fastq_iter(file_in, phred):
 
 def fastq_writer(file_out, phred):
     """ return a fastq writer """
-    if phred == '33':
+    if str(phred) == '33':
         fastq_writer = SeqIO.QualityIO.FastqPhredWriter(file_out)
     else:
         fastq_writer = SeqIO.QualityIO.FastqIlluminaWriter(file_out)
