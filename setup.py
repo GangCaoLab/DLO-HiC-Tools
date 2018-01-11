@@ -40,11 +40,12 @@ setup(
     package_data={
         '':['LICENSE'],
         'dlo_hic': [],
-        },
+    },
+    include_package_data=True,
     package_dir={'dlo_hic': 'dlo_hic'},
     install_requires=requires,
     ext_modules=cythonize(extensions),
-    license='MIT License',
+    license='GNU GPLv3',
     classifiers=[
         'Natural Language :: English',
         'License :: OSI Approved :: MIT License',
