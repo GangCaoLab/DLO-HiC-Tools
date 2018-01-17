@@ -17,23 +17,6 @@ def bedpe2pairs(input, output):
             fo.write(pairs_line + "\n")
 
 
-def add_pairs_header(input):
-    """ add header to pairs file. """
-    log.info("add header to pairs file %s"%input)
-    header = "## pairs format v1.0\\n" +\
-             "#columns: readID chr1 position1 chr2 position2 strand1 strand2"
-    tmp0 = input + '.tmp'
-    tmp1 = ".header"
-    cmd = "echo \"{}\" > {}".format(header, tmp1)
-    subprocess.check_call(cmd, shell=True)
-    cmd = "cat {} {} > {}".format(tmp1, input, tmp0)
-    subprocess.check_call(cmd, shell=True)
-    cmd = "mv {} {}".format(tmp0, input)
-    subprocess.check_call(cmd, shell=True)
-    cmd = "rm {}".format(tmp1)
-    subprocess.check_call(cmd, shell=True)
-
-
 @click.command(name="bedpe2pairs")
 @click.argument("bedpe", nargs=1)
 @click.argument("pairs", nargs=1)
@@ -53,11 +36,15 @@ def _main(bedpe, pairs, keep):
     tmp0 = bedpe + '.tmp.0'
     bedpe2pairs(bedpe, tmp0)
     log.info("sorting pairs ...")
+    # add header
+    header = "## pairs format v1.0\n" +\
+             "#columns: readID chr1 position1 chr2 position2 strand1 strand2\n"
+    with open(pairs, 'w') as f:
+        f.write(header)
     sort_pairs(tmp0, pairs)
     subprocess.check_call(['rm', tmp0]) # remove tmp files
     index_pairs(pairs)
     if keep:
-        add_pairs_header(pairs) # if keep uncompressed file, add header to it
         log.info("pairs file with header storaged at %s"%pairs)
         log.info("pairix indexed bgziped pairs file storaged at %s"%(pairs+'.gz'))
     else:
