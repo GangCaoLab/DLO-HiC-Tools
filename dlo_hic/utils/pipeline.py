@@ -81,7 +81,7 @@ def check_config(config):
     """
     ## check required fields
     required_fields = [
-        'DATA/input',
+        'DATA/input_dir',
         'DATA/fasta',
         'DATA/bwaindexprefix',
         'DATA/restriction_site',
@@ -96,7 +96,7 @@ def check_config(config):
 
     ## check files exist
     file_fields = [
-        'DATA/input',
+        'DATA/input_dir',
         'DATA/fasta',
         'GLOBAL/workingdir',
         'BUILD_BEDPE/bwa_log',

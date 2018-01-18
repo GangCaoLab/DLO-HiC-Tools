@@ -195,12 +195,12 @@ def _main(bedpe, output,
 
     """
 
-    log.info("noise reduce on tile %s"%bedpe)
+    log.info("noise reduce on file %s"%bedpe)
 
     if restriction.endswith(".gz"): # remove .gz suffix
         restriction = restriction.replace(".gz", "")
 
-    task_queue = mp.Queue() 
+    task_queue = mp.Queue()
 
     workers = [mp.Process(target=worker,
                           args=(task_queue,
@@ -220,7 +220,7 @@ def _main(bedpe, output,
                 task_queue.put(read_chunk(f))
             except StopIteration:
                 break
-    
+
     for w in workers:
         task_queue.put(None)
 

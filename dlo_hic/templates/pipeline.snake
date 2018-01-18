@@ -1,16 +1,16 @@
+import configparser
+import logging
 import os
 import re
 import sys
-import logging
-import configparser
-from datetime import datetime
 from collections import OrderedDict
+from datetime import datetime
 
+import dlo_hic.config
+import dlo_hic.tools.helper as dlo_help
 import dlo_hic.tools.main_process as dlo_main
 import dlo_hic.tools.quality_control as dlo_qc
-import dlo_hic.tools.helper as dlo_help
-import dlo_hic.config
-
+from dlo_hic.utils.pipeline import *
 
 llog = local_log = logging.getLogger("pipeline")
 root_log = logging.getLogger()
@@ -27,7 +27,6 @@ root_log.addHandler(console)
 # Helpers Definition
 ####################################
 
-from dlo_hic.utils.pipeline import *
 
 def log_stage_boundary(message, separator='=', num=30):
     """
@@ -37,6 +36,55 @@ def log_stage_boundary(message, separator='=', num=30):
     local_log.info(message)
     local_log.info(separator*num)
 
+def fetch_all_fastq(input_dir):
+    result = []
+    for f in os.listdir(input_dir):
+        if f.endswith(".fq") or \
+           f.endswith(".fastq") or \
+           f.endswith(".fq.gz") or \
+           f.endswith(".fastq.gz"):
+           result.append(os.path.join(input_dir, f))
+    return result
+
+def get_samples_id(fastq_files):
+    result = []
+    for fq in fastq_files:
+        f = os.path.basename(fq)
+        sid = re.sub("\.fastq.gz$|\.fq.gz$|\.fastq$|\.fq$", "", f)
+        result.append(sid)
+    return result
+
+DIRS = [
+    "qc",
+    "1-extpet",
+    "2-bedpe",
+    "3-nr",
+    "4-rr",
+    "5-pairs",
+    "6-result"
+]
+
+def qc_logs(sample_id):
+    return OrderedDict([
+        ('extract_PET',       DIRS[1] + "/" + sample_id + '.qc.pet.txt'),
+        ('build_bedpe',       DIRS[2] + "/" + sample_id + '.qc.bedpe.txt'),
+        ('noise_reduce',      DIRS[3] + "/" + sample_id + '.qc.nr.txt'),
+        ('noise_reduce.err',  DIRS[3] + "/" + sample_id + '.qc.nr.err.txt'),
+        ('remove_redundancy', DIRS[4] + "/" + sample_id + '.qc.rr.txt'),
+        ('bedpe2pairs',       DIRS[5] + "/" + sample_id + '.qc.pairs.txt')
+    ])
+
+def make_result_dirs():
+    for d in DIRS[1:]:
+        if not os.path.exists(d):
+            os.mkdir(d)
+
+def input_fastq(wildcard):
+    possible = [".fq", ".fastq", ".fq.gz", ".fastq.gz"]
+    for suffix in possible:
+        path = input_dir + "/" + wildcard.sample + suffix
+        if os.path.exists(path):
+            return path
 
 ####################################
 # Parse config file
@@ -66,15 +114,23 @@ root_log.setLevel(config['GLOBAL']['loglevel'])
 # load global settings
 ncpu = config['GLOBAL']['numbercpus']
 working_dir = os.path.abspath(config['GLOBAL']['workingdir'])
-input_fastq = config['DATA']['input']
-fasta = config['DATA']['fasta']
-keep = config['PROCESSES']['keep']
+input_dir = config['DATA']['input_dir']
 is_qc = config['PROCESSES']['qc']
+fasta = config['DATA']['fasta']
 
-sample_id = re.sub("\.fastq.gz$|\.fq.gz$|\.fastq$|\.fq$", "", input_fastq)
-qc_report = config['QUALITY_CONTROL']['qc_report_prefix'] +\
-            sample_id + \
-            config['QUALITY_CONTROL']['report_format']
+keep = lambda k: k in config['PROCESSES']['keep']
+def temp_file(fname, key_):
+    """
+    mark file as temp file, if key_ not in config['PROCESSES']['keep']
+    """
+    if keep(key_):
+        return fname
+    else:
+        return temp(fname)
+
+
+qc_report_prefix = config['QUALITY_CONTROL']['qc_report_prefix']
+qc_report_suffix = config['QUALITY_CONTROL']['report_format']
 
 rest_name = config['DATA']['restriction_name']
 rest_bed_gz = config['NOISE_REDUCE']['restriction_sites_bed']
@@ -82,36 +138,28 @@ if not rest_bed_gz:
     rest_bed_gz = rest_name + ".bed.gz"
 rest_bed_gz_idx = rest_bed_gz + ".tbi"
 
-# quility control log file collection
-qc_logs = OrderedDict([
-    ('extract_PET',  sample_id + '.qc.pet.txt'),
-    ('build_bedpe',  sample_id + '.qc.bedpe.txt'),
-    ('noise_reduce', sample_id + '.qc.nr.txt'),
-    ('noise_reduce.err',  sample_id + '.qc.nr.err.txt'),
-    ('remove_redundancy', sample_id + '.qc.rr.txt'),
-    ('bedpe2pairs',  sample_id + '.qc.pairs.txt')
-])
-
-# log file for record time cost
-time_log = sample_id + ".time.log"
 
 llog.debug("working at %s"%working_dir)
 os.chdir(working_dir)
-
+make_result_dirs()
 
 ####################################
 # Rule Definition
 ####################################
 
+ALL_FASTQ = fetch_all_fastq(input_dir)
+ALL_SAMPLE = get_samples_id(ALL_FASTQ)
+
+ALL_QC_REPORT = expand("qc/"+qc_report_prefix+"{sample}."+qc_report_suffix, sample=ALL_SAMPLE) if is_qc else []
+ALL_PAIRS = expand(DIRS[5] + "/{sample}.pairs.gz", sample=ALL_SAMPLE)
+ALL_HIC   = expand(DIRS[6] + "/{sample}.hic",  sample=ALL_SAMPLE) if '.hic' in config['RESULT']['resultformats'] else []
+ALL_COOL  = expand(DIRS[6] + "/{sample}.cool", sample=ALL_SAMPLE) if '.cool' in config['RESULT']['resultformats'] else []
+ALL = ALL_PAIRS + ALL_HIC + ALL_COOL + ALL_QC_REPORT
+
+
 rule all:
     input:
-        [ sample_id + '.pairs.gz' ] +\
-        ([ sample_id + '.hic' ]  if '.hic'  in config['RESULT']['resultformats'] else []) +\
-        ([ sample_id + '.cool' ] if '.cool' in config['RESULT']['resultformats'] else []) +\
-        ([ qc_report ] if is_qc else [])
-    run:
-        pass
-
+        ALL
 
 rule extract_PET:
     # --------------------
@@ -124,30 +172,27 @@ rule extract_PET:
     #       log_file )
     # --------------------
     threads: ncpu
-    input: input_fastq
+    input:
+        input_fastq
     output:
-        sample_id + ".pet1.fastq",
-        sample_id + ".pet2.fastq",
-        qc_logs['extract_PET']
+        pet1 = temp_file(DIRS[1]+"/{sample}.pet1.fastq", 'pet.fq'),
+        pet2 = temp_file(DIRS[1]+"/{sample}.pet2.fastq", 'pet.fq'),
+        qc_log = qc_logs('{sample}')['extract_PET']
     run:
         log_stage_boundary("extract_PET")
 
         # load parameters
         conf = config['EXTRACT_PET']
+        rest = config['DATA']['restriction_site']
         linker_a, linker_b = conf['linker-a'], conf['linker-b']
         mismatch = conf['mismatch']
-        rest = config['DATA']['restriction_site']
         phred = conf['phred']
         pet_len = conf['pet_len']
 
-        pet1 = output[0]
-        pet2 = output[1]
-
         # run tool
-        with Timmer('extract_PET', time_log):
-            dlo_main.extract_PET.main(
-                input_fastq, pet1, pet2, linker_a, linker_b,
-                mismatch, rest, phred, ncpu, pet_len, qc_logs['extract_PET'])
+        dlo_main.extract_PET.main(
+            input[0], output.pet1, output.pet2, linker_a, linker_b,
+            mismatch, rest, phred, ncpu, pet_len, output.qc_log)
 
 
 rule build_bedpe:
@@ -163,7 +208,14 @@ rule build_bedpe:
     input:
         rules.extract_PET.output
     output:
-        sample_id + ".uniq.bedpe"
+        bedpe = temp_file(DIRS[2]+"/{sample}.uniq.bedpe", "uniq.bedpe"),
+        pet1_bam = temp_file(DIRS[2]+"/{sample}.pet1.bam", "pet.bam"),
+        pet2_bam = temp_file(DIRS[2]+"/{sample}.pet2.bam", "pet.bam"),
+        pet1_f_bam = temp_file(DIRS[2]+"/{sample}.pet1.filtered.bam", "pet.filtered.bam"),
+        pet2_f_bam = temp_file(DIRS[2]+"/{sample}.pet2.filtered.bam", "pet.filtered.bam"),
+        pet1_bed = temp_file(DIRS[2]+"/{sample}.pet1.bed", "pet.bed"),
+        pet2_bed = temp_file(DIRS[2]+"/{sample}.pet2.bed", "pet.bed"),
+        bwa_log = DIRS[0]+"/{sample}.bwa.log"
     run:
         log_stage_boundary("build_bedpe")
 
@@ -172,31 +224,11 @@ rule build_bedpe:
 
         bwa_index = config['DATA']['bwaindexprefix']
         mapq = conf['mapq']
-        bwa_log = conf['bwa_log']
-
-        pet1, pet2 = input[0], input[1]
-        uniq_bedpe = output[0]
 
         # run tool
-        with Timmer('build_bedpe', time_log):
-            dlo_main.build_bedpe.main(
-                'fastq', pet1, pet2, uniq_bedpe,
-                ncpu, bwa_index, mapq, bwa_log)
-
-        # clean
-        pet1_id, pet2_id = sample_id + '.pet1', sample_id + '.pet2'
-        if 'pet.fq' not in keep:
-            os.remove(pet1)
-            os.remove(pet2)
-        if 'pet.bam' not in keep:
-            os.remove(pet1_id+'.bam')
-            os.remove(pet2_id+'.bam')
-        if 'pet.filtered.bam' not in keep:
-            os.remove(pet1_id+'.filtered.bam')
-            os.remove(pet2_id+'.filtered.bam')
-        if 'pet.bed' not in keep:
-            os.remove(pet1_id+'.bed')
-            os.remove(pet2_id+'.bed')
+        dlo_main.build_bedpe.main(
+            'fastq', input[0], input[1], output.bedpe,
+            ncpu, bwa_index, mapq, output.bwa_log)
 
 
 rule qc_count_bedpe:
@@ -210,9 +242,9 @@ rule qc_count_bedpe:
     # --------------------
     threads: 1
     input:
-        rules.build_bedpe.output[0]
+        rules.build_bedpe.output
     output:
-        qc_logs['build_bedpe']
+        qc_logs('{sample}')['build_bedpe']
     run:
         cutoff = config['QUALITY_CONTROL']['long_range_cutoff']
         dlo_qc.interactions_qc.main(input[0], output[0], cutoff)
@@ -247,11 +279,11 @@ rule noise_reduce:
     # --------------------
     threads: ncpu
     input:
-        [ rules.build_bedpe.output[0], rest_bed_gz, rest_bed_gz_idx ] + \
-        ( rules.qc_count_bedpe.output if is_qc else [] )
+        rules.build_bedpe.output + \
+        [ rest_bed_gz, rest_bed_gz_idx ]
     output: 
-        sample_id + ".nr.bedpe",
-        sample_id + ".nr.bedpe.err"
+        temp_file(DIRS[3] + "/{sample}.nr.bedpe", 'nr.bedpe'),
+        temp_file(DIRS[3] + "/{sample}.nr.bedpe.err", 'nr.bedpe.err')
     run:
         log_stage_boundary("noise_reduce")
 
@@ -265,14 +297,9 @@ rule noise_reduce:
         thresh_span = conf['threshold_span']
 
         # run tool
-        with Timmer("noise_reduce", time_log):
-            dlo_main.noise_reduce.main(
-                bedpe, out,
-                restriction, ncpu, thresh_num, thresh_span)
-
-        # clean
-        if 'uniq.bedpe' not in keep:
-            os.remove(sample_id+'.uniq.bedpe')
+        dlo_main.noise_reduce.main(
+            bedpe, out,
+            restriction, ncpu, thresh_num, thresh_span)
 
 
 rule qc_count_bedpe_nr:
@@ -286,11 +313,10 @@ rule qc_count_bedpe_nr:
     # --------------------
     threads: 1
     input:
-        rules.noise_reduce.output[0],
-        rules.noise_reduce.output[1]
+        rules.noise_reduce.output
     output:
-        qc_logs['noise_reduce'],
-        qc_logs['noise_reduce.err']
+        qc_logs('{sample}')['noise_reduce'],
+        qc_logs('{sample}')['noise_reduce.err']
     run:
         cutoff = config['QUALITY_CONTROL']['long_range_cutoff']
         dlo_qc.interactions_qc.main(input[0], output[0], cutoff)
@@ -306,9 +332,9 @@ rule remove_redundancy:
     # --------------------
     threads: ncpu
     input:
-        [ rules.noise_reduce.output[0], rules.noise_reduce.output[1] ] +\
-        ( rules.qc_count_bedpe_nr.output if is_qc else [] )
-    output: sample_id + ".rr.bedpe"
+        rules.noise_reduce.output
+    output:
+        temp_file(DIRS[4] + "/{sample}.rr.bedpe", "rr.bedpe")
     run:
         log_stage_boundary("remove_redundancy")
 
@@ -316,15 +342,8 @@ rule remove_redundancy:
         distance = config['REMOVE_REDUNDANCY']['distance']
 
         # run tool
-        with Timmer("remove_redundancy", time_log):
-            dlo_main.remove_redundancy.main(
-                input[0], output[0], distance)
-
-        # clean
-        if 'nr.bedpe' not in keep:
-            os.remove(input[0])
-        if 'nr.bedpe.err' not in keep:
-            os.remove(input[1])
+        dlo_main.remove_redundancy.main(
+            input[0], output[0], distance)
 
 
 rule qc_count_bedpe_rr:
@@ -338,9 +357,9 @@ rule qc_count_bedpe_rr:
     # --------------------
     threads: 1
     input:
-        rules.remove_redundancy.output[0]
+        rules.remove_redundancy.output
     output:
-        qc_logs['remove_redundancy']
+        qc_logs('{sample}')['remove_redundancy']
     run:
         cutoff = config['QUALITY_CONTROL']['long_range_cutoff']
         dlo_qc.interactions_qc.main(input[0], output[0], cutoff)
@@ -355,9 +374,10 @@ rule bedpe2pairs:
     # --------------------
     threads: ncpu
     input:
-        [ rules.remove_redundancy.output ] +\
-        ( rules.qc_count_bedpe_rr.output if is_qc else [] )
-    output: sample_id + ".pairs.gz", sample_id + ".pairs.gz.px2"
+        rules.remove_redundancy.output
+    output:
+        [ DIRS[5]+"/{sample}.pairs.gz", DIRS[5]+"/{sample}.pairs.gz.px2" ] +\
+        ([DIRS[5]+"/{sample}.pairs"] if '.hic' in config['RESULT']['resultformats'] else [])
     run:
         log_stage_boundary("bedpe2pairs")
 
@@ -369,12 +389,7 @@ rule bedpe2pairs:
         out = output[0].replace(".gz", "")
 
         # run tool
-        with Timmer("bedpe2pairs", time_log):
-            dlo_main.bedpe2pairs.main(input[0], out, keep_)
-
-        # clean
-        if 'rr.bedpe' not in keep:
-            os.remove(sample_id+'.rr.bedpe')
+        dlo_main.bedpe2pairs.main(input[0], out, keep_)
 
 
 rule qc_pairs:
@@ -390,9 +405,9 @@ rule qc_pairs:
     input:
         rules.bedpe2pairs.output[0]
     output:
-        qc_logs['bedpe2pairs'],
-        sample_id + '.PET_span.box.png',
-        sample_id + '.PET_span.kde.png'
+        qc_logs('{sample}')['bedpe2pairs'],
+        DIRS[5]+'/{sample}.PET_span.box.png',
+        DIRS[5]+'/{sample}.PET_span.kde.png'
     run:
         box_plot = output[1]
         kde_plot = output[2]
@@ -407,20 +422,21 @@ rule to_hic:
     #   java juicertools.jar pre
     # --------------------
     threads: ncpu
-    input: rules.bedpe2pairs.output
-    output: sample_id + '.hic' if '.hic' in config['RESULT']['resultformats'] else []
+    input:
+        rules.bedpe2pairs.output
+    output:
+        DIRS[6] + '/{sample}.hic'
     run:
         res_formats = config['RESULT']['resultformats']
         juicertools = config['RESULT']['juicertoolsjar']
 
-        if '.hic' in res_formats:
-            input_pairs = sample_id + '.pairs'
-            out_hic = sample_id + '.hic'
-            genomeid = config['RESULT']['genomeid']
-            resolutions = config['RESULT']['resolutions']
-            resolutions = ",".join([str(r) for r in resolutions])
-            subprocess.check_call(['java', '-jar', juicertools, 'pre',
-                input_pairs, out_hic, genomeid, '-r', resolutions])
+        input_pairs = input[2]
+        out_hic = output[0]
+        genomeid = config['RESULT']['genomeid']
+        resolutions = config['RESULT']['resolutions']
+        resolutions = ",".join([str(r) for r in resolutions])
+        subprocess.check_call(['java', '-jar', juicertools, 'pre',
+            input_pairs, out_hic, genomeid, '-r', resolutions])
 
 
 rule to_cooler:
@@ -434,8 +450,10 @@ rule to_cooler:
     #   cooler zoomify (optional)
     # --------------------
     threads: ncpu
-    input: rules.bedpe2pairs.output
-    output: sample_id + '.cool' if '.cool' in config['RESULT']['resultformats'] else []
+    input:
+        rules.bedpe2pairs.output
+    output:
+        DIRS[6] + '/{sample}.cool',
     run:
         res_formats = config['RESULT']['resultformats']
 
@@ -444,17 +462,18 @@ rule to_cooler:
         balance = config['RESULT']['balance']
         zoomify = config['RESULT']['zoomify']
 
-        bed = sample_id+"."+str(binsize)+".bed"
-        outcool = sample_id + '.cool'
+        outcool = output[0]
+        bed = outcool + ".tmp.bed"
 
-        if '.cool' in res_formats:
-            with open(bed, 'w') as f:
-                subprocess.check_call(['cooler', 'makebins', chr_size, str(binsize)], stdout=f)
-            subprocess.check_call(['cooler', 'cload', 'pairix', bed, sample_id+".pairs.gz", outcool])
-            if balance:
-                subprocess.check_call(['cooler', 'balance', '-p', str(ncpu), outcool])
-            if zoomify:
-                subprocess.check_call(['cooler', 'zoomify', '-p', str(ncpu), outcool])
+        with open(bed, 'w') as f:
+            subprocess.check_call(['cooler', 'makebins', chr_size, str(binsize)], stdout=f)
+        subprocess.check_call(['cooler', 'cload', 'pairix', bed, sample_id+".pairs.gz", outcool])
+        if balance:
+            subprocess.check_call(['cooler', 'balance', '-p', str(ncpu), outcool])
+        if zoomify:
+            subprocess.check_call(['cooler', 'zoomify', '-p', str(ncpu), outcool])
+        
+        subprocess.check_call(['rm', bed])
 
 
 rule qc_gen_report:
@@ -465,14 +484,8 @@ rule qc_gen_report:
     # --------------------
     threads: 1
     input:
-        qc_logs.values()
+        qc_logs('{sample}').values()
     output:
-        qc_report
+        "qc/" + qc_report_prefix + "{sample}." + qc_report_suffix
     run:
         subprocess.check_call(['touch', output[0]])
-
-        # clean
-        #for k, v in qc_logs:
-        #    os.remove(v)
-        #os.remove(rules.qc_pairs.ouput[1])
-        #os.remove(rules.qc_pairs.ouput[2])

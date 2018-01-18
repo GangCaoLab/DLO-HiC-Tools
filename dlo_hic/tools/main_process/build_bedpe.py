@@ -1,4 +1,5 @@
 import os
+from os.path import join, split, splitext, dirname
 import logging
 import subprocess
 import multiprocessing as mp
@@ -53,8 +54,10 @@ def _main(file_format, input1, input2, bedpe, ncpu, bwa_index, mapq, bwa_log_fil
     """ Build bedpe file from fastq or sam/bam file. """
     log.info("Build bedpe from %s %s"%(input1, input2))
 
-    pre_1 = os.path.splitext(input1)[0] # prefix
-    pre_2 = os.path.splitext(input2)[0]
+    outdir = dirname(bedpe)
+
+    pre_1 = join(outdir, splitext(split(input1)[1])[0]) # prefix
+    pre_2 = join(outdir, splitext(split(input2)[1])[0])
     if file_format == 'fastq':
         # alignment firstly if the input format is fastq
         assert bwa_index is not None

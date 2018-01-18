@@ -4,7 +4,7 @@ import logging
 
 import click
 
-from dlo_hic.utils.parse_text import Bedpe, Pairs
+from dlo_hic.utils.parse_text import Bedpe, Pairs, Bedpe_err
 
 
 log = logging.getLogger(__name__)
@@ -61,15 +61,6 @@ def _main(input, log_file, long_range_cutoff):
 
     in interactions data (in bedpe or pairs format, support gziped file).
     """
-    # conform input file format
-    if input.endswith("pairs") or input.endswith("pairs.gz"):
-        fmt = Pairs
-        log.info("input pairs file.")
-    elif input.endswith("bedpe") or input.endswith("bedpe.gz"):
-        fmt = Bedpe
-        log.info("input bedpe file.")
-    else:
-        raise NotImplementedError("Only support pairs and bedpe file format.")
 
     # init counter dict
     counter = {
@@ -78,6 +69,24 @@ def _main(input, log_file, long_range_cutoff):
         "intra-chromosome": 0,
         "long-range": 0,
     }
+
+    # conform input file format
+    if input.endswith("pairs") or input.endswith("pairs.gz"):
+        fmt = Pairs
+        log.info("input pairs file.")
+    elif input.endswith("bedpe") or input.endswith("bedpe.gz"):
+        fmt = Bedpe
+        log.info("input bedpe file.")
+    elif input.endswith("bedpe.err") or input.endswith("bedpe.err.gz"):
+        # count abnormal bedpe file(produced by noise reduce)
+        fmt = Bedpe_err
+        log.info("input abnormal bedpe file")
+        counter.update({
+            "abnormal-1": 0,
+            "abnormal-2": 0,
+        })
+    else:
+        raise NotImplementedError("Only support pairs and bedpe file format.")
 
     with open_file(input) as f:
         for line in f:
@@ -91,6 +100,9 @@ def _main(input, log_file, long_range_cutoff):
                     counter["long-range"] += 1
 
             counter["total"] += 1
+
+            if fmt == Bedpe_err:
+                counter[pair.abormal_type] += 1
 
     log_counts(counter)
     log_counts(counter, log_file=log_file)
