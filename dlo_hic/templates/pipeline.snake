@@ -69,8 +69,12 @@ working_dir = os.path.abspath(config['GLOBAL']['workingdir'])
 input_fastq = config['DATA']['input']
 fasta = config['DATA']['fasta']
 keep = config['PROCESSES']['keep']
+is_qc = config['PROCESSES']['qc']
 
 sample_id = re.sub("\.fastq.gz$|\.fq.gz$|\.fastq$|\.fq$", "", input_fastq)
+qc_report = config['QUALITY_CONTROL']['qc_report_prefix'] +\
+            sample_id + \
+            config['QUALITY_CONTROL']['report_format']
 
 rest_name = config['DATA']['restriction_name']
 rest_bed_gz = config['NOISE_REDUCE']['restriction_sites_bed']
@@ -80,7 +84,12 @@ rest_bed_gz_idx = rest_bed_gz + ".tbi"
 
 # quility control log file collection
 qc_logs = OrderedDict([
-    ('extract_PET', sample_id + '.qc.pet.txt'),
+    ('extract_PET',  sample_id + '.qc.pet.txt'),
+    ('build_bedpe',  sample_id + '.qc.bedpe.txt'),
+    ('noise_reduce', sample_id + '.qc.nr.txt'),
+    ('noise_reduce.err',  sample_id + '.qc.nr.err.txt'),
+    ('remove_redundancy', sample_id + '.qc.rr.txt'),
+    ('bedpe2pairs',  sample_id + '.qc.pairs.txt')
 ])
 
 # log file for record time cost
@@ -97,8 +106,9 @@ os.chdir(working_dir)
 rule all:
     input:
         [ sample_id + '.pairs.gz' ] +\
-        ([ sample_id + '.hic' ]  if '.hic'  in config['RESULT']['resultformats'] else [])  +\
-        ([ sample_id + '.cool' ] if '.cool' in config['RESULT']['resultformats'] else [])
+        ([ sample_id + '.hic' ]  if '.hic'  in config['RESULT']['resultformats'] else []) +\
+        ([ sample_id + '.cool' ] if '.cool' in config['RESULT']['resultformats'] else []) +\
+        ([ qc_report ] if is_qc else [])
     run:
         pass
 
@@ -116,7 +126,9 @@ rule extract_PET:
     threads: ncpu
     input: input_fastq
     output:
-        sample_id + ".pet1.fastq", sample_id + ".pet2.fastq"
+        sample_id + ".pet1.fastq",
+        sample_id + ".pet2.fastq",
+        qc_logs['extract_PET']
     run:
         log_stage_boundary("extract_PET")
 
@@ -170,7 +182,7 @@ rule build_bedpe:
             dlo_main.build_bedpe.main(
                 'fastq', pet1, pet2, uniq_bedpe,
                 ncpu, bwa_index, mapq, bwa_log)
-        
+
         # clean
         pet1_id, pet2_id = sample_id + '.pet1', sample_id + '.pet2'
         if 'pet.fq' not in keep:
@@ -185,6 +197,25 @@ rule build_bedpe:
         if 'pet.bed' not in keep:
             os.remove(pet1_id+'.bed')
             os.remove(pet2_id+'.bed')
+
+
+rule qc_count_bedpe:
+    # --------------------
+    # qc_count_bedpe
+    #
+    # Generate bedpe counting report for quality control.
+    # 
+    #  Tool Interface:
+    #     ( input, log_file, long_range_cutoff )
+    # --------------------
+    threads: 1
+    input:
+        rules.build_bedpe.output[0]
+    output:
+        qc_logs['build_bedpe']
+    run:
+        cutoff = config['QUALITY_CONTROL']['long_range_cutoff']
+        dlo_qc.interactions_qc.main(input[0], output[0], cutoff)
 
 
 rule extract_rest_sites:
@@ -215,8 +246,12 @@ rule noise_reduce:
     #       threshold_num_rest, threshold_span )
     # --------------------
     threads: ncpu
-    input: sample_id + ".uniq.bedpe", rest_bed_gz, rest_bed_gz_idx
-    output: sample_id + ".nr.bedpe"
+    input:
+        [ rules.build_bedpe.output[0], rest_bed_gz, rest_bed_gz_idx ] + \
+        ( rules.qc_count_bedpe.output if is_qc else [] )
+    output: 
+        sample_id + ".nr.bedpe",
+        sample_id + ".nr.bedpe.err"
     run:
         log_stage_boundary("noise_reduce")
 
@@ -234,10 +269,32 @@ rule noise_reduce:
             dlo_main.noise_reduce.main(
                 bedpe, out,
                 restriction, ncpu, thresh_num, thresh_span)
-        
+
         # clean
         if 'uniq.bedpe' not in keep:
             os.remove(sample_id+'.uniq.bedpe')
+
+
+rule qc_count_bedpe_nr:
+    # --------------------
+    # count_bedpe
+    #
+    # Generate nr bedpe counting report for quality control.
+    # 
+    #  Tool Interface:
+    #     ( input, log_file, long_range_cutoff )
+    # --------------------
+    threads: 1
+    input:
+        rules.noise_reduce.output[0],
+        rules.noise_reduce.output[1]
+    output:
+        qc_logs['noise_reduce'],
+        qc_logs['noise_reduce.err']
+    run:
+        cutoff = config['QUALITY_CONTROL']['long_range_cutoff']
+        dlo_qc.interactions_qc.main(input[0], output[0], cutoff)
+        dlo_qc.interactions_qc.main(input[1], output[1], cutoff)
 
 
 rule remove_redundancy:
@@ -248,7 +305,9 @@ rule remove_redundancy:
     #     ( bedpe, output, distance )
     # --------------------
     threads: ncpu
-    input: rules.noise_reduce.output
+    input:
+        [ rules.noise_reduce.output[0], rules.noise_reduce.output[1] ] +\
+        ( rules.qc_count_bedpe_nr.output if is_qc else [] )
     output: sample_id + ".rr.bedpe"
     run:
         log_stage_boundary("remove_redundancy")
@@ -260,10 +319,31 @@ rule remove_redundancy:
         with Timmer("remove_redundancy", time_log):
             dlo_main.remove_redundancy.main(
                 input[0], output[0], distance)
-        
+
         # clean
         if 'nr.bedpe' not in keep:
-            os.remove(sample_id+'.nr.bedpe')
+            os.remove(input[0])
+        if 'nr.bedpe.err' not in keep:
+            os.remove(input[1])
+
+
+rule qc_count_bedpe_rr:
+    # --------------------
+    # count_bedpe
+    #
+    # Generate rr bedpe counting report for quality control.
+    # 
+    #  Tool Interface:
+    #     ( input, log_file, long_range_cutoff )
+    # --------------------
+    threads: 1
+    input:
+        rules.remove_redundancy.output[0]
+    output:
+        qc_logs['remove_redundancy']
+    run:
+        cutoff = config['QUALITY_CONTROL']['long_range_cutoff']
+        dlo_qc.interactions_qc.main(input[0], output[0], cutoff)
 
 
 rule bedpe2pairs:
@@ -274,7 +354,9 @@ rule bedpe2pairs:
     #     ( bedpe, pairs, keep )
     # --------------------
     threads: ncpu
-    input: rules.remove_redundancy.output
+    input:
+        [ rules.remove_redundancy.output ] +\
+        ( rules.qc_count_bedpe_rr.output if is_qc else [] )
     output: sample_id + ".pairs.gz", sample_id + ".pairs.gz.px2"
     run:
         log_stage_boundary("bedpe2pairs")
@@ -293,6 +375,28 @@ rule bedpe2pairs:
         # clean
         if 'rr.bedpe' not in keep:
             os.remove(sample_id+'.rr.bedpe')
+
+
+rule qc_pairs:
+    # --------------------
+    # qc_pairs
+    #
+    #  Calculate the PET span distribution from .pairs file
+    #
+    #  Tool Interface:
+    #     (input, log_file, box_plot, kde_plot, dpi, sample, seed)
+    # --------------------
+    threads: 1
+    input:
+        rules.bedpe2pairs.output[0]
+    output:
+        qc_logs['bedpe2pairs'],
+        sample_id + '.PET_span.box.png',
+        sample_id + '.PET_span.kde.png'
+    run:
+        box_plot = output[1]
+        kde_plot = output[2]
+        dlo_qc.PET_span_dist.main(input[0], output[0], box_plot, kde_plot, 600, None, 1)
 
 
 rule to_hic:
@@ -352,3 +456,23 @@ rule to_cooler:
             if zoomify:
                 subprocess.check_call(['cooler', 'zoomify', '-p', str(ncpu), outcool])
 
+
+rule qc_gen_report:
+    # --------------------
+    # generate QC report
+    # 
+    # Tool Interface:
+    # --------------------
+    threads: 1
+    input:
+        qc_logs.values()
+    output:
+        qc_report
+    run:
+        subprocess.check_call(['touch', output[0]])
+
+        # clean
+        #for k, v in qc_logs:
+        #    os.remove(v)
+        #os.remove(rules.qc_pairs.ouput[1])
+        #os.remove(rules.qc_pairs.ouput[2])
