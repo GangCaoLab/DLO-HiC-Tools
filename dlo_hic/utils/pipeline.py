@@ -81,6 +81,7 @@ def check_config(config):
     """
     ## check required fields
     required_fields = [
+        'GLOBAL/loglevel',
         'DATA/input_dir',
         'DATA/fasta',
         'DATA/bwaindexprefix',
@@ -96,10 +97,9 @@ def check_config(config):
 
     ## check files exist
     file_fields = [
+        'GLOBAL/workingdir',
         'DATA/input_dir',
         'DATA/fasta',
-        'GLOBAL/workingdir',
-        'BUILD_BEDPE/bwa_log',
         'NOISE_REDUCE/restriction_sites_bed',
         'RESULT/juicertoolsjar',
     ]
