@@ -1,6 +1,7 @@
 import io
 import gzip
 import logging
+from collections import namedtuple
 
 import click
 
@@ -11,26 +12,41 @@ log = logging.getLogger(__name__)
 
 
 def log_counts(counts, log_file=None):
-    total = counts['total']
+
+    def cal_ratio(c, total):
+        try:
+            return c / total
+        except ZeroDivisionError:
+            return 0
+
+    total = counts.total
+    inter = counts.inter
+    intra = counts.intra
+    long_range = counts.long_range
     if not log_file:
         log.info("Interaction Quality Control:")
         log.info("total: %d"%total)
-        for k, v in counts.items():
-            if k == 'total':
-                continue
-            try:
-                ratio = v / total
-            except ZeroDivisionError:
-                ratio = 0
-            log.info("\t%s\t%d\t%.5f"%(k, v, ratio))
+
+        log.info("\t%s\t%d\t%.5f"%('inter-chromosome', inter, cal_ratio(inter, total)))
+        log.info("\t%s\t%d\t%.5f"%('intra-chromosome', intra, cal_ratio(intra, total)))
+        log.info("\t%s\t%d\t%.5f"%('long-range', long_range, cal_ratio(long_range, intra)))
+
     else:
         with open(log_file, 'w') as f:
-            for k, v in counts.items():
-                if k == 'total':
-                    continue
-                outline = "\t".join([str(k), str(v)]) + "\n"
-                f.write(outline)
+            f.write("\t%s\t%d\n"%('inter-chromosome', inter))
+            f.write("\t%s\t%d\n"%('intra-chromosome', intra))
+            f.write("\t%s\t%d\n"%('long-range', long_range))
             f.write("total\t{}\n".format(total))
+
+
+class InteractionCounts(object):
+    def __init__(self):
+        self.inter = 0
+        self.intra = 0
+        self.long_range = 0
+        self.total = 0
+        self.abnormal_1 = 0
+        self.abnormal_2 = 0
 
 
 def open_file(file_name):
@@ -63,12 +79,7 @@ def _main(input, log_file, long_range_cutoff):
     """
 
     # init counter dict
-    counter = {
-        "total": 0,
-        "inter-chromosome": 0,
-        "intra-chromosome": 0,
-        "long-range": 0,
-    }
+    counter = InteractionCounts()
 
     # conform input file format
     if input.endswith("pairs") or input.endswith("pairs.gz"):
@@ -81,10 +92,6 @@ def _main(input, log_file, long_range_cutoff):
         # count abnormal bedpe file(produced by noise reduce)
         fmt = Bedpe_err
         log.info("input abnormal bedpe file")
-        counter.update({
-            "abnormal-1": 0,
-            "abnormal-2": 0,
-        })
     else:
         raise NotImplementedError("Only support pairs and bedpe file format.")
 
@@ -92,17 +99,20 @@ def _main(input, log_file, long_range_cutoff):
         for line in f:
             pair = fmt(line)
             if pair.chr1 != pair.chr2:
-                counter["inter-chromosome"] += 1
+                counter.inter += 1
             else:
-                counter["intra-chromosome"] += 1
+                counter.intra += 1
                 span = abs(pair.pos2 - pair.pos1)
                 if span >= long_range_cutoff:
-                    counter["long-range"] += 1
+                    counter.long_range += 1
 
-            counter["total"] += 1
+            counter.total += 1
 
-            if fmt == Bedpe_err:
-                counter[pair.abormal_type] += 1
+            if fmt is Bedpe_err:
+                if pair.abormal_type == 'abnormal-1':
+                    counter.abnormal_1 += 1
+                else:
+                    counter.abnormal_2 += 1
 
     log_counts(counter)
     log_counts(counter, log_file=log_file)
