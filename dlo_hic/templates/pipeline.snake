@@ -389,7 +389,7 @@ rule qc_count_bedpe_rr:
 
 rule bedpe2pairs:
     # --------------------
-    # 5. remove_redundancy:
+    # 6. bedpe2pairs:
     #
     #  Tool Interface:
     #     ( bedpe, pairs, keep )
