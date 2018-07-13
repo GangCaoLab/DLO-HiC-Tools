@@ -12,16 +12,16 @@ here = os.path.abspath(os.path.dirname(__file__))
 
 # load about information
 requires = [
-    "numpy >= 1.13.0",
-    "scipy >= 0.18.0",
-    "matplotlib >= 2.0.0",
-    "biopython >= 1.70",
-    "Cython >= 0.25.2",
-    "click >= 6.7",
-    "seaborn >= 0.8.1",
-    "pandas >= 0.20.3",
-    "pyfaidx >= 0.5.1"
-    "cooler >= 0.7.6"
+    "numpy>=1.13.0",
+    "scipy>=0.18.0",
+    "matplotlib>=2.0.0",
+    "biopython>=1.70",
+    "Cython>=0.25.2",
+    "click>=6.7",
+    "seaborn>=0.8.1",
+    "pandas>=0.20.3",
+    "pyfaidx>=0.5.1"
+    "cooler>=0.7.6"
 ]
 
 extensions = [
