@@ -30,7 +30,7 @@ extensions = [
 
 setup(
     name='dlo_hic',
-    version='0.0.1',
+    version='0.0.2',
     keywords='HiC',
     description='Tools for DLO-HiC data analyze',
     author='nanguage',
