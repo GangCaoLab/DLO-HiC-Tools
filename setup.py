@@ -21,6 +21,7 @@ requires = [
     "seaborn >= 0.8.1",
     "pandas >= 0.20.3",
     "pyfaidx >= 0.5.1"
+    "cooler >= 0.7.6"
 ]
 
 extensions = [
@@ -29,7 +30,7 @@ extensions = [
 
 setup(
     name='dlo_hic',
-    version='0.0.0',
+    version='0.0.1',
     keywords='HiC',
     description='Tools for DLO-HiC data analyze',
     author='nanguage',
@@ -48,7 +49,6 @@ setup(
     license='GNU GPLv3',
     classifiers=[
         'Natural Language :: English',
-        'License :: OSI Approved :: MIT License',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
