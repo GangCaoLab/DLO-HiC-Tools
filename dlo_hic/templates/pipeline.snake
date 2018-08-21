@@ -274,6 +274,8 @@ rule extract_rest_sites:
     threads: ncpu
     input: fasta
     output: rest_bed_gz, rest_bed_gz_idx
+    params:
+        llog = local_logger
     run:
         llog.log_stage_boundary("extract_rest_sites")
         rest = config['DATA']['restriction_site']
