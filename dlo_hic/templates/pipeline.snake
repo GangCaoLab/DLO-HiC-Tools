@@ -277,7 +277,6 @@ rule extract_rest_sites:
     params:
         llog = local_logger
     run:
-        llog.log_stage_boundary("extract_rest_sites")
         rest = config['DATA']['restriction_site']
         rest = rest.replace("*", "")
         dlo_help.extract_rest_sites.main(
