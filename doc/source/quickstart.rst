@@ -66,7 +66,7 @@ Or, if you use the cluster like pbs system, you can run like this:
     $ snakemake --cluster qsub -j 16
 
 
-In addition, you can visulize the pipeline by(need `Graphviz <https://www.graphviz.org/>`_ installed):
+In addition, you can visualize the pipeline(need `Graphviz <https://www.graphviz.org/>`_ installed):
 
 .. code-block::
 
