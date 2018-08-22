@@ -2,50 +2,41 @@
 utils for pipeline configuration.
 """
 
-from datetime import datetime
 import logging
 import os
+from os.path import join
+import re
+from collections import OrderedDict
 
 from .parse_text import is_comment
 
 
-__all__ = ['Timmer', 'SnakeFilter', 'parse_config', 'check_config']
+DIRS = {
+    "qc": "00-qc",
+   "log": "00-log",
+       1: "01-extpet",
+       2: "02-bedpe",
+       3: "03-nr",
+       4: "04-rr",
+       5: "05-pairs",
+       6: "06-result",
+}
 
 
-class Timmer(object):
-    """
-    Context manager for record key time points and delta.
-    """
-    def __init__(self, name, recorder):
-        """
-        :name: process name
-        :recorder: OrderedDict or filename,
-            where time point and delta to store.
-        """
-        self.name = name
-        self.recorder = recorder
+OUTPUT_FILE_TYPES = [
+    ["pet.fq"],
+    ["pet.bam", "pet.filtered.bam", "pet.bed", "uniq.bedpe"],
+    ["nr.bedpe", "nr.bedpe.err",],
+    ["rr.bedpe"],
+    ["pairs", "pairs.gz", "pairs.gz.px2"],
+    ["hic", "cool"],
+]
 
-    def __enter__(self):
-        self.before = datetime.now()
-        if isinstance(self.recorder, dict):
-            self.recorder['before-'+self.name] = self.before
-        else:
-            self.record_file = open(self.recorder, 'a')
-            oline = "before-{}\t{}\n".format(self.name, str(self.before))
-            self.record_file.write(oline)
 
-    def __exit__(self, exc_type, value, trackback):
-        self.after = datetime.now()
-        self.cost = self.after - self.before
-        if isinstance(self.recorder, dict):
-            self.recorder['after-'+self.name] = self.after
-            self.recorder['cost-'+self.name] = self.cost
-        else:
-            oline = "after-{}\t{}\n".format(self.name, str(self.after))
-            self.record_file.write(oline)
-            oline = "cost-{}\t{}\n".format(self.name, str(self.cost))
-            self.record_file.write(oline)
-            self.record_file.close()
+def make_result_dirs():
+    for d in DIRS.values():
+        if not os.path.exists(d):
+            os.mkdir(d)
 
 
 class SnakeFilter(logging.Filter):
@@ -59,7 +50,16 @@ class SnakeFilter(logging.Filter):
             return True
 
 
-def parse_config(config):
+def parse_config(config_file):
+    import configparser
+    config = configparser.ConfigParser()
+    config.read(config_file)
+    config_dict = config2dict(config)
+    check_config(config_dict)
+    return config_dict
+
+
+def config2dict(config):
     """
     Parse config dict, convert string fields to correct type.
     """
@@ -79,7 +79,18 @@ def check_config(config):
     """
     Check the parsed config.
     """
-    ## check required fields
+    check_required(config)
+    check_required(config)
+
+    ## other checking
+    # check result JuicerToolsJar if ResultFormats contain '.hic'
+    if '.hic' in config['RESULT']['resultformats']:
+        if not config['RESULT']['juicertoolsjar']:
+            raise IOError("RESULT/juicertoolsjar must be specified if resultformats contain '.hic'")
+
+
+def check_required(config):
+    """ check required fields"""
     required_fields = [
         'GLOBAL/loglevel',
         'DATA/input_dir',
@@ -95,7 +106,9 @@ def check_config(config):
         if not config[section][field]:
             raise IOError("%s/%s is required."%(section, field))
 
-    ## check files exist
+
+def check_files(config):
+    """ check files exist or not. """
     file_fields = [
         'GLOBAL/workingdir',
         'DATA/input_dir',
@@ -110,8 +123,148 @@ def check_config(config):
             if not os.path.exists(config[section][field]):
                 raise IOError("Path to %s/%s is not exist."%(section, field))
 
-    ## other checking
-    # check result JuicerToolsJar if ResultFormats contain '.hic'
-    if '.hic' in config['RESULT']['resultformats']:
-        if not config['RESULT']['juicertoolsjar']:
-            raise IOError("RESULT/juicertoolsjar must be specified if resultformats contain '.hic'")
+
+class PipelineSetting():
+    pass
+
+
+def load_global_setting(config):
+    setting = PipelineSetting()
+    setting.ncpu = config['GLOBAL']['numbercpus']
+    setting.input_dir = config['DATA']['input_dir']
+    setting.is_qc = config['PROCESSES']['qc']
+    setting.qc_report_prefix = config['QUALITY_CONTROL']['qc_report_prefix']
+    setting.qc_report_suffix = config['QUALITY_CONTROL']['report_format']
+    setting.working_dir = config['GLOBAL']['workingdir'] or "./"
+    setting.result_formats = config['RESULT']['resultformats']
+    setting.keep = config['PROCESSES']['keep']
+    return setting
+
+
+def get_input_fastq(input_dir):
+    def get_input_fastq_(wildcard):
+        possible = [".fq", ".fastq", ".fq.gz", ".fastq.gz"]
+        for suffix in possible:
+            path = os.path.join(input_dir, wildcard.sample + suffix)
+            if os.path.exists(path):
+                return path
+    return get_input_fastq_
+
+
+def fetch_all_fastq(input_dir):
+    result = []
+    for f in os.listdir(input_dir):
+        if f.endswith(".fq") or \
+           f.endswith(".fastq") or \
+           f.endswith(".fq.gz") or \
+           f.endswith(".fastq.gz"):
+           result.append(os.path.join(input_dir, f))
+    return result
+
+
+def get_samples_id(fastq_files):
+    result = []
+    for fq in fastq_files:
+        f = os.path.basename(fq)
+        sid = re.sub("\.fastq.gz$|\.fq.gz$|\.fastq$|\.fq$", "", f)
+        result.append(sid)
+    return result
+
+
+def local_logger(wildcard):
+    from dlo_hic.config import LOGGING_DATE_FMT, LOGGING_FMT
+    sample = wildcard.sample
+    logger = logging.getLogger("pipeline-"+sample)
+
+    if not logger.handlers:
+        log_file = DIRS['log'] + "/" + sample + ".log"
+        handler = logging.FileHandler(log_file)
+        formatter = logging.Formatter(
+            fmt=LOGGING_FMT,
+            datefmt=LOGGING_DATE_FMT)
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+        def log_stage_boundary(message, separator='=', num=30):
+            """
+            log a stage boundary.
+            """
+            logger.info(separator*num)
+            logger.info(message)
+            logger.info(separator*num)
+        logger.log_stage_boundary = log_stage_boundary
+
+    return logger
+
+
+def sub_dir(id_):
+    return DIRS[id_]
+
+
+def qc_logs(sample_id):
+    return OrderedDict([
+        ('extract_PET',       join(sub_dir(1), sample_id + '.qc.pet.txt')),
+        ('build_bedpe',       join(sub_dir(2), sample_id + '.qc.bedpe.txt')),
+        ('noise_reduce',      join(sub_dir(3), sample_id + '.qc.nr.txt')),
+        ('noise_reduce.err',  join(sub_dir(3), sample_id + '.qc.nr.err.txt')),
+        ('remove_redundancy', join(sub_dir(4), sample_id + '.qc.rr.txt')),
+        ('bedpe2pairs',       join(sub_dir(5), sample_id + '.qc.pairs.txt')),
+    ])
+
+
+def output_files(setting):
+    def is_keep(k):
+        if setting.keep == 'ALL':
+            return True
+        else:
+            return k in setting.keep
+
+    def temp_file(fname, key_):
+        """
+        mark file as temp file, if key_ not in config['PROCESSES']['keep']
+        """
+        from snakemake.rules import temp
+        if is_keep(key_):
+            return fname
+        else:
+            return temp(fname)
+
+    def output_files_(sample_id):
+
+        res = OrderedDict([])
+
+        def path(dir, sample, ext):
+            return join(dir, sample + '.' + ext)
+
+        for i in range(len(OUTPUT_FILE_TYPES)):
+            dir_ = DIRS[i+1]
+            for ext in OUTPUT_FILE_TYPES[i]:
+                if 'pet' in ext:
+                    ext1 = ext.replace('pet', 'pet1')
+                    ext2 = ext.replace('pet', 'pet2')
+                    res[ext1] = path(dir_, sample_id, ext1)
+                    res[ext2] = path(dir_, sample_id, ext2)
+                else:
+                    res[ext] = path(dir_, sample_id, ext)
+        
+        for k_, p_ in res.items():
+            res[k_] = temp_file(p_, k_)
+
+        return res
+    
+    return output_files_
+
+
+def get_targets(setting):
+    from snakemake.rules import expand
+
+    all_fastq = fetch_all_fastq(setting.input_dir)
+    all_sample = get_samples_id(all_fastq)
+
+    all_qc_report = expand(join(DIRS["qc"],  setting.qc_report_prefix+"{sample}."+setting.qc_report_suffix), sample=all_sample) if setting.is_qc else []
+    all_pairs     = expand(join(DIRS[5], "{sample}.pairs.gz"), sample=all_sample)
+    all_hic       = expand(join(DIRS[6], "{sample}.hic"),      sample=all_sample) if '.hic' in setting.result_formats else []
+    all_cool      = expand(join(DIRS[6], "{sample}.cool"),     sample=all_sample) if '.cool' in setting.result_formats else []
+    all_ = all_pairs + all_hic + all_cool + all_qc_report
+
+    return all_
