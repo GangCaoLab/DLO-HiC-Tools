@@ -208,7 +208,6 @@ def qc_logs(sample_id):
         ('noise_reduce',      join(sub_dir(3), sample_id + '.qc.nr.txt')),
         ('noise_reduce.err',  join(sub_dir(3), sample_id + '.qc.nr.err.txt')),
         ('remove_redundancy', join(sub_dir(4), sample_id + '.qc.rr.txt')),
-        ('bedpe2pairs',       join(sub_dir(5), sample_id + '.qc.pairs.txt')),
     ])
 
 
