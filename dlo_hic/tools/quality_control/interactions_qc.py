@@ -33,10 +33,10 @@ def log_counts(counts, log_file=None):
 
     else:
         with open(log_file, 'w') as f:
-            f.write("\t%s\t%d\n"%('inter-chromosome', inter))
-            f.write("\t%s\t%d\n"%('intra-chromosome', intra))
-            f.write("\t%s\t%d\n"%('long-range', long_range))
             f.write("total\t{}\n".format(total))
+            f.write("%s\t%d\n"%('inter-chromosome', inter))
+            f.write("%s\t%d\n"%('intra-chromosome', intra))
+            f.write("%s\t%d\n"%('long-range', long_range))
 
 
 class InteractionCounts(object):
