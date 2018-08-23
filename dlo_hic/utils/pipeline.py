@@ -288,4 +288,5 @@ def gen_chromosome_file(genomeid, out_path):
         msg = "If you are not use {}, you must ".format("/".join(chromosomes)) + \
               "specify the path to the chromosome file."
         raise ValueError(msg)
-    subprocess.check_call(["cp", genomeid2path[genomeid], out_path])
+    if not os.path.exists(out_path):
+        subprocess.check_call(["cp", genomeid2path[genomeid], out_path])
