@@ -310,15 +310,15 @@ rule to_hic:
         rules.bedpe2pairs.output
     output:
         hic = output_files("{sample}")['hic'],
-        log = sub_dir("log") + "/{sample}.juicertools.log"
     run:
         conf = config['RESULT']
+        log = sub_dir("log") + "/{sample}.juicertools.log"
 
         input_pairs = input[2]
         resolutions = config['RESULT']['resolutions']
         resolutions = ",".join([str(r) for r in resolutions])
 
-        with open(output.log, 'w') as f_log:
+        with open(log, 'w') as f_log:
             p = subprocess.check_call(
                 ['java', '-jar', conf['juicertoolsjar'], 'pre', input_pairs, output.hic, conf['genomeid'], '-r', resolutions],
                 stderr=f_log, stdout=f_log)
@@ -339,8 +339,8 @@ rule to_cooler:
         rules.bedpe2pairs.output
     output:
         cool = sub_dir(6) + '/{sample}.cool',
-        log  = sub_dir('log') + '/{sample}.cooler.log'
     run:
+        log  = sub_dir('log') + '/{sample}.cooler.log'
         conf = config['RESULT']
         chrom_file = conf['chromosomefile']
 
@@ -360,17 +360,13 @@ rule to_cooler:
             gen_chromosome_file(conf['chromosomefile'], chrom_file)
             is_gen_chrom_file = True
 
-        with open(bed, 'w') as f, open(output.log, 'w') as f_log:
+        with open(bed, 'w') as f, open(log, 'w') as f_log:
             subprocess.check_call(['cooler', 'makebins', chrom_file, binsize], stdout=f, stderr=f_log)
-            f_log.flush()
             subprocess.check_call(['cooler', 'cload', 'pairix', bed, input_pairs, outcool], stderr=f_log)
-            f_log.flush()
             if balance:
                 subprocess.check_call(['cooler', 'balance', '-p', str(setting.ncpu), outcool], stderr=f_log)
-                f_log.flush()
             if zoomify:
                 subprocess.check_call(['cooler', 'zoomify', '-p', str(setting.ncpu), outcool], stderr=f_log)
-                f_log.flush()
 
         subprocess.check_call(['rm', bed])
         if is_gen_chrom_file:
