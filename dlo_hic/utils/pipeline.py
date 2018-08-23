@@ -30,7 +30,7 @@ OUTPUT_FILE_TYPES = [
     ["nr.bedpe", "nr.bedpe.err",],
     ["rr.bedpe"],
     ["pairs", "pairs.gz", "pairs.gz.px2"],
-    ["hic", "cool"],
+    ["hic", "cool", "mcool"],
 ]
 
 
@@ -257,14 +257,15 @@ def output_files(setting):
 
 def get_targets(setting):
     from snakemake.rules import expand
+    output_files_ = output_files(setting)
 
     all_fastq = fetch_all_fastq(setting.input_dir)
     all_sample = get_samples_id(all_fastq)
 
     all_qc_report = expand(join(DIRS["qc"],  setting.qc_report_prefix+"{sample}."+setting.qc_report_suffix), sample=all_sample) if setting.is_qc else []
-    all_pairs     = expand(join(DIRS[5], "{sample}.pairs.gz"), sample=all_sample)
-    all_hic       = expand(join(DIRS[6], "{sample}.hic"),      sample=all_sample) if '.hic' in setting.result_formats else []
-    all_cool      = expand(join(DIRS[6], "{sample}.cool"),     sample=all_sample) if '.cool' in setting.result_formats else []
+    all_pairs     = expand(output_files_("{sample}")['pairs.gz'], sample=all_sample)
+    all_hic       = expand(output_files_("{sample}")['hic'],      sample=all_sample) if '.hic' in setting.result_formats else []
+    all_cool      = expand(output_files_("{sample}")['cool'],     sample=all_sample) if '.cool' in setting.result_formats else []
     all_ = all_pairs + all_hic + all_cool + all_qc_report
 
     return all_
