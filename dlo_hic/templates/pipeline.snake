@@ -362,11 +362,15 @@ rule to_cooler:
 
         with open(bed, 'w') as f, open(output.log, 'w') as f_log:
             subprocess.check_call(['cooler', 'makebins', chrom_file, binsize], stdout=f, stderr=f_log)
+            f_log.flush()
             subprocess.check_call(['cooler', 'cload', 'pairix', bed, input_pairs, outcool], stderr=f_log)
+            f_log.flush()
             if balance:
                 subprocess.check_call(['cooler', 'balance', '-p', str(setting.ncpu), outcool], stderr=f_log)
+                f_log.flush()
             if zoomify:
                 subprocess.check_call(['cooler', 'zoomify', '-p', str(setting.ncpu), outcool], stderr=f_log)
+                f_log.flush()
 
         subprocess.check_call(['rm', bed])
         if is_gen_chrom_file:
