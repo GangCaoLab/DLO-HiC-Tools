@@ -281,7 +281,6 @@ def chromosome_files():
     return res
 
 
-
 def gen_chromosome_file(genomeid, out_path):
     genomeid2path =  chromosome_files()
     chromosomes = list(genomeid2path.keys())
