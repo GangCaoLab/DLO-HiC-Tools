@@ -310,15 +310,16 @@ rule to_hic:
         rules.bedpe2pairs.output
     output:
         hic = output_files("{sample}")['hic'],
+    params:
+        log = sub_dir("log") + "/{sample}.juicertools.log"
     run:
         conf = config['RESULT']
-        log = sub_dir("log") + "/{sample}.juicertools.log"
 
         input_pairs = input[2]
         resolutions = config['RESULT']['resolutions']
         resolutions = ",".join([str(r) for r in resolutions])
 
-        with open(log, 'w') as f_log:
+        with open(params.log, 'w') as f_log:
             p = subprocess.check_call(
                 ['java', '-jar', conf['juicertoolsjar'], 'pre', input_pairs, output.hic, conf['genomeid'], '-r', resolutions],
                 stderr=f_log, stdout=f_log)
@@ -338,18 +339,20 @@ rule to_cooler:
     input:
         rules.bedpe2pairs.output
     output:
-        cool = sub_dir(6) + '/{sample}.cool',
-    run:
+        [ sub_dir(6) + '/{sample}.cool' ] +\ 
+        [ sub_dir(6) + '/{sample}.mcool' ] if config['RESULT']['zoomify'] else []
+    params:
         log  = sub_dir('log') + '/{sample}.cooler.log'
+    run:
         conf = config['RESULT']
         chrom_file = conf['chromosomefile']
 
-        binsize = str(config['RESULT']['binsize'])
-        balance = config['RESULT']['balance']
-        zoomify = config['RESULT']['zoomify']
+        binsize = str(conf['binsize'])
+        balance = conf['balance']
+        zoomify = conf['zoomify']
 
         input_pairs = input[0]
-        outcool = output.cool
+        outcool = output[0]
         bed = outcool + ".tmp.bed"
 
         is_gen_chrom_file = False
@@ -360,7 +363,7 @@ rule to_cooler:
             gen_chromosome_file(conf['chromosomefile'], chrom_file)
             is_gen_chrom_file = True
 
-        with open(bed, 'w') as f, open(log, 'w') as f_log:
+        with open(bed, 'w') as f, open(params.log, 'w') as f_log:
             subprocess.check_call(['cooler', 'makebins', chrom_file, binsize], stdout=f, stderr=f_log)
             subprocess.check_call(['cooler', 'cload', 'pairix', bed, input_pairs, outcool], stderr=f_log)
             if balance:
