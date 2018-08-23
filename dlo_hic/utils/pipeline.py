@@ -7,6 +7,7 @@ import os
 from os.path import join
 import re
 from collections import OrderedDict
+import subprocess
 
 from .parse_text import is_comment
 
@@ -267,3 +268,25 @@ def get_targets(setting):
     all_ = all_pairs + all_hic + all_cool + all_qc_report
 
     return all_
+
+
+def chromosome_files():
+    here = os.path.dirname(os.path.abspath(__file__))
+    template_path = join(here, "../templates/chromosome_length")
+    files = os.listdir(template_path)
+    file2id = lambda fname: fname.split(".")[0]
+    res = {
+        file2id(f): join(template_path, f) for f in files
+    }
+    return res
+
+
+
+def gen_chromosome_file(genomeid, out_path):
+    genomeid2path =  chromosome_files()
+    chromosomes = list(genomeid2path.keys())
+    if genomeid not in genomeid2path:
+        msg = "If you are not use {}, you must ".format("/".join(chromosomes)) + \
+              "specify the path to the chromosome file."
+        raise ValueError(msg)
+    subprocess.check_call(["cp", genomeid2path[genomeid], out_path])

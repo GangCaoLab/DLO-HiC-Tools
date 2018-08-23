@@ -342,6 +342,7 @@ rule to_cooler:
         log  = sub_dir('log') + '/{sample}.cooler.log'
     run:
         conf = config['RESULT']
+        chrom_file = conf['chromosomefile']
 
         binsize = str(config['RESULT']['binsize'])
         balance = config['RESULT']['balance']
@@ -351,8 +352,16 @@ rule to_cooler:
         outcool = output.cool
         bed = outcool + ".tmp.bed"
 
+        is_gen_chrom_file = False
+        chrom_files = chromosome_files()
+        if chrom_file in chrom_files:
+            chrom_id = chrom_file
+            chrom_file = sub_dir(6) + '/' + os.path.split(chrom_files[chrom_id])[1]
+            gen_chromosome_file(conf['chromosomefile'], chrom_file)
+            is_gen_chrom_file = True
+
         with open(bed, 'w') as f, open(output.log, 'w') as f_log:
-            subprocess.check_call(['cooler', 'makebins', conf['chromosomefile'], binsize], stdout=f, stderr=f_log)
+            subprocess.check_call(['cooler', 'makebins', chrom_file, binsize], stdout=f, stderr=f_log)
             subprocess.check_call(['cooler', 'cload', 'pairix', bed, input_pairs, outcool], stderr=f_log)
             if balance:
                 subprocess.check_call(['cooler', 'balance', '-p', str(setting.ncpu), outcool], stderr=f_log)
@@ -360,6 +369,8 @@ rule to_cooler:
                 subprocess.check_call(['cooler', 'zoomify', '-p', str(setting.ncpu), outcool], stderr=f_log)
 
         subprocess.check_call(['rm', bed])
+        if is_gen_chrom_file:
+            subprocess.check_call(['rm', chrom_file])
 
 
 rule qc_gen_report:

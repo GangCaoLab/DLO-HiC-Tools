@@ -1,2 +1,3 @@
 include dlo_hic/templates/*
+include dlo_hic/templates/chromosome_length/*
 include LICENSE
