@@ -340,7 +340,7 @@ rule to_cooler:
         rules.bedpe2pairs.output
     output:
         [ output_files("{sample}")['cool'] ] +\ 
-        [ output_files("{sample}")['mcool'] ] if config['RESULT']['zoomify'] else []
+        ([ output_files("{sample}")['mcool'] ] if config['RESULT']['zoomify'] else [])
     params:
         log  = sub_dir('log') + '/{sample}.cooler.log'
     run:
