@@ -217,7 +217,11 @@ def output_files(setting):
         if setting.keep == 'ALL':
             return True
         else:
-            return k in setting.keep
+            if k in OUTPUT_FILE_TYPES[-2] or k in OUTPUT_FILE_TYPES[-1]:
+                # keep the result files
+                return True
+            else:
+                return k in setting.keep
 
     def temp_file(fname, key_):
         """
