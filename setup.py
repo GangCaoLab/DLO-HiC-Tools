@@ -16,11 +16,18 @@ extensions = [
     Extension('dlo_hic.utils.align', sources=['dlo_hic/utils/align.pyx'])
 ]
 
+keywords = [
+    "DLO Hi-C",
+    "Hi-C",
+    "bioinformatics",
+]
+
 
 def get_version():
     with open("dlo_hic/__init__.py") as f:
         for line in f.readlines():
-            m = re.match("__version__ = '([^']+)'", line)
+            line = line.strip()
+            m = re.match("__version__ ?= ?['\"]([^']+)['\"]", line)
             if m:
                 ver = m.group(1)
                 return ver
@@ -44,15 +51,16 @@ def get_install_requires():
 setup(
     name='dlo_hic',
     version=get_version(),
-    keywords='HiC',
     description='Tools for DLO-HiC data analyze',
     long_description=get_long_description(),
     author='nanguage',
     author_email='nanguage@yahoo.com',
     url='https://github.com/Nanguage/DLO-HiC-Tools',
+    keywords=keywords,
     packages=find_packages(),
     scripts=['scripts/dlohic'],
     include_package_data=True,
+    zip_safe=False,
     package_dir={'dlo_hic': 'dlo_hic'},
     install_requires=get_install_requires(),
     ext_modules=cythonize(extensions),

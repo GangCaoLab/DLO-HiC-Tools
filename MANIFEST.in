@@ -1,4 +1,6 @@
 include dlo_hic/templates/*
 include dlo_hic/templates/chromosome_length/*
+
 include LICENSE
+include README.rst
 include requirements.txt
