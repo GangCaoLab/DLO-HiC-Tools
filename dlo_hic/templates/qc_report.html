@@ -1,1 +1,67 @@
+<%def name="composition(qc_dict)">
+    <table class="qc_table">
+        <tr>
+            <th></th>
+            <th>Reads number</th>
+            <th>Ratio</th>
+        </tr>
 
+        <%
+            total_key = 'total' if 'total' in qc_dict else 'all'
+            total = qc_dict.pop(total_key)
+        %>
+
+        ${composition_table(qc_dict, total)}
+
+    </table>
+    <p> Total reads: ${total} </p>
+</%def>
+
+<%def name="composition_table(qc_dict, total)">
+    % for item, val in qc_dict.items():
+    <%
+        ratio = float(val)/float(total)
+        ratio_str = "{:.2%}".format(ratio)
+    %>
+    <tr>
+        <td>${item}</td>
+        <td>${val}</td>
+        <td>${ratio_str}</td>
+    </tr>
+    % endfor
+</%def>
+
+<%def name="reads_compositions(qc_contents)">
+    <div class="reads_compositions">
+        % for step, qc_dict in qc_contents.items():
+        <h3>Step: ${step}</h3>
+            <div class="reads_compositions">
+                ${composition(qc_dict)}
+            </div>
+        % endfor
+    </div>
+</%def>
+
+<html>
+    <head>
+       <style>
+        <%include file="/qc_report.css" />
+       </style>
+    </head>
+
+    <body>
+        <h1>DLO-HiC-Tools Quality Control Report</h1>
+
+        <p>Sample: ${sample_id}</p>
+
+        <div>
+            <h2>Reads compositions of each step's result</h2>
+            ${reads_compositions(qc_contents)}
+        </div>
+
+        <div>
+            <h2>Tendency</h2>
+        </div>
+    </body>
+
+</html>
