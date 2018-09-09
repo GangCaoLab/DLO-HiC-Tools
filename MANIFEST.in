@@ -1,5 +1,4 @@
-include dlo_hic/templates/*
-include dlo_hic/templates/chromosome_length/*
+graft dlo_hic
 
 include LICENSE
 include README.rst
