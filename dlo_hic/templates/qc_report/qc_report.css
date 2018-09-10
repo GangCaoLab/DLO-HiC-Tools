@@ -1,3 +1,32 @@
+p, h2, h3, h4 {
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+div.header, div.content {
+    width: 800px;
+    margin:0 auto;
+}
+
+.content {
+    width: 780px;
+    padding: 10px;
+    margin: 0;
+}
+
+.header div{
+    width: 700px;
+    background-color: #F1F1F1;
+    text-align: center;
+    padding: 50px;
+    margin:0;
+}
+
+.header h1 {
+    font-family: "Courier New", Courier, monospace;
+    font-size: 55px;
+    margin-bottom: 10px;
+}
+
 table {
     font-family: arial, sans-serif;
     border-collapse: collapse;
@@ -8,8 +37,33 @@ td, th {
     border: 1px solid #dddddd;
     text-align: left;
     padding: 8px;
+    height: 40px;
 }
 
 tr:nth-child(even) {
     background-color: #dddddd;
+}
+
+div.column {
+    float: left;
+}
+
+div.column.left {
+    width: 70%;
+}
+
+div.column.right {
+    width: 30%;
+}
+
+.row:after {
+    content: "";
+    display: table;
+    clear: both;
+}
+
+.piechart svg {
+    display: block;
+    margin-left: auto;
+    margin-right: 0;
 }

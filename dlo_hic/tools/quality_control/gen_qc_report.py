@@ -67,7 +67,7 @@ def render_txt_report(sample_id, qc_contents):
 
 def render_html_report(sample_id, qc_contents):
     here = os.path.dirname(os.path.abspath(__file__))
-    template_path = join(here, "../../templates/qc_report/qc_report.html")
+    template_path = join(here, "../../templates/qc_report/qc_report.mako")
     template_dir = dirname(template_path)
     lookup = TemplateLookup(directories=[template_dir],
                             input_encoding='utf-8',
