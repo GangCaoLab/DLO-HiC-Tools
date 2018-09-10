@@ -83,6 +83,7 @@ def render_html_report(sample_id, qc_contents):
 @click.argument("output-dir")
 @click.option("--out-format",
     default="html",
+    type=click.Choice(['html', 'txt']),
     help="The format of quility control report, 'html' or 'txt'")
 def _main(pipe_workdir, output_dir, out_format):
     for s_id in get_sample_ids(pipe_workdir):

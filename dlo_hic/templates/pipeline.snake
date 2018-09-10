@@ -379,12 +379,14 @@ rule to_cooler:
 rule qc_gen_report:
     # --------------------
     # generate QC report
-    # 
+    #
+    #  Tool Interface:
+    #     ( pipe_workdir, output_dir, out_format )
     # --------------------
     threads: 1
     input:
         qc_logs('{sample}').values()
     output:
-        sub_dir("qc") + "/" + setting.qc_report_prefix + "{sample}." + setting.qc_report_suffix
+        sub_dir("qc") + "/" + "{sample}." + setting.qc_report_format
     run:
-        subprocess.check_call(['touch', output[0]])
+        dlo_qc.gen_qc_report.main(setting.working_dir, sub_dir("qc"), setting.qc_report_format)

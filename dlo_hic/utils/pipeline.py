@@ -134,8 +134,7 @@ def load_global_setting(config):
     setting.ncpu = config['GLOBAL']['numbercpus']
     setting.input_dir = config['DATA']['input_dir']
     setting.is_qc = config['PROCESSES']['qc']
-    setting.qc_report_prefix = config['QUALITY_CONTROL']['qc_report_prefix']
-    setting.qc_report_suffix = config['QUALITY_CONTROL']['report_format']
+    setting.qc_report_format = config['QUALITY_CONTROL']['report_format']
     setting.working_dir = config['GLOBAL']['workingdir'] or "./"
     setting.result_formats = config['RESULT']['resultformats']
     setting.keep = config['PROCESSES']['keep']
@@ -266,7 +265,7 @@ def get_targets(setting):
     all_fastq = fetch_all_fastq(setting.input_dir)
     all_sample = get_samples_id(all_fastq)
 
-    all_qc_report = expand(join(DIRS["qc"],  setting.qc_report_prefix+"{sample}."+setting.qc_report_suffix), sample=all_sample) if setting.is_qc else []
+    all_qc_report = expand(join(DIRS["qc"],  "{sample}."+setting.qc_report_format), sample=all_sample) if setting.is_qc else []
     all_pairs     = expand(output_files_("{sample}")['pairs.gz'], sample=all_sample)
     all_hic       = expand(output_files_("{sample}")['hic'],      sample=all_sample) if '.hic' in setting.result_formats else []
     all_cool      = expand(output_files_("{sample}")['cool'],     sample=all_sample) if '.cool' in setting.result_formats else []
