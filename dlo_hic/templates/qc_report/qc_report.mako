@@ -58,7 +58,8 @@
             var dataset = ${dataset}
             var stepName = "${step}"
 
-            <%include file="/piechart.js" />
+            plotPieChart(total, dataset, stepName)
+
         </script>
     </div>
 </%def>
@@ -77,12 +78,16 @@
 
 <html>
     <head>
-       <style>
-        <%include file="/qc_report.css" />
-       </style>
-       <script>
-        <%include file="/d3.v4.min.js" />
-       </script>
+        <style>
+            <%include file="/qc_report.css" />
+        </style>
+        <script>
+            <%include file="/d3.v4.min.js" />
+        </script>
+        <script>
+            <%include file="/piechart.js" />
+        </script>
+
     </head>
 
     <body>
