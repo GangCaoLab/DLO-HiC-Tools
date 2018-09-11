@@ -20,8 +20,8 @@ log.setLevel(logging.DEBUG)
 
 @click.group()
 @click.option("--log-file", help="The log file, default output to stdout.")
-@click.option("--debug/--no-debug", default=True,
-    help="If debug will print all information, default True.")
+@click.option("--debug/--no-debug", default=False,
+    help="If debug will print all information, default False.")
 def cli(log_file, debug):
     """ DLO HiC Tools command line interface. """
     log = logging.getLogger() # root logger
