@@ -20,10 +20,10 @@ console.setFormatter(formatter)
 # parse config
 config_file = "./pipeline_config.ini"
 config = parse_config(config_file)
-if config['GLOBAL']['loglevel'] <= 10:
+if config['GLOBAL']['log_level'] <= 10:
     pipeline_log.debug(config)
 
-root_log.setLevel(config['GLOBAL']['loglevel'])
+root_log.setLevel(config['GLOBAL']['log_level'])
 
 # load global settings
 setting = load_global_setting(config)
@@ -73,7 +73,7 @@ rule extract_PET:
         # run tool
         dlo_main.extract_PET.log = llog
         dlo_main.extract_PET.main(
-            input[0], output.pet1, output.pet2, conf['linker-a'], conf['linker-b'],
+            input[0], output.pet1, output.pet2, conf['linker_a'], conf['linker_b'],
             conf['mismatch'], rest, conf['phred'],
             setting.ncpu, conf['pet_len'], output.qc_log)
 
@@ -108,7 +108,7 @@ rule build_bedpe:
         # load parameters
         conf = config['BUILD_BEDPE']
 
-        bwa_index = config['DATA']['bwaindexprefix']
+        bwa_index = config['DATA']['bwa_index_prefix']
 
         # run tool
         dlo_main.build_bedpe.log = llog
@@ -298,6 +298,29 @@ rule bedpe2pairs:
         dlo_main.bedpe2pairs.main(input[0], out, keep_)
 
 
+rule qc_pairs:
+    # --------------------
+    #  pairs quility control
+    #
+    #  Tool Interfaces:
+    #
+    #  1. chrs_interactions:
+    #     ( input, chromosome_file, output )
+    # --------------------
+    threads: 1
+    input:
+        rules.bedpe2pairs.output
+    output:
+        chr_interactions = qc_logs('{sample}')['bedpe2pairs']['chr_interactions']
+    run:
+        chrom_file = setting.chromosome_file
+        supported = supported_chromosomes()
+        if chrom_file in supported:
+            chrom_id = chrom_file
+            chrom_file = supported[chrom_id]
+        dlo_qc.chr_interactions.main(input[0], chrom_file, output.chr_interactions)
+
+
 rule to_hic:
     # --------------------
     # convert .pairs to .hic file
@@ -321,7 +344,7 @@ rule to_hic:
 
         with open(params.log, 'w') as f_log:
             p = subprocess.check_call(
-                ['java', '-jar', conf['juicertoolsjar'], 'pre', input_pairs, output.hic, conf['genomeid'], '-r', resolutions],
+                ['java', '-jar', conf['juicer_tools_jar'], 'pre', input_pairs, output.hic, setting.chromosome_file, '-r', resolutions],
                 stderr=f_log, stdout=f_log)
 
 
@@ -344,9 +367,9 @@ rule to_cooler:
     params:
         log  = sub_dir('log') + '/{sample}.cooler.log'
     run:
-        conf = config['RESULT']
-        chrom_file = conf['chromosomefile']
+        chrom_file = setting.chromosome_file
 
+        conf = config['RESULT']
         binsize = str(conf['binsize'])
         balance = conf['balance']
         zoomify = conf['zoomify']
@@ -355,13 +378,10 @@ rule to_cooler:
         outcool = output[0]
         bed = outcool + ".tmp.bed"
 
-        is_gen_chrom_file = False
-        chrom_files = chromosome_files()
-        if chrom_file in chrom_files:
+        supported = supported_chromosomes()
+        if chrom_file in supported:
             chrom_id = chrom_file
-            chrom_file = sub_dir(6) + '/' + os.path.split(chrom_files[chrom_id])[1]
-            gen_chromosome_file(conf['chromosomefile'], chrom_file)
-            is_gen_chrom_file = True
+            chrom_file = supported[chrom_id]
 
         with open(bed, 'w') as f, open(params.log, 'w') as f_log:
             subprocess.check_call(['cooler', 'makebins', chrom_file, binsize], stdout=f, stderr=f_log)
@@ -370,10 +390,6 @@ rule to_cooler:
                 subprocess.check_call(['cooler', 'balance', '-p', str(setting.ncpu), outcool], stderr=f_log)
             if zoomify:
                 subprocess.check_call(['cooler', 'zoomify', '-p', str(setting.ncpu), outcool], stderr=f_log)
-
-        subprocess.check_call(['rm', bed])
-        if is_gen_chrom_file:
-            subprocess.check_call(['rm', chrom_file])
 
 
 rule qc_gen_report:
@@ -385,7 +401,7 @@ rule qc_gen_report:
     # --------------------
     threads: 1
     input:
-        qc_logs('{sample}').values()
+        qc_log_files('{sample}')
     output:
         sub_dir("qc") + "/" + "{sample}." + setting.qc_report_format
     run:

@@ -85,21 +85,22 @@ def check_config(config):
 
     ## other checking
     # check result JuicerToolsJar if ResultFormats contain '.hic'
-    if '.hic' in config['RESULT']['resultformats']:
-        if not config['RESULT']['juicertoolsjar']:
+    if '.hic' in config['RESULT']['result_formats']:
+        if not config['RESULT']['juicer_tools_jar']:
             raise IOError("RESULT/juicertoolsjar must be specified if resultformats contain '.hic'")
 
 
 def check_required(config):
     """ check required fields"""
     required_fields = [
-        'GLOBAL/loglevel',
+        'GLOBAL/log_level',
         'DATA/input_dir',
         'DATA/fasta',
-        'DATA/bwaindexprefix',
+        'DATA/bwa_index_prefix',
         'DATA/restriction_site',
         'DATA/restriction_name',
-        'EXTRACT_PET/linker-a',
+        'DATA/chromosome_file',
+        'EXTRACT_PET/linker_a',
     ]
 
     for require in required_fields:
@@ -111,11 +112,11 @@ def check_required(config):
 def check_files(config):
     """ check files exist or not. """
     file_fields = [
-        'GLOBAL/workingdir',
+        'GLOBAL/working_dir',
         'DATA/input_dir',
         'DATA/fasta',
         'NOISE_REDUCE/restriction_sites_bed',
-        'RESULT/juicertoolsjar',
+        'RESULT/juicer_tools_jar',
     ]
 
     for file_ in file_fields:
@@ -131,12 +132,13 @@ class PipelineSetting():
 
 def load_global_setting(config):
     setting = PipelineSetting()
-    setting.ncpu = config['GLOBAL']['numbercpus']
+    setting.ncpu = config['GLOBAL']['number_cpus']
     setting.input_dir = config['DATA']['input_dir']
-    setting.is_qc = config['PROCESSES']['qc']
+    setting.chromosome_file = config['DATA']['chromosome_file']
+    setting.is_qc = config['PROCESSES']['is_qc']
     setting.qc_report_format = config['QUALITY_CONTROL']['report_format']
-    setting.working_dir = config['GLOBAL']['workingdir'] or "./"
-    setting.result_formats = config['RESULT']['resultformats']
+    setting.working_dir = config['GLOBAL']['working_dir'] or "./"
+    setting.result_formats = config['RESULT']['result_formats']
     setting.keep = config['PROCESSES']['keep']
     return setting
 
@@ -208,7 +210,21 @@ def qc_logs(sample_id):
         ('noise_reduce',      join(sub_dir(3), sample_id + '.qc.nr.txt')),
         ('noise_reduce.err',  join(sub_dir(3), sample_id + '.qc.nr.err.txt')),
         ('remove_redundancy', join(sub_dir(4), sample_id + '.qc.rr.txt')),
+        ('bedpe2pairs',       {
+            "chr_interactions": join(sub_dir(5), sample_id + '.chr_interactions.csv'),
+        }),
     ])
+
+
+def qc_log_files(sample_id):
+    res = []
+    for item in qc_logs(sample_id).values():
+        if isinstance(item, dict):
+            for i in item.values():
+                res.append(i)
+        else:
+            res.append(item)
+    return res
 
 
 def output_files(setting):
@@ -274,7 +290,7 @@ def get_targets(setting):
     return all_
 
 
-def chromosome_files():
+def supported_chromosomes():
     here = os.path.dirname(os.path.abspath(__file__))
     template_path = join(here, "../templates/chromosome_length")
     files = os.listdir(template_path)
@@ -285,8 +301,9 @@ def chromosome_files():
     return res
 
 
-def gen_chromosome_file(genomeid, out_path):
-    genomeid2path =  chromosome_files()
+def copy_chromosome_file(genomeid, out_path):
+    """ copy a chromosome file from template """
+    genomeid2path =  supported_chromosomes()
     chromosomes = list(genomeid2path.keys())
     if genomeid not in genomeid2path:
         msg = "If you are not use {}, you must ".format("/".join(chromosomes)) + \

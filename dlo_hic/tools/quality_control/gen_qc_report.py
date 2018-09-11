@@ -32,7 +32,8 @@ def get_sample_ids(pipe_workdir):
 
 def get_qc_contents(pipe_workdir, sample_id):
     res = OrderedDict()
-    for step, qc_file in qc_logs(sample_id).items():
+    reads_counts_qc = list(qc_logs(sample_id).items())[:5]
+    for step, qc_file in reads_counts_qc:
         qc_path = join(pipe_workdir, qc_file)
         res[step] = load_qc(qc_path)
     return res
