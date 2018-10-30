@@ -111,7 +111,8 @@ def add_base_to_PET(PET, base, base_qual=38):
     PET.letter_annotations['phred_quality'] = quality
 
 
-def extract_PET(record, span, rest, PET_len=None, SE=True):
+def extract_PET(record, span, rest,
+                PET_len=None, adapter=("", 0)):
     """
     extract PET in matched record.
     """
@@ -127,29 +128,28 @@ def extract_PET(record, span, rest, PET_len=None, SE=True):
             e = len(record)
         record = record[s:e+1]
 
-    if not SE:
-        PET = record[:start]
-        # add the end base to PET sequence
-        add_base_to_PET(PET, rest[2])
-        return PET
-    else:
-        PET1 = record[:start]
-        PET2 = record[end+1:]
-        PET2 = reverse_complement_record(PET2)
-        add_base_to_PET(PET1, rest[2])
-        add_base_to_PET(PET2, rest[2])
-        return PET1, PET2
+    PET1 = record[:start]
+    PET2 = record[end+1:]
+
+    adapter, mismatch = adapter
+    if adapter:
+        PET2 = cut_adapter(PET2, adapter, mismatch_threshold=mismatch)
+
+    PET2 = reverse_complement_record(PET2)
+    add_base_to_PET(PET1, rest[2])
+    add_base_to_PET(PET2, rest[2])
+    return PET1, PET2
 
 
-def align_linker(seq, linker, mismatch_threshold):
+def align_(seq, pattern, mismatch_threshold):
     """
-    align linker within seq, use local alignment.
+    align pattern within seq, use local alignment.
     if not matched return False.
     """
-    err_rate = float(mismatch_threshold)/len(linker)
+    err_rate = float(mismatch_threshold)/len(pattern)
     aligner = Aligner(seq, err_rate)
-    aligner.min_overlap = len(linker) - mismatch_threshold
-    alignment = aligner.locate(linker)
+    aligner.min_overlap = len(pattern) - mismatch_threshold
+    alignment = aligner.locate(pattern)
     if not alignment:
         # linker can't alignment to seq
         return False
@@ -157,26 +157,37 @@ def align_linker(seq, linker, mismatch_threshold):
     return (start, end-1)
 
 
-def match_linker(seq, linker, mismatch_threshold):
+def match_(seq, pattern, mismatch_threshold):
     """
-    linker match algorithm.
+    match algorithm.
     if not matched return False.
     """
     if mismatch_threshold == 0:
-        start = seq.find(linker)
+        start = seq.find(pattern)
         if start == -1:
             return False
-        end = start + len(linker)
+        end = start + len(pattern)
         span = (start, end)
         return span
 
-    span = align_linker(seq, linker, mismatch_threshold)
+    span = align_(seq, pattern, mismatch_threshold)
     return span
+
+
+def cut_adapter(seq, adapter_pattern, mismatch_threshold):
+    """ cut the adapter sequence """
+    matched = match_(str(seq.seq), adapter_pattern, mismatch_threshold)
+    if not matched:
+        clean_seq = seq
+    else:
+        start, end = matched
+        clean_seq = seq[:start]
+    return clean_seq
 
 
 def worker(task_queue, counter, lock, # objects for multi process work
            out1, out2, # output file name
-           phred, linkers, mismatch, rest, PET_len): # parameters
+           phred, linkers, mismatch, rest, PET_len, adapter):  # parameters
     """ stream processing(PET extract) task """
     from queue import Empty
     current = mp.current_process().pid
@@ -189,7 +200,7 @@ def worker(task_queue, counter, lock, # objects for multi process work
     fastq_writer_1.write_header()
     fastq_writer_2.write_header()
 
-    all, inter, intra, unmatch = 0,0,0,0 # variables for count reads
+    all, inter, intra, unmatch = 0,0,0,0  # variables for count reads
     while 1:
         records = task_queue.get()
         if records is None:
@@ -220,12 +231,12 @@ def worker(task_queue, counter, lock, # objects for multi process work
             all += 1
             seq = str(r.seq) # extract reocrd's sequence
             for ltype, linker in linkers.items():
-                span = match_linker(seq, linker, mismatch)
+                span = match_(seq, linker, mismatch)
                 if span: # linker matched
                     if   (ltype == 'A-A') or (ltype == 'B-B'):
                         # intra-molcular interaction
                         intra += 1
-                        PET_1, PET_2 = extract_PET(r, span, rest, PET_len, SE=True)
+                        PET_1, PET_2 = extract_PET(r, span, rest, PET_len, adapter)
                         fastq_writer_1.write_record(PET_1)
                         fastq_writer_2.write_record(PET_2)
                     elif (ltype == 'A-B') or (ltype == 'B-A'):
@@ -277,13 +288,17 @@ def fastq_writer(file_out, phred):
     help="The expected length of PET sequence," +\
          "if 0 (default) will not limit length," +\
          "NOTE: Adapter for sequencing must be trimmed in this situation.")
+@click.option("--cut-adapter", "adapter",
+    help="If specified, Cut the adapter sequence in the PET2.")
+@click.option("--mismatch-adapter", "mismatch_adapter", default=3,
+    help="mismatch threshold in alignment in cut adapter step.")
 @click.option("--log-file",
     default="PET_count.txt",
     help="Sperate log file record reads count information. default PET_count.txt")
 def _main(fastq, out1, out2,
         linker_a, linker_b,
         mismatch, rest, phred, processes, PET_len,
-        log_file):
+        adapter, mismatch_adapter, log_file):
     """
     Extract the PETs sequences on both sides of linker sequence.
 
@@ -316,7 +331,7 @@ def _main(fastq, out1, out2,
 
     workers = [mp.Process(target=worker, 
                           args=(task_queue, counter, lock, out1+".tmp.%d"%i, out2+".tmp.%d"%i, phred,
-                                linkers, mismatch, rest_site, PET_len))
+                                linkers, mismatch, rest_site, PET_len, (adapter, mismatch_adapter)))
                for i in range(processes)]
 
     for w in workers:
