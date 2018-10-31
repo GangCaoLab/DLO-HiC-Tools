@@ -51,7 +51,8 @@ rule extract_PET:
     #  Tool Interface:
     #     ( fastq, out1, out2,
     #       linker_a, linker_b,
-    #       mismatch, rest, phred, processes, PET_len,
+    #       mismatch, rest, phred, processes, PET_len_range,
+    #       adapter, mismatch_adapter,
     #       log_file )
     # --------------------
     threads: setting.ncpu
@@ -75,7 +76,9 @@ rule extract_PET:
         dlo_main.extract_PET.main(
             input[0], output.pet1, output.pet2, conf['linker_a'], conf['linker_b'],
             conf['mismatch'], rest, conf['phred'],
-            setting.ncpu, conf['pet_len'], output.qc_log)
+            setting.ncpu, conf['pet_len_range'],
+            conf['adapter'], conf['mismatch_adapter'],
+            output.qc_log)
 
 
 rule build_bedpe:

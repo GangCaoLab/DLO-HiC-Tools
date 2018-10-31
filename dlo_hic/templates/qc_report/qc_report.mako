@@ -76,6 +76,19 @@
     </div>
 </%def>
 
+<%def name="chr_interactions(qc_contents)">
+    <%
+        # Convert Python dict to JS objects Array literal.
+        dataset = str(qc_contents)
+    %>
+    <div class="chr_interactions heatmap">
+        <script>
+            var dataset = ${dataset}
+            <%include file="/heatmap.js" />
+        </script>
+    </div>
+</%def>
+
 <html>
     <head>
         <style>
@@ -102,11 +115,14 @@
 
         <div class="compositions">
             <h2>Reads compositions of each step's result</h2>
-            ${reads_compositions(qc_contents)}
+            ${reads_compositions(qc_contents['reads_counts'])}
+
+            <h3>Tendency</h3>
         </div>
 
-        <div>
-            <h2>Tendency</h2>
+        <div class="chr_interactions">
+            <h2>Interaction between chromosomes</h2>
+            ${chr_interactions(qc_contents['chr_interactions'])}
         </div>
 
         </div>
