@@ -1,14 +1,10 @@
 import re
 import io
-import sys
-import json
 import gzip
 import logging
 import itertools
 import subprocess
-from math import floor
 from copy import copy
-import time
 import multiprocessing as mp
 
 import click
@@ -16,7 +12,6 @@ from Bio import SeqIO
 
 from dlo_hic.utils.align import Aligner
 from dlo_hic.utils import reverse_complement as rc
-from dlo_hic.utils import read_args
 
 CHUNK_SIZE = 1000
 
@@ -126,7 +121,7 @@ def extract_PET(record, span, rest, adapter=("", 0)):
     # NOTE: here is a bug, fix later !!
     PET2 = reverse_complement_record(PET2)
     add_base_to_PET(PET1, rest[2])
-    add_base_to_PET(PET2, rest[2])
+    add_base_to_PET(PET2, rc(rest[2]))
     return PET1, PET2
 
 
