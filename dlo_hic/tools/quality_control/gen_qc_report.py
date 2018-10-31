@@ -30,22 +30,59 @@ def get_sample_ids(pipe_workdir):
     return sample_ids
 
 
-def get_qc_contents(pipe_workdir, sample_id):
+def get_reads_counts_qc(pipe_workdir, sample_id):
     res = OrderedDict()
     reads_counts_qc = list(qc_logs(sample_id).items())[:5]
     for step, qc_file in reads_counts_qc:
         qc_path = join(pipe_workdir, qc_file)
-        res[step] = load_qc(qc_path)
+        res[step] = load_reads_counts_qc(qc_path)
     return res
 
 
-def load_qc(path):
+def load_reads_counts_qc(path):
     res = OrderedDict()
     with open(path) as f:
         for line in f:
             line = line.strip()
             items = line.split()
             res[items[0]] = items[1]
+    return res
+
+
+def load_chr_interaction_csv(path):
+    import pandas as pd
+    import numpy as np
+    df = pd.read_csv(path, index_col=0)
+
+    data_objs = []
+    for idx, value in np.ndenumerate(df.values):
+        i, j = idx
+        if j >= i:
+            obj = {
+                'pos': [i, j],
+                'chr': [df.index[i], df.index[j]],
+                'value': value
+            }
+            data_objs.append(obj)
+
+    res = {
+        'chromosomes': list(df.columns),
+        'data': data_objs,
+    }
+    return res
+
+
+def get_qc_contents(pipe_workdir, sample_id):
+    reads_counts_qc = get_reads_counts_qc(pipe_workdir, sample_id)
+
+    csv_path = qc_logs(sample_id)['bedpe2pairs']['chr_interactions']
+    csv_path = join(pipe_workdir, csv_path)
+    chr_interactions = load_chr_interaction_csv(csv_path)
+
+    res = {
+        'reads_counts': reads_counts_qc,
+        'chr_interactions': chr_interactions,
+    }
     return res
 
 

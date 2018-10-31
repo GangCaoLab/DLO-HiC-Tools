@@ -6,7 +6,7 @@
 *.swo
 
 # data directory
-test/data/
+test/
 try/
 
 # cython tmp file
@@ -116,3 +116,5 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+.idea/
