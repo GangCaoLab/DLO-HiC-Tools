@@ -111,23 +111,11 @@ def add_base_to_PET(PET, base, base_qual=38):
     PET.letter_annotations['phred_quality'] = quality
 
 
-def extract_PET(record, span, rest,
-                PET_len=None, adapter=("", 0)):
+def extract_PET(record, span, rest, adapter=("", 0)):
     """
     extract PET in matched record.
     """
     start, end = span
-    if PET_len:
-        # PET_len decrease 1 because will add one base at end
-        PET_len = PET_len - 1
-        s = start - PET_len
-        e = end + PET_len
-        if s < 0:
-            s = 0
-        if e > len(record):
-            e = len(record)
-        record = record[s:e+1]
-
     PET1 = record[:start]
     PET2 = record[end+1:]
 
@@ -135,6 +123,7 @@ def extract_PET(record, span, rest,
     if adapter:
         PET2 = cut_adapter(PET2, adapter, mismatch_threshold=mismatch)
 
+    # NOTE: here is a bug, fix later !!
     PET2 = reverse_complement_record(PET2)
     add_base_to_PET(PET1, rest[2])
     add_base_to_PET(PET2, rest[2])
@@ -185,9 +174,21 @@ def cut_adapter(seq, adapter_pattern, mismatch_threshold):
     return clean_seq
 
 
+def cut_PET(PET1, PET2, length_range):
+    def _cut_PET(PET):
+        lower, upper = length_range
+        if len(PET) < lower:
+            return False
+        elif len(PET) > upper:
+            return PET[-upper:]
+        else:
+            return PET
+    return _cut_PET(PET1), _cut_PET(PET2)
+
+
 def worker(task_queue, counter, lock, # objects for multi process work
            out1, out2, # output file name
-           phred, linkers, mismatch, rest, PET_len, adapter):  # parameters
+           phred, linkers, mismatch, rest, PET_len_range, adapter):  # parameters
     """ stream processing(PET extract) task """
     from queue import Empty
     current = mp.current_process().pid
@@ -232,11 +233,16 @@ def worker(task_queue, counter, lock, # objects for multi process work
             seq = str(r.seq) # extract reocrd's sequence
             for ltype, linker in linkers.items():
                 span = match_(seq, linker, mismatch)
-                if span: # linker matched
-                    if   (ltype == 'A-A') or (ltype == 'B-B'):
+                if span:  # linker matched
+                    if (ltype == 'A-A') or (ltype == 'B-B'):
                         # intra-molcular interaction
+                        PET_1, PET_2 = extract_PET(r, span, rest, adapter)
+                        PET_1, PET_2 = cut_PET(PET_1, PET_2, PET_len_range)
+                        if (not PET_1) or (not PET_2):
+                            # PET too short
+                            unmatch += 1
+                            continue
                         intra += 1
-                        PET_1, PET_2 = extract_PET(r, span, rest, PET_len, adapter)
                         fastq_writer_1.write_record(PET_1)
                         fastq_writer_2.write_record(PET_2)
                     elif (ltype == 'A-B') or (ltype == 'B-A'):
@@ -284,10 +290,11 @@ def fastq_writer(file_out, phred):
     help="The Phred score encode offset type, 33 or 64. default 33")
 @click.option("--processes", "-p", default=1,
     help="Use how many processes do calculation. default 1")
-@click.option("--PET-len", 'PET_len', default=0, 
-    help="The expected length of PET sequence," +\
-         "if 0 (default) will not limit length," +\
-         "NOTE: Adapter for sequencing must be trimmed in this situation.")
+@click.option("--PET-len-range", 'PET_len_range', default=(10, 22),
+    help="The expected length range of PET sequence," +\
+         "if the PET_length exceed the upper bound will cut the exceeded sequence, " +\
+         "if it lower than the lower bound will treat the sequence as the unmatched sequence. " +\
+         "default (10, 22)")
 @click.option("--cut-adapter", "adapter",
     help="If specified, Cut the adapter sequence in the PET2.")
 @click.option("--mismatch-adapter", "mismatch_adapter", default=3,
@@ -297,7 +304,7 @@ def fastq_writer(file_out, phred):
     help="Sperate log file record reads count information. default PET_count.txt")
 def _main(fastq, out1, out2,
         linker_a, linker_b,
-        mismatch, rest, phred, processes, PET_len,
+        mismatch, rest, phred, processes, PET_len_range,
         adapter, mismatch_adapter, log_file):
     """
     Extract the PETs sequences on both sides of linker sequence.
@@ -331,7 +338,7 @@ def _main(fastq, out1, out2,
 
     workers = [mp.Process(target=worker, 
                           args=(task_queue, counter, lock, out1+".tmp.%d"%i, out2+".tmp.%d"%i, phred,
-                                linkers, mismatch, rest_site, PET_len, (adapter, mismatch_adapter)))
+                                linkers, mismatch, rest_site, PET_len_range, (adapter, mismatch_adapter)))
                for i in range(processes)]
 
     for w in workers:
