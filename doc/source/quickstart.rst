@@ -37,8 +37,6 @@ Use the pipeline
 
 DLO-HiC-Tools implemented the pipeline with `Snakemake <https://snakemake.readthedocs.io/en/stable/>`_.
 If you want generate the HiC matrix at once, you can use this pipeline.
-But one thing you should noticed is that you should remove the sequencing adapters firstly,
-see data_preprocessing_.
 
 The pipeline contain two files, a Snakemake file and a configuration file.
 
@@ -86,7 +84,7 @@ More information about the Snakemake, please read it's document.
 Data preprocessing
 ^^^^^^^^^^^^^^^^^^
 
-Before run the pipeline, you should remove the adapters from the raw fastq file.
+Before run the pipeline, you can choice remove the adapters manually from the raw fastq file.
 You can use the `Trimmomatic <http://www.usadellab.org/cms/?page=trimmomatic>`_ do this, for example:
 
 .. code-block::
