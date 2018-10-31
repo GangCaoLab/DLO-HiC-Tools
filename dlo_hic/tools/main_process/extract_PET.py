@@ -118,10 +118,9 @@ def extract_PET(record, span, rest, adapter=("", 0)):
     if adapter:
         PET2 = cut_adapter(PET2, adapter, mismatch_threshold=mismatch)
 
-    # NOTE: here is a bug, fix later !!
     PET2 = reverse_complement_record(PET2)
     add_base_to_PET(PET1, rest[2])
-    add_base_to_PET(PET2, rc(rest[2]))
+    add_base_to_PET(PET2, rest[2])
     return PET1, PET2
 
 
