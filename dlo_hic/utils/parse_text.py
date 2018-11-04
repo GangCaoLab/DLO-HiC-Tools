@@ -99,6 +99,16 @@ class Bedpe(object):
                 return False
         return True
 
+    def exchange_pos(self):
+        """
+        exchange position of chr1 and chr2
+        """
+        self.chr1,    self.chr2    = self.chr2, self.chr1
+        self.start1,  self.start2  = self.start2, self.start1
+        self.end1,    self.end2    = self.end2, self.end1
+        self.strand1, self.strand2 = self.strand2, self.strand1
+        self.pos1,    self.pos2    = self.end1, self.start2
+
     def to_upper_trangle(self):
         """
         rearrange item to upper trangle form.abs
@@ -110,18 +120,10 @@ class Bedpe(object):
         ...                          ...
         """
         if self.chr1 > self.chr2:
-            self.chr1,    self.chr2    = self.chr2, self.chr1
-            self.start1,  self.start2  = self.start2, self.start1
-            self.end1,    self.end2    = self.end2, self.end1
-            self.strand1, self.strand2 = self.strand2, self.strand1
-            self.pos1, self.pos2 = self.end1, self.start2
-        if self.chr1 == self.chr2:
-            if self.start1 > self.start2:
-                self.start1,  self.start2  = self.start2, self.start1
-                self.end1,    self.end2    = self.end2, self.end1
-                self.strand1, self.strand2 = self.strand2, self.strand1
-                self.pos1, self.pos2 = self.end1, self.start2
-                
+            self.exchange_pos()
+        elif self.chr1 == self.chr2:
+            if self.pos1 > self.pos2:
+                self.exchange_pos()                
 
     def __str__(self):
         line = "\t".join([self.chr1, str(self.start1), str(self.end1),

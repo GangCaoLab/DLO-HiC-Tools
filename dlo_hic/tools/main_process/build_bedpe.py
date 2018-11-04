@@ -7,6 +7,7 @@ import multiprocessing as mp
 import click
 
 from dlo_hic.utils.wrap.bwa import BWA
+from dlo_hic.utils.parse_text import Bedpe
 
 
 log = logging.getLogger(__name__)
@@ -30,6 +31,18 @@ def beds2bedpe(bed1, bed2, bedpe_filename):
                         name, '0', strand_a, strand_b]
             outline = "\t".join(outitems) + "\n"
             f.write(outline)
+
+
+def bedpe_upper_triangle(bedpe_file, output):
+    """
+    transform bedpe file's all line to upper trangle form.
+    """
+    with open(bedpe_file) as fi, open(output, 'w') as fo:
+        for line in fi:
+            bpe = Bedpe(line)
+            bpe.to_upper_trangle()
+            outline = str(bpe) + "\n"
+            fo.write(outline)
 
 
 @click.command(name="build_bedpe")
@@ -59,7 +72,7 @@ def _main(file_format, input1, input2, bedpe, ncpu, bwa_index, mapq, bwa_log_fil
     pre_1 = join(outdir, splitext(split(input1)[1])[0]) # prefix
     pre_2 = join(outdir, splitext(split(input2)[1])[0])
     if file_format == 'fastq':
-        # alignment firstly if the input format is fastq
+        log.info("Do alignment using 'bwa aln', with {} threads".format(ncpu))
         assert bwa_index is not None
         bwa = BWA(bwa_index, log_file=bwa_log_file) # write bwa log to separate file
         bwa.run(input1, pre_1, thread=ncpu, mem=False)
@@ -67,16 +80,32 @@ def _main(file_format, input1, input2, bedpe, ncpu, bwa_index, mapq, bwa_log_fil
         bam1 = pre_1 + '.bam'
         bam2 = pre_2 + '.bam'
     else:
+        # build from bam file directly
         bam1 = input1
         bam2 = input2
+
     log.info("filter bam file to fetch unique mapping reads.")
-    subprocess.check_call("samtools view {} -b -q {} > {}.filtered.bam".format(bam1, mapq, pre_1), shell=True)
-    subprocess.check_call("samtools view {} -b -q {} > {}.filtered.bam".format(bam2, mapq, pre_2), shell=True)
+    p1 = subprocess.Popen("samtools view {} -b -q {} > {}.filtered.bam".format(bam1, mapq, pre_1), shell=True)
+    p2 = subprocess.Popen("samtools view {} -b -q {} > {}.filtered.bam".format(bam2, mapq, pre_2), shell=True)
+    p1.wait()
+    p2.wait()
+
     log.info("convert bam to bed.")
+    bed1_ = pre_1 + ".bed.tmp"
+    bed2_ = pre_2 + ".bed.tmp"
+    p1 = subprocess.Popen("bedtools bamtobed -i {} > {}".format(pre_1+'.filtered.bam', bed1_), shell=True)
+    p2 = subprocess.Popen("bedtools bamtobed -i {} > {}".format(pre_2+'.filtered.bam', bed2_), shell=True)
+    p1.wait()
+    p2.wait()
+
+    log.info("sort bed file")
     bed1 = pre_1 + ".bed"
     bed2 = pre_2 + ".bed"
-    subprocess.check_call("bedtools bamtobed -i {} | sort -k4,4 > {}".format(pre_1+'.filtered.bam', bed1), shell=True)
-    subprocess.check_call("bedtools bamtobed -i {} | sort -k4,4 > {}".format(pre_2+'.filtered.bam', bed2), shell=True)
+    subprocess.check_call("sort --parallel={} -k4,4 {} > {}".format(ncpu, bed1_, bed1), shell=True)
+    subprocess.check_call("rm {}".format(bed1_), shell=True)
+    subprocess.check_call("sort --parallel={} -k4,4 {} > {}".format(ncpu, bed2_, bed2), shell=True)
+    subprocess.check_call("rm {}".format(bed2_), shell=True)
+
     log.info("merge beds to bedpe.")
     beds2bedpe(bed1, bed2, bedpe)
 
