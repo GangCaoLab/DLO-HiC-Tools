@@ -1,6 +1,6 @@
 import sys
-if sys.version_info < (3, 4):
-    sys.exit("Only suppert >= 3.4 Python Version")
+if sys.version_info < (3, 5):
+    sys.exit("Only suppert >= 3.5 Python Version")
 
 import re
 import os
@@ -68,9 +68,9 @@ setup(
     classifiers=[
         'Natural Language :: English',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: Implementation :: CPython',
         "Programming Language :: Cython",
     ]
