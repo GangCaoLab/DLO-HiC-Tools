@@ -13,7 +13,7 @@ and following softwares are required:
 
 Recommend install them with `Anaconda <https://conda.io/miniconda.html>`_, just use following commands::
 
-    $ conda -c bioconda install bwa samtools pairix tabix
+    $ conda -c bioconda install bwa samtools bedtools pairix tabix
 
 Install Python packages
 ^^^^^^^^^^^^^^^^^^^^^^^
