@@ -36,3 +36,16 @@ Download the source code firsyly, then install with setup.py ::
     $ git clone https://github.com/Nanguage/DLO-HiC-Tools.git
     $ cd DLO-HiC-Tools/
     $ python3 setup.py install
+
+Using Docker
+------------
+
+You can also using the docker, pull the dlohic image: ::
+
+    $ docker pull nanguage/dlohic
+
+
+Run a container, with mount current directory in file system to the '/data' in the container: ::
+
+    $ docker run -v $PWD:/data -ti nanguage/dlohic:latest
+
