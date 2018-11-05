@@ -87,7 +87,7 @@ rule build_bedpe:
     #
     #  Tool Interface:
     #     ( file_format, input1, input2, bedpe,
-    #       ncpu, bwa_index, mapq,
+    #       ncpu, bwa_index, mapq, upper_tri,
     #       bwa_log_file )
     # --------------------
     threads: setting.ncpu
@@ -117,7 +117,7 @@ rule build_bedpe:
         dlo_main.build_bedpe.log = llog
         dlo_main.build_bedpe.main(
             'fastq', input[0], input[1], output.bedpe,
-            setting.ncpu, bwa_index, conf['mapq'], output.bwa_log)
+            setting.ncpu, bwa_index, conf['mapq'], True, output.bwa_log)
 
 
 rule qc_count_bedpe:

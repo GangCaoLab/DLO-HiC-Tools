@@ -7,42 +7,10 @@ import multiprocessing as mp
 import click
 
 from dlo_hic.utils.wrap.bwa import BWA
-from dlo_hic.utils.parse_text import Bedpe
+from dlo_hic.utils.stream import beds2bedpe, upper_triangle, write_to_file
 
 
 log = logging.getLogger(__name__)
-
-
-def beds2bedpe(bed1, bed2, bedpe_filename):
-    msg = "join {} {} to bedpe: {}".format(bed1, bed2, bedpe_filename)
-    log.info(msg)
-    cmd = "join -j 4 {} {}".format(bed1, bed2)
-    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
-    with open(bedpe_filename, 'w') as f:
-        #
-        # format joined bed bedpe
-        for line in p.stdout:
-            line = line.decode("utf-8")            
-            items = line.strip().split()
-            name, chr_a, s_a, e_a, score_a, strand_a,\
-                  chr_b, s_b, e_b, score_b, strand_b = items
-            outitems = [chr_a, s_a, e_a,
-                        chr_b, s_b, e_b,
-                        name, '0', strand_a, strand_b]
-            outline = "\t".join(outitems) + "\n"
-            f.write(outline)
-
-
-def bedpe_upper_triangle(bedpe_file, output):
-    """
-    transform bedpe file's all line to upper trangle form.
-    """
-    with open(bedpe_file) as fi, open(output, 'w') as fo:
-        for line in fi:
-            bpe = Bedpe(line)
-            bpe.to_upper_trangle()
-            outline = str(bpe) + "\n"
-            fo.write(outline)
 
 
 @click.command(name="build_bedpe")
@@ -60,10 +28,13 @@ def bedpe_upper_triangle(bedpe_file, output):
 @click.option("--mapq",
     default=1,
     help="the mapq threshold used to filter mapped records. default 1(for fetch unique mapping)")
+@click.option("--upper-tri/non-upper-tri",
+    default=True,
+    help="Convert bedpe to upper-triangular format or not, default True")
 @click.option("--bwa-log-file",
     default="bwa.log",
     help="separate log file for storage bwa output: default 'bwa.log'")
-def _main(file_format, input1, input2, bedpe, ncpu, bwa_index, mapq, bwa_log_file):
+def _main(file_format, input1, input2, bedpe, ncpu, bwa_index, mapq, upper_tri, bwa_log_file):
     """ Build bedpe file from fastq or sam/bam file. """
     log.info("Build bedpe from %s %s"%(input1, input2))
 
@@ -107,7 +78,14 @@ def _main(file_format, input1, input2, bedpe, ncpu, bwa_index, mapq, bwa_log_fil
     subprocess.check_call("rm {}".format(bed2_), shell=True)
 
     log.info("merge beds to bedpe.")
-    beds2bedpe(bed1, bed2, bedpe)
+    msg = "join {} {} to bedpe: {}".format(bed1, bed2, bedpe)
+    log.info(msg)
+    line_itr = beds2bedpe(bed1, bed2)
+    if upper_tri:
+        line_itr = upper_triangle(line_itr, 'bedpe')
+    write_to_file(line_itr, bedpe)
+
+    log.info("Build bedpe done.")
 
 
 main = _main.callback
