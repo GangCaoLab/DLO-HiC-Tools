@@ -13,9 +13,12 @@ from dlo_hic.utils.pipeline import qc_logs, sub_dir
 log = logging.getLogger(__name__)
 
 
+pairs_step_id = 4
+
+
 def get_sample_ids(pipe_workdir):
-    # suppose the pairs.gz file which in the subdir 5 exist
-    guess_exist_type = (5, 'pairs.gz')
+    # suppose the pairs.gz file which in the subdir 4 exist
+    guess_exist_type = (pairs_step_id, 'pairs.gz')
 
     dir_ = join(pipe_workdir, sub_dir(guess_exist_type[0]))
     files = os.listdir(dir_)
@@ -32,7 +35,7 @@ def get_sample_ids(pipe_workdir):
 
 def get_reads_counts_qc(pipe_workdir, sample_id):
     res = OrderedDict()
-    reads_counts_qc = list(qc_logs(sample_id).items())[:5]
+    reads_counts_qc = list(qc_logs(sample_id).items())[:pairs_step_id]
     for step, qc_file in reads_counts_qc:
         qc_path = join(pipe_workdir, qc_file)
         res[step] = load_reads_counts_qc(qc_path)

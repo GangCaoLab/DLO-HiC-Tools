@@ -224,62 +224,16 @@ rule qc_count_bedpe_nr:
         dlo_qc.interactions_qc.main(input[1], output[1], cutoff)
 
 
-rule remove_redundancy:
-    # --------------------
-    # 4. remove_redundancy:
-    #
-    #  Tool Interface:
-    #     ( bedpe, output, distance, ncpu )
-    # --------------------
-    threads: setting.ncpu
-    input:
-        rules.noise_reduce.output
-    output:
-        output_files("{sample}")["rr.bedpe"]
-    params:
-        llog = local_logger
-    run:
-        llog = params.llog
-        llog.log_stage_boundary("remove_redundancy")
-
-        # load parameters
-        distance = config['REMOVE_REDUNDANCY']['distance']
-
-        # run tool
-        dlo_help.remove_redundancy.log = llog
-        dlo_help.remove_redundancy.main(
-            input[0], output[0], distance, setting.ncpu)
-
-
-rule qc_count_bedpe_rr:
-    # --------------------
-    # count_bedpe
-    #
-    # Generate rr bedpe counting report for quality control.
-    # 
-    #  Tool Interface:
-    #     ( input, log_file, long_range_cutoff )
-    # --------------------
-    threads: 1
-    input:
-        rules.remove_redundancy.output
-    output:
-        qc_logs('{sample}')['remove_redundancy']
-    run:
-        cutoff = config['QUALITY_CONTROL']['long_range_cutoff']
-        dlo_qc.interactions_qc.main(input[0], output[0], cutoff)
-
-
 rule bedpe2pairs:
     # --------------------
-    # 6. bedpe2pairs:
+    # 4. bedpe2pairs:
     #
     #  Tool Interface:
     #     ( bedpe, pairs, keep, remove_redundancy, ncpu )
     # --------------------
     threads: setting.ncpu
     input:
-        rules.remove_redundancy.output
+        rules.noise_reduce.output
     output:
         [ output_files("{sample}")["pairs.gz"], output_files("{sample}")["pairs.gz.px2"] ] +\
         ([output_files("{sample}")["pairs"]] if '.hic' in setting.result_formats else [])

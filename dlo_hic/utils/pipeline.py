@@ -18,9 +18,8 @@ DIRS = {
        1: "01-extpet",
        2: "02-bedpe",
        3: "03-nr",
-       4: "04-rr",
-       5: "05-pairs",
-       6: "06-result",
+       4: "04-pairs",
+       5: "05-result",
 }
 
 
@@ -28,7 +27,6 @@ OUTPUT_FILE_TYPES = [
     ["pet.fq"],
     ["pet.bam", "pet.filtered.bam", "pet.bed", "uniq.bedpe"],
     ["nr.bedpe", "nr.bedpe.err",],
-    ["rr.bedpe"],
     ["pairs", "pairs.gz", "pairs.gz.px2"],
     ["hic", "cool", "mcool"],
 ]
@@ -209,9 +207,8 @@ def qc_logs(sample_id):
         ('build_bedpe',       join(sub_dir(2), sample_id + '.qc.bedpe.txt')),
         ('noise_reduce',      join(sub_dir(3), sample_id + '.qc.nr.txt')),
         ('noise_reduce.err',  join(sub_dir(3), sample_id + '.qc.nr.err.txt')),
-        ('remove_redundancy', join(sub_dir(4), sample_id + '.qc.rr.txt')),
         ('bedpe2pairs',       {
-            "chr_interactions": join(sub_dir(5), sample_id + '.chr_interactions.csv'),
+            "chr_interactions": join(sub_dir(4), sample_id + '.chr_interactions.csv'),
         }),
     ])
 
