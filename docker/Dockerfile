@@ -13,7 +13,8 @@ LABEL tags="Bioinformatics,Genomics,Hi-C,DLO-Hi-C"
 MAINTAINER nanguage@yahoo.com
 
 ENV MINICONDA https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
-ENV DLOHIC https://github.com/Nanguage/DLO-HiC-Tools/archive/v.0.1.0.tar.gz
+ENV DLOHIC https://github.com/Nanguage/DLO-HiC-Tools/archive/v0.1.1.tar.gz
+ENV JUICERTOOLS http://hicfiles.tc4ga.com.s3.amazonaws.com/public/juicer/juicer_tools.1.8.9_jcuda.0.8.jar
 
 ENV LD_ALL C.UTF-8
 ENV LANG C.UTF-8
@@ -60,6 +61,9 @@ RUN apt-get clean all && \
         apt-get clean && \
         apt-get purge && \
         rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# download juicertools
+RUN wget ${JUICERTOOLS}
 
 # install miniconda
 RUN echo 'export PATH=/opt/conda/bin:$PATH' > /etc/profile.d/conda.sh && \
