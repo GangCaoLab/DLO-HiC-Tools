@@ -229,7 +229,7 @@ rule remove_redundancy:
     # 4. remove_redundancy:
     #
     #  Tool Interface:
-    #     ( bedpe, output, distance )
+    #     ( bedpe, output, distance, ncpu )
     # --------------------
     threads: setting.ncpu
     input:
@@ -246,9 +246,9 @@ rule remove_redundancy:
         distance = config['REMOVE_REDUNDANCY']['distance']
 
         # run tool
-        dlo_main.remove_redundancy.log = llog
-        dlo_main.remove_redundancy.main(
-            input[0], output[0], distance)
+        dlo_help.remove_redundancy.log = llog
+        dlo_help.remove_redundancy.main(
+            input[0], output[0], distance, setting.ncpu)
 
 
 rule qc_count_bedpe_rr:

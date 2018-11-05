@@ -18,6 +18,7 @@ handler.setFormatter(logging.Formatter(fmt=LOGGING_FMT, datefmt=LOGGING_DATE_FMT
 log.addHandler(handler)
 log.setLevel(logging.DEBUG)
 
+
 @click.group()
 @click.option("--log-file", help="The log file, default output to stdout.")
 @click.option("--debug/--no-debug", default=False,
@@ -40,6 +41,7 @@ def cli(log_file, debug):
     else:
         log.setLevel(logging.INFO)
 
+
 def search_tools():
     """ get all tools's module name
     like:
@@ -60,6 +62,7 @@ def search_tools():
                 tool = "dlo_hic.tools." + tool
                 tools.append(tool)
     return tools
+
 
 # add command to cli
 for tool in search_tools():

@@ -258,7 +258,7 @@ class DLO_HiC(object):
             small than this at same time, consider them as the redundancy.
             default 0(exactly same).
         """
-        from dlo_hic.tools.main_process.remove_redundancy import main
+        from dlo_hic.tools.helper.remove_redundancy import main
 
         self.__check_required('nr_file', kwargs)
         self.__check_optional('threshold_rr_distance', kwargs, DLO_HiC.DEFAULT_THRESH_RR_DISTANCE)

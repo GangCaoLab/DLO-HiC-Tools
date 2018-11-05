@@ -136,6 +136,17 @@ def sort_pairs(pairs_path, ncpu=8):
         yield outline
 
 
+def sort_bedpe_reads1(bedpe_path, ncpu=8):
+    """ sort BEDPE file according to first 3 col(reads1). """
+    import subprocess as subp
+    cmd = "sort --parallel={} -k1,1V -k2,2n -k3,3n {}".format(ncpu, bedpe_path)
+    p = subp.Popen(cmd, shell=True, stdout=subp.PIPE)
+    for line in p.stdout:
+        line = line.decode('utf-8')
+        outline = line.strip()
+        yield outline
+
+
 def write_to_file(line_iterator, output_path, mode='w'):
     """
     Write lines in the iterator to a file,

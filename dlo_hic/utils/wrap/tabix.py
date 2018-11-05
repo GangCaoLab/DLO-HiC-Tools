@@ -9,12 +9,6 @@ def sort_bed6(file_in, file_out):
     subprocess.check_call(cmd, shell=True)
 
 
-def sort_bedpe_reads1(file_in, file_out):
-    """ sort bedpe file according to first 3 col(reads1). """
-    cmd = "sort -k1,1V -k2,2n -k3,3n {} > {}".format(file_in, file_out)
-    subprocess.check_call(cmd, shell=True)
-
-
 def index_bed6(bedfile):
     """ build tabix index for bedfile.
     please ensure bed file is sorted """
