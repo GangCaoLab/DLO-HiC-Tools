@@ -275,7 +275,7 @@ rule bedpe2pairs:
     # 6. bedpe2pairs:
     #
     #  Tool Interface:
-    #     ( bedpe, pairs, keep )
+    #     ( bedpe, pairs, keep, remove_redundancy, ncpu )
     # --------------------
     threads: setting.ncpu
     input:
@@ -298,7 +298,7 @@ rule bedpe2pairs:
 
         # run tool
         dlo_main.bedpe2pairs.log = llog
-        dlo_main.bedpe2pairs.main(input[0], out, keep_)
+        dlo_main.bedpe2pairs.main(input[0], out, keep_, True, setting.ncpu)
 
 
 rule qc_pairs:

@@ -1,5 +1,6 @@
 import re
 
+
 def is_comment(line):
     if re.match("^[ \t]*#", line):
         return True
@@ -80,15 +81,14 @@ class Bedpe(object):
 
     def is_rep_with(self, another, dis=10):
         """ Judge another bedpe record is replection of self or not. """
-        if dis == 0:
-            return (self.start1 == another.start1) and \
-                   (self.start2 == another.start1) and \
-                   (self.end1 == another.end1) and \
-                   (self.end2 == another.end2)
-
         if (self.chr1 != another.chr1) or (self.chr2 != another.chr2):
             return False
         else:
+            if dis == 0:
+                return (self.start1 == another.start1) and \
+                       (self.start2 == another.start1) and \
+                       (self.end1 == another.end1) and \
+                       (self.end2 == another.end2)
             if abs(self.start1 - another.start1) > dis:
                 return False
             if abs(self.end1 - another.end1) > dis:
@@ -185,6 +185,22 @@ class Pairs(object):
         if self.chr1 == self.chr2:
             if self.pos1 > self.pos2:
                 self.pos1, self.strand1 = self.pos2, self.strand2
+
+    def is_rep_with(self, another, dis=10):
+        """ Judge another bedpe record is replection of self or not. """
+        if (self.chr1 != another.chr1) or (self.chr2 != another.chr2):
+            return False
+        else:
+            if dis == 0:
+                return (self.pos1 == another.pos1) and \
+                       (self.pos2 == another.pos2)
+            span1 = abs(self.pos1 - another.pos1)
+            span2 = abs(self.pos2 - another.pos2)
+            if span1 > dis:
+                return False
+            if span2 > dis:
+                return False
+        return True
 
 
 class Bedpe_err(Bedpe):

@@ -1,15 +1,10 @@
-import os
-import sys
-import time
 import logging
 import subprocess
-import signal
 from queue import Empty
 import multiprocessing as mp
 
 import click
 
-from dlo_hic.utils import read_args
 from dlo_hic.utils.parse_text import parse_line_bed6, parse_line_bedpe
 from dlo_hic.utils.wrap.tabix import query_bed6
 
@@ -52,11 +47,11 @@ def bedpe_type(restriction, bedpe_items, threshold_span, threshold_num_rest):
         "abnormal-2"
     """
     chr1, start1, end1, chr2, start2, end2 = bedpe_items[:6]
-    # inter chromalsomal interaction
+    # inter chromosome interaction
     if chr1 != chr2:
         return "normal"
 
-    # intra chromalsomal interaction
+    # intra chromosome interaction
     if end1 < start2:
         """
                   PET1            PET2
@@ -189,7 +184,7 @@ def _main(bedpe, output,
                  left PET ++..+++++++
         genome    <---..--------------------------------..--->
 
-    Therefore, with the propose of clean the noise, here shold remove the pair,
+    Therefore, with the propose of clean the noise, here should remove the pair,
     which there are no restriction site or just very few restriction(e.g. one)
     within it, or the left and right PETs overlapped.
 
@@ -197,7 +192,7 @@ def _main(bedpe, output,
 
     log.info("noise reduce on file %s"%bedpe)
 
-    if restriction.endswith(".gz"): # remove .gz suffix
+    if restriction.endswith(".gz"):  # remove .gz suffix
         restriction = restriction.replace(".gz", "")
 
     task_queue = mp.Queue()
@@ -240,6 +235,8 @@ def _main(bedpe, output,
     subprocess.check_call(cmd, shell=True)
     cmd = "rm " + " ".join(err_files)
     subprocess.check_call(cmd, shell=True)
+
+    log.info("Noise reduce done.")
 
 
 main = _main.callback

@@ -1,4 +1,3 @@
-import os
 from os.path import join, split, splitext, dirname
 import logging
 import subprocess
@@ -82,6 +81,7 @@ def _main(file_format, input1, input2, bedpe, ncpu, bwa_index, mapq, upper_tri, 
     log.info(msg)
     line_itr = beds2bedpe(bed1, bed2)
     if upper_tri:
+        log.info("Convert BEDPE to upper triangular form.")
         line_itr = upper_triangle(line_itr, 'bedpe')
     write_to_file(line_itr, bedpe)
 
