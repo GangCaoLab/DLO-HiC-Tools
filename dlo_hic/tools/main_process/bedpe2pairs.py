@@ -5,8 +5,8 @@ import click
 
 from dlo_hic.utils.wrap.tabix import index_pairs
 from dlo_hic.utils.stream import (read_file, write_to_file,
-                                  upper_triangle, bedpe2pairs, sort_pairs,
-                                  remove_redundancy)
+                                  upper_triangle, bedpe2pairs, sort_pairs)
+from dlo_hic.utils.stream import remove_redundancy as rr
 
 log = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 @click.option("--ncpu",
     default=1,
     help="cpu numbers used for sort pairs.")
-def _main(bedpe, pairs, keep, is_remove_redundancy, ncpu):
+def _main(bedpe, pairs, keep, remove_redundancy, ncpu):
     """
     Transform BEDPE format file to pairs format, and index it use pairix
 
@@ -45,10 +45,10 @@ def _main(bedpe, pairs, keep, is_remove_redundancy, ncpu):
         f.write(header)
 
     line_iter = sort_pairs(tmp0, ncpu=ncpu)
-    if is_remove_redundancy:
+    if remove_redundancy:
         log.info("Remove redundancy in the Pairs file.")
         line_iter = upper_triangle(line_iter, fmt='pairs')
-        line_iter = remove_redundancy(line_iter, 'pairs', 0)
+        line_iter = rr(line_iter, 'pairs', 0)
     write_to_file(line_iter, pairs, mode='a')
 
     subprocess.check_call(['rm', tmp0])  # remove tmp file
