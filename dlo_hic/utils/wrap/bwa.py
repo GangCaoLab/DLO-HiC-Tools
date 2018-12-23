@@ -41,7 +41,7 @@ class BWA():
         cmd = "bwa index -p {} {}".format(index_prefix, ref_fasta)
         self._check_call(cmd)
 
-    def run(self, input, output_prefix, thread=cores, mem=False, bam=True):
+    def run(self, input, output_prefix, thread=cores, mem=False, bam=True, max_diff=0):
         """ launch bwa aln/mem command, return process """
         # check index exist or not
         index_prefix = self.index_prefix
@@ -63,8 +63,13 @@ class BWA():
             self._check_call(aln_cmd)
         else:
             log.info("run bwa backtrack algorithm on %s"%input)
-            aln_cmd = "bwa aln -t {} {} {} > {}.sai".format(
-                thread, self.index_prefix, input, output_prefix)
+            if max_diff:
+                aln_cmd = "bwa aln -n {} -t {} {} {} > {}.sai".format(
+                    max_diff, thread, self.index_prefix, input, output_prefix)
+            else:
+                aln_cmd = "bwa aln -t {} {} {} > {}.sai".format(
+                    thread, self.index_prefix, input, output_prefix)
+
             self._check_call(aln_cmd)
             if not bam:
                 trans_cmd = "bwa samse {} {}.sai {} > {}.sam".format(
