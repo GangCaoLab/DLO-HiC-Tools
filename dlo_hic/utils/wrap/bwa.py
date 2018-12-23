@@ -63,7 +63,7 @@ class BWA():
             self._check_call(aln_cmd)
         else:
             log.info("run bwa backtrack algorithm on %s"%input)
-            if max_diff:
+            if max_diff is not None:
                 aln_cmd = "bwa aln -n {} -t {} {} {} > {}.sai".format(
                     max_diff, thread, self.index_prefix, input, output_prefix)
             else:
