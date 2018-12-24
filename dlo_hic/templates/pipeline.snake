@@ -61,7 +61,7 @@ rule extract_PET:
     output:
         pet1 = output_files('{sample}')['pet1.fq'],
         pet2 = output_files('{sample}')['pet2.fq'],
-        qc_log = qc_logs('{sample}')['extract_PET']
+        qc_log = qc_files('{sample}')['extract_PET']
     params:
         llog = local_logger
     run:
@@ -133,7 +133,7 @@ rule qc_count_bedpe:
     input:
         rules.build_bedpe.output
     output:
-        qc_logs('{sample}')['build_bedpe']
+        qc_files('{sample}')['build_bedpe']
     run:
         cutoff = config['QUALITY_CONTROL']['long_range_cutoff']
         dlo_qc.interactions_qc.main(input[0], output[0], cutoff)
@@ -216,8 +216,8 @@ rule qc_count_bedpe_nr:
     input:
         rules.noise_reduce.output
     output:
-        qc_logs('{sample}')['noise_reduce'],
-        qc_logs('{sample}')['noise_reduce.err']
+        qc_files('{sample}')['noise_reduce']['normal'],
+        qc_files('{sample}')['noise_reduce']['abnormal'],
     run:
         cutoff = config['QUALITY_CONTROL']['long_range_cutoff']
         dlo_qc.interactions_qc.main(input[0], output[0], cutoff)
@@ -268,7 +268,8 @@ rule qc_pairs:
     input:
         rules.bedpe2pairs.output
     output:
-        chr_interactions = qc_logs('{sample}')['bedpe2pairs']['chr_interactions']
+        chr_interactions = qc_logs('{sample}')['bedpe2pairs']['chr_interactions'],
+        counts = qc_files('{sample}')['bedpe2pairs']['counts'],
     run:
         chrom_file = setting.chromosome_file
         supported = supported_chromosomes()
@@ -276,6 +277,9 @@ rule qc_pairs:
             chrom_id = chrom_file
             chrom_file = supported[chrom_id]
         dlo_qc.chr_interactions.main(input[0], chrom_file, output.chr_interactions)
+
+        cutoff = config['QUALITY_CONTROL']['long_range_cutoff']
+        dlo_qc.interactions_qc.main(input[0], output.counts, cutoff)
 
 
 rule to_hic:

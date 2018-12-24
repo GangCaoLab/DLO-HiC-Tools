@@ -201,21 +201,24 @@ def sub_dir(id_):
     return DIRS[id_]
 
 
-def qc_logs(sample_id):
+def qc_files(sample_id):
     return OrderedDict([
         ('extract_PET',       join(sub_dir(1), sample_id + '.qc.pet.txt')),
         ('build_bedpe',       join(sub_dir(2), sample_id + '.qc.bedpe.txt')),
-        ('noise_reduce',      join(sub_dir(3), sample_id + '.qc.nr.txt')),
-        ('noise_reduce.err',  join(sub_dir(3), sample_id + '.qc.nr.err.txt')),
+        ('noise_reduce',      {
+            'normal':           join(sub_dir(3), sample_id + '.qc.nr.txt'),
+            'abnormal':         join(sub_dir(3), sample_id + '.qc.nr.err.txt'),
+        }),
         ('bedpe2pairs',       {
-            "chr_interactions": join(sub_dir(4), sample_id + '.chr_interactions.csv'),
+            'counts':            join(sub_dir(4), sample_id + '.chr_interactions.csv'),
+            'chr_interactions': join(sub_dir(4), sample_id + '.chr_interactions.csv'),
         }),
     ])
 
 
-def qc_log_files(sample_id):
+def all_qc_files(sample_id):
     res = []
-    for item in qc_logs(sample_id).values():
+    for item in qc_files(sample_id).values():
         if isinstance(item, dict):
             for i in item.values():
                 res.append(i)
