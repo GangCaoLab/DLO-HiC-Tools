@@ -210,7 +210,7 @@ def qc_files(sample_id):
             'abnormal':         join(sub_dir(3), sample_id + '.qc.nr.err.txt'),
         }),
         ('bedpe2pairs',       {
-            'counts':            join(sub_dir(4), sample_id + '.chr_interactions.csv'),
+            'counts':            join(sub_dir(4), sample_id + '.qc.txt'),
             'chr_interactions': join(sub_dir(4), sample_id + '.chr_interactions.csv'),
         }),
     ])

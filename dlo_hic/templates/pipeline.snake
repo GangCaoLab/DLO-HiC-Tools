@@ -268,7 +268,7 @@ rule qc_pairs:
     input:
         rules.bedpe2pairs.output
     output:
-        chr_interactions = qc_logs('{sample}')['bedpe2pairs']['chr_interactions'],
+        chr_interactions = qc_files('{sample}')['bedpe2pairs']['chr_interactions'],
         counts = qc_files('{sample}')['bedpe2pairs']['counts'],
     run:
         chrom_file = setting.chromosome_file
@@ -362,7 +362,7 @@ rule qc_gen_report:
     # --------------------
     threads: 1
     input:
-        qc_log_files('{sample}')
+        all_qc_files('{sample}')
     output:
         sub_dir("qc") + "/" + "{sample}." + setting.qc_report_format
     run:
