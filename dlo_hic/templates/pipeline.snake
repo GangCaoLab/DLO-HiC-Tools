@@ -101,9 +101,9 @@ rule build_bedpe:
         pet2_f_bam = output_files("{sample}")["pet2.filtered.bam"],
         pet1_bed   = output_files("{sample}")["pet1.bed"],
         pet2_bed   = output_files("{sample}")["pet2.bed"],
-        bwa_log    = sub_dir("log") + "/{sample}.bwa.log"
     params:
-        llog = local_logger
+        llog = local_logger,
+        bwa_log    = sub_dir("log") + "/{sample}.bwa.log",
     run:
         llog = params.llog
         llog.log_stage_boundary("build_bedpe")
@@ -117,7 +117,7 @@ rule build_bedpe:
         dlo_main.build_bedpe.log = llog
         dlo_main.build_bedpe.main(
             'fastq', input[0], input[1], output.bedpe,
-            setting.ncpu, bwa_index, conf['mapq'], True, output.bwa_log)
+            setting.ncpu, bwa_index, conf['mapq'], True, params.bwa_log)
 
 
 rule qc_count_bedpe:
