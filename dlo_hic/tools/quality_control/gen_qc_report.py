@@ -7,17 +7,15 @@ import click
 from mako.template import Template
 from mako.lookup import TemplateLookup
 
-from dlo_hic.utils.pipeline import qc_logs, sub_dir
+from dlo_hic.utils.pipeline import qc_files, sub_dir
 
 
 log = logging.getLogger(__name__)
 
 
-pairs_step_id = 4
-
-
 def get_sample_ids(pipe_workdir):
     # suppose the pairs.gz file which in the subdir 4 exist
+    pairs_step_id = 4
     guess_exist_type = (pairs_step_id, 'pairs.gz')
 
     dir_ = join(pipe_workdir, sub_dir(guess_exist_type[0]))
@@ -35,7 +33,14 @@ def get_sample_ids(pipe_workdir):
 
 def get_reads_counts_qc(pipe_workdir, sample_id):
     res = OrderedDict()
-    reads_counts_qc = list(qc_logs(sample_id).items())[:pairs_step_id]
+    reads_counts_qc = []
+    for step, val in qc_files(sample_id).items():
+        if step == 'noise_reduce':
+            reads_counts_qc.append( (step, val['normal']) )
+        elif step == 'bedpe2pairs':
+            reads_counts_qc.append( (step, val['counts']) )
+        else:
+            reads_counts_qc.append( (step, val) )
     for step, qc_file in reads_counts_qc:
         qc_path = join(pipe_workdir, qc_file)
         res[step] = load_reads_counts_qc(qc_path)
@@ -78,7 +83,7 @@ def load_chr_interaction_csv(path):
 def get_qc_contents(pipe_workdir, sample_id):
     reads_counts_qc = get_reads_counts_qc(pipe_workdir, sample_id)
 
-    csv_path = qc_logs(sample_id)['bedpe2pairs']['chr_interactions']
+    csv_path = qc_files(sample_id)['bedpe2pairs']['chr_interactions']
     csv_path = join(pipe_workdir, csv_path)
     chr_interactions = load_chr_interaction_csv(csv_path)
 
@@ -141,5 +146,5 @@ def _main(pipe_workdir, output_dir, out_format):
 main = _main.callback
 
 
-if "__name__" == "__main__":
-    _main()
+if __name__ == "__main__":
+    eval("_main()")
