@@ -5,7 +5,7 @@ from collections import namedtuple
 
 import click
 
-from dlo_hic.utils.parse_text import Bedpe, Pairs, Bedpe_err
+from dlo_hic.utils.parse_text import Bedpe, Pairs, Bedpe_err, is_comment
 
 
 log = logging.getLogger(__name__)
@@ -97,6 +97,8 @@ def _main(input, log_file, long_range_cutoff):
 
     with open_file(input) as f:
         for line in f:
+            if is_comment(line):  # skip header
+                continue
             pair = fmt(line)
             if pair.chr1 != pair.chr2:
                 counter.inter += 1
