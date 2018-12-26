@@ -9,7 +9,6 @@
                 long_range = int(qc_dict.pop("long-range"))
                 qc_dict["intra-chromosome (long-range)"] = long_range
                 qc_dict['intra-chromosome (short-range)'] = (intra - long_range)
-
         %>
 
         ${composition_table(qc_dict, total, step)}
@@ -89,6 +88,57 @@
     </div>
 </%def>
 
+<%def name="reads_counts_table(qc_contents)">
+    <%
+        raw_reads    = int(qc_contents['extract_PET']['all'])
+        linker_intra = int(qc_contents['extract_PET']['intra-molecular'])
+        linker_inter = int(qc_contents['extract_PET']['inter-molecular'])
+        if linker_inter == 0:
+            linker_reads = linker_intra
+            linker_inter = 'NA'
+            linker_intra = 'NA'
+        else:
+            linker_reads = linker_inter + linker_intra
+        unique_mapped_reads = int(qc_contents['build_bedpe']['total'])
+        non_redundant_reads = int(qc_contents['bedpe2pairs']['total'])
+        inter_chr_reads = int(qc_contents['bedpe2pairs']['inter-chromosome'])
+        intra_chr_reads = int(qc_contents['bedpe2pairs']['intra-chromosome'])
+        counts_table = [
+            ('Raw reads', raw_reads),
+            ('Linker reads', linker_reads),
+            ('Linkers (A-A) and (B-B)', linker_intra),
+            ('Linkers (A-B) and (B-A)', linker_inter),
+            ('Uniquely mapped reads', unique_mapped_reads),
+            ('Non-redundant mapped reads', non_redundant_reads),
+            ('Interchromosomal contacts', inter_chr_reads),
+            ('Intrachromosomal contacts', intra_chr_reads),
+        ]
+    %>
+    <div class="counts_table">
+        <table>
+            <tr>
+                <th></th>
+                <th>Reads number</th>
+                <th>Keep ratio</th>
+            </tr>
+            % for key, count in counts_table:
+                <% 
+                    if not isinstance(count, str):
+                        ratio = count / raw_reads
+                        ratio = "{0:.2%}".format(ratio)
+                    else:
+                        ratio = 'NA'
+                %>
+                <tr>
+                    <td>${key}</td>
+                    <td>${count}</td>
+                    <td>${ratio}</td>
+                </tr>
+            % endfor
+        </table>
+    </div>
+</%def>
+
 <html>
     <head>
         <style>
@@ -113,11 +163,14 @@
         </div>
         <div class="content">
 
+        <div class="counts_table">
+            <h2>Reads counts</h2>
+            ${reads_counts_table(qc_contents['reads_counts'])}
+        </div>
+
         <div class="compositions">
             <h2>Reads compositions of each step's result</h2>
             ${reads_compositions(qc_contents['reads_counts'])}
-
-            <h3>Tendency</h3>
         </div>
 
         <div class="chr_interactions">
