@@ -54,3 +54,6 @@ def _main():
     gen_config()
     gen_snakefile()
 
+
+if __name__ == "__main__":
+    eval("_main()")

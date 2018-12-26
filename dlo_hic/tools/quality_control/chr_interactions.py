@@ -89,3 +89,7 @@ def _main(input, chromosome_file, output):
     save_to_file(df, output)
 
 main = _main.callback
+
+
+if __name__ == "__main__":
+    eval("_main()")

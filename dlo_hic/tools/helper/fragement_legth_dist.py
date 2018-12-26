@@ -224,4 +224,4 @@ main = _main.callback
 
 
 if __name__ == "__main__":
-    _main()
+    eval("_main()")
