@@ -1,5 +1,6 @@
 import logging
 import os
+from os.path import join
 import sys
 
 import dlo_hic.config
@@ -28,10 +29,12 @@ root_log.setLevel(config['GLOBAL']['log_level'])
 # load global settings
 setting = load_global_setting(config)
 output_files = output_files(setting)
+sub_dir = sub_dir(setting)
+qc_files = pipeline_qc_files(setting)
+local_logger = local_logger(setting)
 
 pipeline_log.info("working at %s"%setting.working_dir)
-os.chdir(setting.working_dir)
-make_result_dirs()
+make_result_dirs(setting.working_dir)
 
 ####################################
 # Rule Definition
@@ -362,8 +365,8 @@ rule qc_gen_report:
     # --------------------
     threads: 1
     input:
-        all_qc_files('{sample}')
+        all_qc_files('{sample}', workdir=setting.working_dir)
     output:
-        sub_dir("qc") + "/" + "{sample}." + setting.qc_report_format
+        join(sub_dir("qc"), "{sample}." + setting.qc_report_format)
     run:
-        dlo_qc.gen_qc_report.main(setting.working_dir, sub_dir("qc"), setting.qc_report_format)
+        dlo_qc.gen_qc_report.main(setting.working_dir, output[0], setting.qc_report_format)

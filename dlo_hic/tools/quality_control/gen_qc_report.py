@@ -7,7 +7,7 @@ import click
 from mako.template import Template
 from mako.lookup import TemplateLookup
 
-from dlo_hic.utils.pipeline import qc_files, sub_dir
+from dlo_hic.utils.pipeline import qc_files, DIRS
 
 
 log = logging.getLogger(__name__)
@@ -18,7 +18,8 @@ def get_sample_ids(pipe_workdir):
     pairs_step_id = 4
     guess_exist_type = (pairs_step_id, 'pairs.gz')
 
-    dir_ = join(pipe_workdir, sub_dir(guess_exist_type[0]))
+    dir_ = join(pipe_workdir, DIRS[guess_exist_type[0]])
+    print(dir_)
     files = os.listdir(dir_)
 
     def extract_id(path):
@@ -126,17 +127,16 @@ def render_html_report(sample_id, qc_contents):
 
 @click.command(name="gen_qc_report")
 @click.argument("pipe-workdir")
-@click.argument("output-dir")
+@click.argument("output")
 @click.option("--out-format",
     default="html",
     type=click.Choice(['html', 'txt']),
     help="The format of quility control report, 'html' or 'txt'")
-def _main(pipe_workdir, output_dir, out_format):
+def _main(pipe_workdir, output, out_format):
     for s_id in get_sample_ids(pipe_workdir):
         qc_contents = get_qc_contents(pipe_workdir, s_id)
         log.info("Generating {} format quility control report of sample '{}'.".format(out_format, s_id))
         report = render_report(s_id, qc_contents, out_format)
-        output = join(output_dir, s_id + "." + out_format)
         with open(output, 'w') as f:
             f.write(report)
             log.info("Quility control report of sample '{}' generated, saving to {}".format(s_id, output))

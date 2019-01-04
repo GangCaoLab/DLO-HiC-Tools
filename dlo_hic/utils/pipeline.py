@@ -4,14 +4,15 @@ utils for pipeline configuration.
 
 import logging
 import os
-from os.path import join
+from os.path import join, abspath
 import re
 from collections import OrderedDict
 import subprocess
+from functools import partial
 
 from .parse_text import is_comment
 
-
+# sub directories(under pipeline working dir), for store results
 DIRS = {
     "qc": "00-qc",
    "log": "00-log",
@@ -22,7 +23,6 @@ DIRS = {
        5: "05-result",
 }
 
-
 OUTPUT_FILE_TYPES = [
     ["pet.fq"],
     ["pet.bam", "pet.filtered.bam", "pet.bed", "uniq.bedpe"],
@@ -31,9 +31,25 @@ OUTPUT_FILE_TYPES = [
     ["hic", "cool", "mcool"],
 ]
 
+# These files store file path
+FILE_FIELDS = [
+    'GLOBAL/working_dir',
+    'DATA/input_dir',
+    'DATA/fasta',
+    'NOISE_REDUCE/restriction_sites_bed',
+    'RESULT/juicer_tools_jar',
+]
 
-def make_result_dirs():
-    for d in DIRS.values():
+
+def make_result_dirs(workdir=None):
+    """
+    Make result directories, like 01-extpet/ 02-bedpe/ ...
+    """
+    if workdir:
+        dirs = {k: join(workdir, dir_) for k, dir_ in DIRS.items()}
+    else:
+        dirs = DIRS
+    for d in dirs.values():
         if not os.path.exists(d):
             os.mkdir(d)
 
@@ -50,10 +66,15 @@ class SnakeFilter(logging.Filter):
 
 
 def parse_config(config_file):
+    """
+    Parse config file,
+    return a dict which store pipeline configurations.
+    """
     import configparser
     config = configparser.ConfigParser()
     config.read(config_file)
     config_dict = config2dict(config)
+    to_abs_path(config_dict)
     check_config(config_dict)
     return config_dict
 
@@ -89,7 +110,7 @@ def check_config(config):
 
 
 def check_required(config):
-    """ check required fields"""
+    """ check required fields """
     required_fields = [
         'GLOBAL/log_level',
         'DATA/input_dir',
@@ -107,17 +128,20 @@ def check_required(config):
             raise IOError("%s/%s is required."%(section, field))
 
 
+def to_abs_path(config):
+    """
+    convert paths in the dict to absolute path.
+    """
+    for file_ in FILE_FIELDS:
+        section, field = file_.split("/")
+        if config[section][field]:
+            # if field specified convert to abs path
+            config[section][field] = abspath(config[section][field])
+
+
 def check_files(config):
     """ check files exist or not. """
-    file_fields = [
-        'GLOBAL/working_dir',
-        'DATA/input_dir',
-        'DATA/fasta',
-        'NOISE_REDUCE/restriction_sites_bed',
-        'RESULT/juicer_tools_jar',
-    ]
-
-    for file_ in file_fields:
+    for file_ in FILE_FIELDS:
         section, field = file_.split("/")
         if config[section][field]: # if field specified check path exist or not
             if not os.path.exists(config[section][field]):
@@ -171,63 +195,91 @@ def get_samples_id(fastq_files):
     return result
 
 
-def local_logger(wildcard):
-    from dlo_hic.config import LOGGING_DATE_FMT, LOGGING_FMT
-    sample = wildcard.sample
-    logger = logging.getLogger("pipeline-"+sample)
+def local_logger(setting):
+    def local_logger_(wildcard):
+        from dlo_hic.config import LOGGING_DATE_FMT, LOGGING_FMT
+        sample = wildcard.sample
+        logger = logging.getLogger("pipeline-"+sample)
 
-    if not logger.handlers:
-        log_file = DIRS['log'] + "/" + sample + ".log"
-        handler = logging.FileHandler(log_file)
-        formatter = logging.Formatter(
-            fmt=LOGGING_FMT,
-            datefmt=LOGGING_DATE_FMT)
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
+        if not logger.handlers:
+            log_file = join(setting.working_dir, DIRS['log'], sample + ".log")
+            handler = logging.FileHandler(log_file)
+            formatter = logging.Formatter(
+                fmt=LOGGING_FMT,
+                datefmt=LOGGING_DATE_FMT)
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
 
-        def log_stage_boundary(message, separator='=', num=30):
-            """
-            log a stage boundary.
-            """
-            logger.info(separator*num)
-            logger.info(message)
-            logger.info(separator*num)
-        logger.log_stage_boundary = log_stage_boundary
+            def log_stage_boundary(message, separator='=', num=30):
+                """
+                log a stage boundary.
+                """
+                logger.info(separator*num)
+                logger.info(message)
+                logger.info(separator*num)
+            logger.log_stage_boundary = log_stage_boundary
 
-    return logger
-
-
-def sub_dir(id_):
-    return DIRS[id_]
+        return logger
+    return local_logger_
 
 
-def qc_files(sample_id):
+def sub_dir(setting):
+    workdir = setting.working_dir
+    def sub_dir_(id_):
+        return join(workdir, DIRS[id_])
+    return sub_dir_
+
+
+def qc_files(sample_id, dirs=DIRS):
+    """
+    Quality control files about one sample.
+    """
     return OrderedDict([
-        ('extract_PET',       join(sub_dir(1), sample_id + '.qc.pet.txt')),
-        ('build_bedpe',       join(sub_dir(2), sample_id + '.qc.bedpe.txt')),
+        ('extract_PET',       join(dirs[1], sample_id + '.qc.pet.txt')),
+        ('build_bedpe',       join(dirs[2], sample_id + '.qc.bedpe.txt')),
         ('noise_reduce',      {
-            'normal':           join(sub_dir(3), sample_id + '.qc.nr.txt'),
-            'abnormal':         join(sub_dir(3), sample_id + '.qc.nr.err.txt'),
+            'normal':           join(dirs[3], sample_id + '.qc.nr.txt'),
+            'abnormal':         join(dirs[3], sample_id + '.qc.nr.err.txt'),
         }),
         ('bedpe2pairs',       {
-            'counts':            join(sub_dir(4), sample_id + '.qc.txt'),
-            'chr_interactions': join(sub_dir(4), sample_id + '.chr_interactions.csv'),
+            'counts':            join(dirs[4], sample_id + '.qc.txt'),
+            'chr_interactions':  join(dirs[4], sample_id + '.chr_interactions.csv'),
         }),
     ])
 
 
-def all_qc_files(sample_id):
+def pipeline_qc_files(setting):
+    """
+    Quality control files path related to pipeline working dir.
+    """
+    workdir = setting.working_dir
+    dirs = {
+        k: join(workdir, dir_)
+            for k, dir_ in DIRS.items()
+    }
+    return partial(qc_files, dirs=dirs)
+
+
+def all_qc_files(sample_id, workdir=None):
+    """
+    Get all quality files path
+    """
     res = []
     for item in qc_files(sample_id).values():
         if isinstance(item, dict):
             for i in item.values():
-                res.append(i)
+                path = join(workdir, i) if workdir else i
+                res.append(path)
         else:
-            res.append(item)
+            path = join(workdir, item) if workdir else item
+            res.append(path)
     return res
 
 
 def output_files(setting):
+    """
+    Output files for pipeline.
+    """
     def is_keep(k):
         if setting.keep == 'ALL':
             return True
@@ -256,7 +308,7 @@ def output_files(setting):
             return join(dir, sample + '.' + ext)
 
         for i in range(len(OUTPUT_FILE_TYPES)):
-            dir_ = DIRS[i+1]
+            dir_ = join(setting.working_dir, DIRS[i+1])
             for ext in OUTPUT_FILE_TYPES[i]:
                 if 'pet' in ext:
                     ext1 = ext.replace('pet', 'pet1')
@@ -281,7 +333,7 @@ def get_targets(setting):
     all_fastq = fetch_all_fastq(setting.input_dir)
     all_sample = get_samples_id(all_fastq)
 
-    all_qc_report = expand(join(DIRS["qc"],  "{sample}."+setting.qc_report_format), sample=all_sample) if setting.is_qc else []
+    all_qc_report = expand(join(setting.working_dir, DIRS["qc"], "{sample}."+setting.qc_report_format), sample=all_sample) if setting.is_qc else []
     all_pairs     = expand(output_files_("{sample}")['pairs.gz'], sample=all_sample)
     all_hic       = expand(output_files_("{sample}")['hic'],      sample=all_sample) if '.hic' in setting.result_formats else []
     all_cool      = expand(output_files_("{sample}")['cool'],     sample=all_sample) if '.cool' in setting.result_formats else []
