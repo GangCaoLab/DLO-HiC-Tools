@@ -41,7 +41,7 @@ class BWA():
         cmd = "bwa index -p {} {}".format(index_prefix, ref_fasta)
         self._check_call(cmd)
 
-    def run(self, input, output_prefix, thread=cores, mem=False, bam=True, max_diff=0):
+    def run(self, input, output_prefix, thread=cores, mem=False, bam=True, max_diff=None):
         """ launch bwa aln/mem command, return process """
         # check index exist or not
         index_prefix = self.index_prefix

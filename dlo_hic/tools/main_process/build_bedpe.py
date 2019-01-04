@@ -45,8 +45,8 @@ def _main(file_format, input1, input2, bedpe, ncpu, bwa_index, mapq, upper_tri, 
         log.info("Do alignment using 'bwa aln', with {} threads".format(ncpu))
         assert bwa_index is not None
         bwa = BWA(bwa_index, log_file=bwa_log_file) # write bwa log to separate file
-        bwa.run(input1, pre_1, thread=ncpu, mem=False)
-        bwa.run(input2, pre_2, thread=ncpu, mem=False)
+        bwa.run(input1, pre_1, thread=ncpu, mem=False, max_diff=0)
+        bwa.run(input2, pre_2, thread=ncpu, mem=False, max_diff=0)
         bam1 = pre_1 + '.bam'
         bam2 = pre_2 + '.bam'
     else:
