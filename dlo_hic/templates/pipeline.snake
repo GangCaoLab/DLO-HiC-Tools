@@ -64,7 +64,7 @@ rule extract_PET:
     output:
         pet1 = output_files('{sample}')['pet1.fq'],
         pet2 = output_files('{sample}')['pet2.fq'],
-        qc_log = qc_files('{sample}')['extract_PET']
+        qc_comp = qc_files('{sample}')['extract_PET']['comp']
     params:
         llog = local_logger
     run:
@@ -81,7 +81,7 @@ rule extract_PET:
             conf['mismatch'], rest, conf['phred'],
             setting.ncpu, conf['pet_len_range'],
             conf['adapter'], conf['mismatch_adapter'],
-            output.qc_log)
+            output.qc_comp)
 
 
 rule build_bedpe:
@@ -91,7 +91,7 @@ rule build_bedpe:
     #  Tool Interface:
     #     ( file_format, input1, input2, bedpe,
     #       ncpu, bwa_index, mapq, upper_tri,
-    #       bwa_log_file )
+    #       log_file, bwa_log_file )
     # --------------------
     threads: setting.ncpu
     input:
@@ -100,10 +100,15 @@ rule build_bedpe:
         bedpe      = output_files("{sample}")["uniq.bedpe"],
         pet1_bam   = output_files("{sample}")["pet1.bam"],
         pet2_bam   = output_files("{sample}")["pet2.bam"],
-        pet1_f_bam = output_files("{sample}")["pet1.filtered.bam"],
-        pet2_f_bam = output_files("{sample}")["pet2.filtered.bam"],
+        pet1_uniq_bam = output_files("{sample}")["pet1.uniq.bam"],
+        pet2_uniq_bam = output_files("{sample}")["pet2.uniq.bam"],
+        pet1_mul_bam = output_files("{sample}")["pet1.mul.bam"],
+        pet2_mul_bam = output_files("{sample}")["pet2.mul.bam"],
+        pet1_unm_bam = output_files("{sample}")["pet1.unm.bam"],
+        pet2_unm_bam = output_files("{sample}")["pet2.unm.bam"],
         pet1_bed   = output_files("{sample}")["pet1.bed"],
         pet2_bed   = output_files("{sample}")["pet2.bed"],
+        qc_bedpe   = qc_files('{sample}')['build_bedpe']['build_bedpe']
     params:
         llog = local_logger,
         bwa_log    = sub_dir("log") + "/{sample}.bwa.log",
@@ -120,7 +125,8 @@ rule build_bedpe:
         dlo_main.build_bedpe.log = llog
         dlo_main.build_bedpe.main(
             'fastq', input[0], input[1], output.bedpe,
-            setting.ncpu, bwa_index, conf['mapq'], True, params.bwa_log)
+            setting.ncpu, bwa_index, conf['mapq'], True,
+            output.qc_bedpe, params.bwa_log)
 
 
 rule qc_count_bedpe:
@@ -136,7 +142,7 @@ rule qc_count_bedpe:
     input:
         rules.build_bedpe.output
     output:
-        qc_files('{sample}')['build_bedpe']
+        qc_files('{sample}')['build_bedpe']['comp']
     run:
         cutoff = config['QUALITY_CONTROL']['long_range_cutoff']
         dlo_qc.interactions_qc.main(input[0], output[0], cutoff)
@@ -145,7 +151,7 @@ rule qc_count_bedpe:
 rest_name = config['DATA']['restriction_name']
 rest_bed_gz = config['NOISE_REDUCE']['restriction_sites_bed']
 if not rest_bed_gz:
-    rest_bed_gz = rest_name + ".bed.gz"
+    rest_bed_gz = join(setting.working_dir, rest_name + ".bed.gz")
 rest_bed_gz_idx = rest_bed_gz + ".tbi"
 
 fasta = config['DATA']['fasta']
@@ -219,8 +225,8 @@ rule qc_count_bedpe_nr:
     input:
         rules.noise_reduce.output
     output:
-        qc_files('{sample}')['noise_reduce']['normal'],
-        qc_files('{sample}')['noise_reduce']['abnormal'],
+        qc_files('{sample}')['noise_reduce']['comp'],
+        qc_files('{sample}')['noise_reduce']['comp_abnormal'],
     run:
         cutoff = config['QUALITY_CONTROL']['long_range_cutoff']
         dlo_qc.interactions_qc.main(input[0], output[0], cutoff)
@@ -272,7 +278,7 @@ rule qc_pairs:
         rules.bedpe2pairs.output
     output:
         chr_interactions = qc_files('{sample}')['bedpe2pairs']['chr_interactions'],
-        counts = qc_files('{sample}')['bedpe2pairs']['counts'],
+        comp = qc_files('{sample}')['bedpe2pairs']['comp'],
     run:
         chrom_file = setting.chromosome_file
         supported = supported_chromosomes()
@@ -282,7 +288,7 @@ rule qc_pairs:
         dlo_qc.chr_interactions.main(input[0], chrom_file, output.chr_interactions)
 
         cutoff = config['QUALITY_CONTROL']['long_range_cutoff']
-        dlo_qc.interactions_qc.main(input[0], output.counts, cutoff)
+        dlo_qc.interactions_qc.main(input[0], output.comp, cutoff)
 
 
 rule to_hic:
@@ -298,7 +304,7 @@ rule to_hic:
     output:
         hic = output_files("{sample}")['hic'],
     params:
-        log = sub_dir("log") + "/{sample}.juicertools.log"
+        log = join(sub_dir("log"),  "{sample}.juicertools.log")
     run:
         conf = config['RESULT']
 
@@ -329,7 +335,7 @@ rule to_cooler:
         [ output_files("{sample}")['cool'] ] +\ 
         ([ output_files("{sample}")['mcool'] ] if config['RESULT']['zoomify'] else [])
     params:
-        log  = sub_dir('log') + '/{sample}.cooler.log'
+        log  = join(sub_dir('log'), '{sample}.cooler.log')
     run:
         chrom_file = setting.chromosome_file
 

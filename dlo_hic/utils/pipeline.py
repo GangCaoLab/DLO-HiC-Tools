@@ -14,18 +14,18 @@ from .parse_text import is_comment
 
 # sub directories(under pipeline working dir), for store results
 DIRS = {
-    "qc": "00-qc",
-   "log": "00-log",
+    "qc": "0a-qc",
+   "log": "0b-log",
        1: "01-extpet",
        2: "02-bedpe",
-       3: "03-nr",
-       4: "04-pairs",
-       5: "05-result",
+       3: "03-noise_reduced",
+       4: "04-valid",
+       5: "05-matrix",
 }
 
 OUTPUT_FILE_TYPES = [
     ["pet.fq"],
-    ["pet.bam", "pet.filtered.bam", "pet.bed", "uniq.bedpe"],
+    ["pet.bam", "pet.uniq.bam", "pet.mul.bam", "pet.unm.bam", "pet.bed", "uniq.bedpe"],
     ["nr.bedpe", "nr.bedpe.err",],
     ["pairs", "pairs.gz", "pairs.gz.px2"],
     ["hic", "cool", "mcool"],
@@ -234,16 +234,22 @@ def qc_files(sample_id, dirs=DIRS):
     """
     Quality control files about one sample.
     """
+    dir_ = dirs['qc']
     return OrderedDict([
-        ('extract_PET',       join(dirs[1], sample_id + '.qc.pet.txt')),
-        ('build_bedpe',       join(dirs[2], sample_id + '.qc.bedpe.txt')),
+        ('extract_PET',       {
+            "comp":                join(dir_, sample_id + '.pet.comp.txt')   # composition of cis/trans interactions
+        }),
+        ('build_bedpe',       {
+            'comp':                join(dir_, sample_id + '.bedpe.comp.txt'),
+            'build_bedpe':         join(dir_, sample_id + '.bedpe.txt')
+        }),
         ('noise_reduce',      {
-            'normal':           join(dirs[3], sample_id + '.qc.nr.txt'),
-            'abnormal':         join(dirs[3], sample_id + '.qc.nr.err.txt'),
+            'comp':                join(dir_, sample_id + '.nr.comp.txt'),
+            'comp_abnormal':       join(dir_, sample_id + '.nr.comp.err.txt'),
         }),
         ('bedpe2pairs',       {
-            'counts':            join(dirs[4], sample_id + '.qc.txt'),
-            'chr_interactions':  join(dirs[4], sample_id + '.chr_interactions.csv'),
+            'comp':                join(dir_, sample_id + '.valid.comp.txt'),
+            'chr_interactions':    join(dir_, sample_id + '.valid.chr_interactions.csv'),
         }),
     ])
 
