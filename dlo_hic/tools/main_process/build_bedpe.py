@@ -68,9 +68,9 @@ def log_split_count(pet1_count, pet2_count, log_file):
         u = counts['unique-mapped']
         m = counts['multiple-mapped']
         o = counts['other']
-        msg = "Unique-mapped: {}\tPercent: {0:.2%}\t".format(u, u/total)
-        msg += "Multiple-mapped: {}\tPercent: {0:.2%}\t".format(m, m/total)
-        msg += "other: {}\tPercent: {0:.2%}".format(o, o/total)
+        msg = "Unique-mapped: {}\tPercent: {:.2%}\t".format(u, u/total)
+        msg += "Multiple-mapped: {}\tPercent: {:.2%}\t".format(m, m/total)
+        msg += "other: {}\tPercent: {:.2%}".format(o, o/total)
         return msg
     msg1 = count_msg(pet1_count)
     msg2 = count_msg(pet2_count)
