@@ -144,7 +144,6 @@ class BWA():
             # run samse step
             suffix = "sam" if not bam else "bam"
             cmd = cmd + " > " + output_prefix + "." + suffix
-            print(cmd)
             self._check_call(cmd)
             os.remove(output_prefix+".sai")
     
