@@ -26,15 +26,6 @@ def parse_rest(rest_str):
     return left, nick, right
 
 
-def reverse_complement_record(record):
-    """ reverse complement a fastq record """
-    rc_record = copy(record)
-    rc_record.seq = rc(str(rc_record.seq))
-    qua = rc_record.letter_annotations['phred_quality']
-    qua.reverse()
-    return rc_record
-
-
 def load_linkers(linker_a, linker_b):
     """
     compose linker A-A, A-B, B-A, B-B
@@ -98,12 +89,16 @@ def read_fastq(fastq_iter, n=CHUNK_SIZE):
     return chunk
 
 
-def add_base_to_PET(PET, base, base_qual=38):
+def add_base_to_PET(PET, base, pos='end', base_qual=38):
     """ add one base to fastq record object """
     quality = PET.letter_annotations['phred_quality']
-    quality.append(base_qual)
     PET.letter_annotations = {}
-    PET.seq = PET.seq + base
+    if pos == 'end':
+        quality.append(base_qual)
+        PET.seq = PET.seq + base
+    else:
+        quality = [base_qual] + quality
+        PET.seq = base + PET.seq
     PET.letter_annotations['phred_quality'] = quality
 
 
@@ -119,9 +114,12 @@ def extract_PET(record, span, rest, adapter=("", 0)):
     if adapter:
         PET2 = cut_adapter(PET2, adapter, mismatch_threshold=mismatch)
 
-    PET2 = reverse_complement_record(PET2)
-    add_base_to_PET(PET1, rest[2])
-    add_base_to_PET(PET2, rest[2])
+    pet1_end = rest[0] + rest[1]
+    pet2_start = rest[1] + rest[2]
+    if PET1.seq[-len(pet1_end):] == pet1_end:
+        add_base_to_PET(PET1, rest[2], pos='end')
+    if PET2.seq[:len(pet2_start)] == pet2_start:
+        add_base_to_PET(PET2, rest[0], pos='start')
     return PET1, PET2
 
 
@@ -170,15 +168,18 @@ def cut_adapter(seq, adapter_pattern, mismatch_threshold):
 
 
 def cut_PET(PET1, PET2, length_range):
-    def _cut_PET(PET):
-        lower, upper = length_range
-        if len(PET) < lower:
-            return False
-        elif len(PET) > upper:
-            return PET[-upper:]
-        else:
-            return PET
-    return _cut_PET(PET1), _cut_PET(PET2)
+    lower, upper = length_range
+    if len(PET1) < lower:
+        PET1 = False
+    elif len(PET1) > upper:
+        PET1 = PET1[-upper:]
+
+    if len(PET2) < lower:
+        PET2 = False
+    elif len(PET2) > upper:
+        PET2 = PET2[:upper]
+
+    return PET1, PET2
 
 
 def worker(task_queue, counter, lock, # objects for multi process work
