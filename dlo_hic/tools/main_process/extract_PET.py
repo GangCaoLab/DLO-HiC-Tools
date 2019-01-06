@@ -12,6 +12,7 @@ from Bio import SeqIO
 
 from dlo_hic.utils.align import Aligner
 from dlo_hic.utils import reverse_complement as rc
+from dlo_hic.utils import guess_fq_phred
 
 CHUNK_SIZE = 1000
 
@@ -247,7 +248,7 @@ def worker(task_queue, counter, lock, # objects for multi process work
                 unmatch += 1
 
 
-def fastq_iter(file_in, phred):
+def get_fastq_iter(file_in, phred):
     """ return a fastq iterator """
     if str(phred) == '33':
         fastq_iter = SeqIO.parse(file_in, 'fastq')
@@ -280,8 +281,8 @@ def fastq_writer(file_out, phred):
 @click.option("--rest", default="A*AGCT*T",
     help="The sequence of restriction enzyme recognition site, " +\
          "default HindIII: 'A*AGCT*T' ")
-@click.option("--phred", default='33', type=click.Choice(['33', '64']),
-    help="The Phred score encode offset type, 33 or 64. default 33")
+@click.option("--phred", default='auto', type=click.Choice(['33', '64', 'auto']),
+    help="The Phred score encode offset type, 33 or 64. default inference from fastq file.")
 @click.option("--processes", "-p", default=1,
     help="Use how many processes do calculation. default 1")
 @click.option("--PET-len-range", 'PET_len_range', default=(10, 22),
@@ -311,6 +312,9 @@ def _main(fastq, out1, out2,
 
     """
     log.info("Extract PETs from file %s"%fastq)
+    if phred == 'auto':  # inference the phred 
+        phred = str(guess_fq_phred(fastq))
+    log.info("phred offset: {}".format(phred))
 
     # parse restriction enzyme site
     rest_site = parse_rest(rest)
@@ -342,7 +346,7 @@ def _main(fastq, out1, out2,
 
     # put reads in queue
     with open_file(fastq) as file_in:
-        fq_iter = fastq_iter(file_in, phred)
+        fq_iter = get_fastq_iter(file_in, phred)
         try:
             while 1:
                 task_queue.put(read_fastq(fq_iter))
