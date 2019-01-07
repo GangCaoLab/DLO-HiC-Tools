@@ -1,3 +1,4 @@
+import os
 import io
 import gzip
 import logging
@@ -5,7 +6,7 @@ from collections import namedtuple
 
 import click
 
-from dlo_hic.utils.parse_text import Bedpe, Pairs, Bedpe_err, is_comment
+from dlo_hic.utils.parse_text import Bedpe, Pairs, is_comment
 
 
 log = logging.getLogger(__name__)
@@ -82,16 +83,12 @@ def _main(input, log_file, long_range_cutoff):
     counter = InteractionCounts()
 
     # conform input file format
-    if input.endswith("pairs") or input.endswith("pairs.gz"):
+    if 'pairs' in os.path.split(input)[1]:
         fmt = Pairs
         log.info("input pairs file.")
-    elif input.endswith("bedpe") or input.endswith("bedpe.gz"):
+    elif "bedpe" in os.path.split(input)[1]:
         fmt = Bedpe
         log.info("input bedpe file.")
-    elif input.endswith("bedpe.err") or input.endswith("bedpe.err.gz"):
-        # count abnormal bedpe file(produced by noise reduce)
-        fmt = Bedpe_err
-        log.info("input abnormal bedpe file")
     else:
         raise NotImplementedError("Only support pairs and bedpe file format.")
 
@@ -109,12 +106,6 @@ def _main(input, log_file, long_range_cutoff):
                     counter.long_range += 1
 
             counter.total += 1
-
-            if fmt is Bedpe_err:
-                if pair.abormal_type == 'abnormal-1':
-                    counter.abnormal_1 += 1
-                else:
-                    counter.abnormal_2 += 1
 
     log_counts(counter)
     log_counts(counter, log_file=log_file)

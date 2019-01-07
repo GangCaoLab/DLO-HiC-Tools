@@ -26,7 +26,7 @@ DIRS = {
 OUTPUT_FILE_TYPES = [
     ["pet.fq"],
     ["pet.bam", "pet.uniq.bam", "pet.mul.bam", "pet.unm.bam", "pet.bed", "uniq.bedpe"],
-    ["nr.bedpe", "nr.bedpe.err",],
+    ["nr.bedpe", "nr.bedpe.sel", "nr.bedpe.re"],
     ["pairs", "pairs.gz", "pairs.gz.px2"],
     ["hic", "cool", "mcool"],
 ]
@@ -245,7 +245,8 @@ def qc_files(sample_id, dirs=DIRS):
         }),
         ('noise_reduce',      {
             'comp':                join(dir_, sample_id + '.nr.comp.txt'),
-            'comp_abnormal':       join(dir_, sample_id + '.nr.comp.err.txt'),
+            'comp_abnormal_sel':   join(dir_, sample_id + '.nr.comp.sel.txt'),
+            'comp_abnormal_re':    join(dir_, sample_id + '.nr.comp.re.txt'),
         }),
         ('bedpe2pairs',       {
             'comp':                join(dir_, sample_id + '.valid.comp.txt'),

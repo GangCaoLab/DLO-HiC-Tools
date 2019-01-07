@@ -181,15 +181,16 @@ rule noise_reduce:
     #  Tool Interface:
     #     ( bedpe, output,
     #       restriction, processes,
-    #       threshold_num_rest, threshold_span )
+    #       threshold_span )
     # --------------------
     threads: setting.ncpu
     input:
-        rules.build_bedpe.output + \
-        [ rest_bed_gz, rest_bed_gz_idx ]
+        bedpe = rules.build_bedpe.output.bedpe,
+        rest_bed_gz = rest_bed_gz
     output: 
         output_files("{sample}")['nr.bedpe'],
-        output_files("{sample}")['nr.bedpe.err']
+        output_files("{sample}")['nr.bedpe.sel'],
+        output_files("{sample}")['nr.bedpe.re'],
     params:
         llog = local_logger
     run:
@@ -199,17 +200,16 @@ rule noise_reduce:
         # load parameters
         conf = config['NOISE_REDUCE']
 
-        bedpe = input[0]
+        bedpe = input.bedpe
         out = output[0]
-        restriction = input[1]
-        thresh_num = conf['threshold_num_rest']
+        restriction = input.rest_bed_gz
         thresh_span = conf['threshold_span']
 
         # run tool
         dlo_main.noise_reduce.log = llog
         dlo_main.noise_reduce.main(
             bedpe, out,
-            restriction, setting.ncpu, thresh_num, thresh_span)
+            restriction, setting.ncpu, thresh_span)
 
 
 rule qc_count_bedpe_nr:
@@ -226,11 +226,13 @@ rule qc_count_bedpe_nr:
         rules.noise_reduce.output
     output:
         qc_files('{sample}')['noise_reduce']['comp'],
-        qc_files('{sample}')['noise_reduce']['comp_abnormal'],
+        qc_files('{sample}')['noise_reduce']['comp_abnormal_sel'],
+        qc_files('{sample}')['noise_reduce']['comp_abnormal_re'],
     run:
         cutoff = config['QUALITY_CONTROL']['long_range_cutoff']
         dlo_qc.interactions_qc.main(input[0], output[0], cutoff)
         dlo_qc.interactions_qc.main(input[1], output[1], cutoff)
+        dlo_qc.interactions_qc.main(input[2], output[2], cutoff)
 
 
 rule bedpe2pairs:

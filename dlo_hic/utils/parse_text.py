@@ -201,22 +201,3 @@ class Pairs(object):
             if span2 > dis:
                 return False
         return True
-
-
-class Bedpe_err(Bedpe):
-    """ Abstraction for abnormal bedpe file """
-    def __init__(self, line):
-        items = line.strip().split()
-        self.items = items
-        self.abormal_type = items[0]
-        self.chr1 = items[1]
-        self.chr2 = items[4]
-        self.name, self.score = items[7], int(items[8])
-        self.start1, self.start2 = int(items[2]), int(items[5])
-        self.end1, self.end2 = int(items[2]), int(items[5])
-        self.strand1, self.strand2 = items[9], items[10]
-
-        self.center1 = (self.start1 + self.end1) // 2
-        self.center2 = (self.start2 + self.end2) // 2
-
-        self.pos1, self.pos2 = self.end1, self.start2 # mimic pairs obj
