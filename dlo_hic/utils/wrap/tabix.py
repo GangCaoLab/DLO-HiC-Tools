@@ -18,10 +18,13 @@ def index_bed6(bedfile):
     subprocess.check_call(cmd, shell=True)
 
 
-def query_bed6(bedfile, chr_, start, end):
+def query_bed6(bedfile, chr_, start=None, end=None):
     """ query to indexed bed file """
     start, end = str(start), str(end)
-    cmd = "tabix {} {}:{}-{}".format(bedfile+'.gz', chr_, start, end)
+    if start and end:
+        cmd = "tabix {} {}:{}-{}".format(bedfile+'.gz', chr_, start, end)
+    else:
+        cmd = "tabix {} {}".format(bedfile+'.gz', chr_)
     process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
     for line in process.stdout:
         line = line.decode("utf-8")  # note: subprocess stdout is bytes stream
