@@ -77,8 +77,6 @@ class Bedpe(object):
         self.center1 = (self.start1 + self.end1) // 2
         self.center2 = (self.start2 + self.end2) // 2
 
-        self.pos1, self.pos2 = self.end1, self.start2 # mimic pairs obj
-
     def is_rep_with(self, another, dis=10):
         """ Judge another bedpe record is replection of self or not. """
         if (self.chr1 != another.chr1) or (self.chr2 != another.chr2):
@@ -88,7 +86,9 @@ class Bedpe(object):
                 return (self.start1 == another.start1) and \
                        (self.start2 == another.start1) and \
                        (self.end1 == another.end1) and \
-                       (self.end2 == another.end2)
+                       (self.end2 == another.end2) and \
+                       (self.strand1 == another.strand1) and \
+                       (self.strand2 == another.strand2)
             if abs(self.start1 - another.start1) > dis:
                 return False
             if abs(self.end1 - another.end1) > dis:
@@ -96,6 +96,10 @@ class Bedpe(object):
             if abs(self.start2 - another.start2) > dis:
                 return False
             if abs(self.end2 - another.end2) > dis:
+                return False
+            if self.strand1 != another.strand1:
+                return False
+            if self.strand2 != another.strand2:
                 return False
         return True
 
@@ -107,7 +111,6 @@ class Bedpe(object):
         self.start1,  self.start2  = self.start2, self.start1
         self.end1,    self.end2    = self.end2, self.end1
         self.strand1, self.strand2 = self.strand2, self.strand1
-        self.pos1,    self.pos2    = self.end1, self.start2
 
     def to_upper_trangle(self):
         """
@@ -122,7 +125,7 @@ class Bedpe(object):
         if self.chr1 > self.chr2:
             self.exchange_pos()
         elif self.chr1 == self.chr2:
-            if self.pos1 > self.pos2:
+            if self.start1 > self.start2:
                 self.exchange_pos()                
 
     def __str__(self):
@@ -131,16 +134,18 @@ class Bedpe(object):
                           self.name, str(self.score), self.strand1, self.strand2])
         return line
 
-    def to_pairs_line(self):
+    def to_pairs_line(self, pos1='start', pos2='start'):
         """
         convert to pairs format line.
         about pairs format:
         https://github.com/4dn-dcic/pairix/blob/master/pairs_format_specification.md
         """
         self.to_upper_trangle()
+        pos1 = self.start1 if pos1 == 'start' else self.end1
+        pos2 = self.start2 if pos2 == 'start' else self.end2
         line = "\t".join([self.name, 
-                          self.chr1, str(self.pos1),
-                          self.chr2, str(self.pos2),
+                          self.chr1, str(pos1),
+                          self.chr2, str(pos2),
                           self.strand1, self.strand2])
         return line
 
@@ -193,11 +198,17 @@ class Pairs(object):
         else:
             if dis == 0:
                 return (self.pos1 == another.pos1) and \
-                       (self.pos2 == another.pos2)
+                       (self.pos2 == another.pos2) and \
+                       (self.strand1 == another.strand1) and \
+                       (self.strand2 == another.strand2)
             span1 = abs(self.pos1 - another.pos1)
             span2 = abs(self.pos2 - another.pos2)
             if span1 > dis:
                 return False
             if span2 > dis:
+                return False
+            if self.strand1 != another.strand1:
+                return False
+            if self.strand2 != another.strand2:
                 return False
         return True

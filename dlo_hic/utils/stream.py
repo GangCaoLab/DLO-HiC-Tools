@@ -113,7 +113,7 @@ def remove_redundancy(line_iterator, fmt, distance):
             break
 
 
-def bedpe2pairs(line_iterator):
+def bedpe2pairs(line_iterator, pos1='start', pos2='start'):
     """
     Convert the line format from BEDPE to Pairs.
     """
@@ -121,7 +121,7 @@ def bedpe2pairs(line_iterator):
     itr = line_iterator
     for line in itr:
         bpe = Bedpe(line)
-        pairs_line = bpe.to_pairs_line()
+        pairs_line = bpe.to_pairs_line(pos1, pos2)
         yield pairs_line
 
 
@@ -129,6 +129,17 @@ def sort_pairs(pairs_path, ncpu=8):
     """ sort pairs file. """
     import subprocess as subp
     cmd = "sort --parallel={} -k2,2 -k4,4 -k3,3n -k5,5n {}".format(ncpu, pairs_path)
+    p = subp.Popen(cmd, shell=True, stdout=subp.PIPE)
+    for line in p.stdout:
+        line = line.decode('utf-8')
+        outline = line.strip()
+        yield outline
+
+
+def sort_bedpe(bedpe_path, ncpu=8):
+    """ sort bedpe file. """
+    import subprocess as subp
+    cmd = "sort --parallel={} -k1,1 -k4,4 -k2,2n -k5,5n -k4,4n -k6,6n {}".format(ncpu, bedpe_path)
     p = subp.Popen(cmd, shell=True, stdout=subp.PIPE)
     for line in p.stdout:
         line = line.decode('utf-8')
