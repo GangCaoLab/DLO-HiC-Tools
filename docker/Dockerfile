@@ -79,9 +79,8 @@ RUN conda config --add channels bioconda
 RUN conda upgrade conda
 
 # install dependency
-RUN conda install --yes bwa samtools bedtools pairix tabix
-RUN pip install --upgrade pip
-RUN pip install cython numpy scipy matplotlib
+RUN conda install --yes cython numpy scipy matplotlib pandas h5py
+RUN conda install --yes -c bioconda bwa samtools bedtools pairix tabix pysam
 
 # install DLO-HiC-Tools
 RUN wget ${DLOHIC} -O DLO-HiC-Tools.tar.gz && \

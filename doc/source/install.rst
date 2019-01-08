@@ -8,23 +8,17 @@ and following softwares are required:
 
 - BWA
 - samtools
+- bedtools
 - pairix
 - tabix
+- cooler
 
-Recommend install them with `Anaconda <https://conda.io/miniconda.html>`_, just use following commands::
+Recommend install and manage requirements with `Anaconda <https://conda.io/miniconda.html>`_, just use following commands::
 
-    $ conda install -c bioconda bwa samtools bedtools pairix tabix cooler
-
-Install Python packages
-^^^^^^^^^^^^^^^^^^^^^^^
-Python packages requirements check and install process is integrated in setup.py,
-but should install install Cython moudlue firstly.::
-
-    $ pip install cython
-
-And suggest install and update numpy, scipy and matplotlib with conda: ::
-
-    $ conda install numpy scipy matplotlib
+    $ conda create -n dlohic python=3.6  # create virtual environment
+    $ source activate dlohic
+    (dlohic) $ conda install numpy scipy matplotlib pandas cython h5py
+    (dlohic) $ conda install -c bioconda --yes bwa samtools bedtools pairix tabix cooler pysam
 
 Install DLO-HiC-Tools
 ---------------------
@@ -35,7 +29,7 @@ Download the source code firsyly, then install with setup.py ::
 
     $ git clone https://github.com/Nanguage/DLO-HiC-Tools.git
     $ cd DLO-HiC-Tools/
-    $ python3 setup.py install
+    $ python setup.py install
 
 Using Docker
 ------------
