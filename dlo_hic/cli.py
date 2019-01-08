@@ -11,6 +11,7 @@ import importlib
 import click
 
 from .config import LOGGING_FMT, LOGGING_DATE_FMT
+import dlo_hic
 
 log = logging.getLogger(__name__)
 handler = logging.StreamHandler(sys.stderr)
@@ -19,10 +20,11 @@ log.addHandler(handler)
 log.setLevel(logging.DEBUG)
 
 
-@click.group()
+@click.group(name="dlohic")
 @click.option("--log-file", help="The log file, default output to stdout.")
 @click.option("--debug/--no-debug", default=False,
     help="If debug will print all information, default False.")
+@click.version_option(version=dlo_hic.__version__)
 def cli(log_file, debug):
     """ DLO HiC Tools command line interface. """
     log = logging.getLogger() # root logger

@@ -1,3 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env python
 
-python -m dlo_hic $@
+from dlo_hic.cli import cli
+
+cli()
