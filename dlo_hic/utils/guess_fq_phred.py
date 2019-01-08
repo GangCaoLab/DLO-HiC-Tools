@@ -5,10 +5,11 @@ The code is from:
 https://github.com/brentp/bio-playground/blob/master/reads-utils/guess-encoding.py
 """
 
-import fileinput
 import operator
 import optparse
 import sys
+import gzip
+import io
 
 from collections import Counter
 
@@ -79,12 +80,21 @@ def heuristic_filter(valid, qual_val_counts):
     return valid
 
 
+def open_(path):
+    if path.endswith(".gz"):
+        fh = gzip.open(path)
+        fh = io.TextIOWrapper(fh)
+    else:
+        fh = open(path)
+    return fh
+
+
 def guess_fq_format(input_fq, n=-1):
     gmin = 99
     gmax = 0
     valid = []
 
-    with fileinput.input(input_fq, openhook=fileinput.hook_compressed) as input_file:
+    with open_(input_fq) as input_file:
         for i, line in enumerate(input_file):
             if i % 4 != 3:
                 continue
