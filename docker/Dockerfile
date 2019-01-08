@@ -79,7 +79,7 @@ RUN conda config --add channels bioconda
 RUN conda upgrade conda
 
 # install dependency
-RUN conda install --yes cython numpy scipy matplotlib pandas h5py
+RUN conda install --yes cython numpy scipy matplotlib pandas h5py jsonschema
 RUN conda install --yes -c bioconda bwa samtools bedtools pairix tabix pysam
 
 # install DLO-HiC-Tools

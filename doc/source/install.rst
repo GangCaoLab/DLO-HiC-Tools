@@ -17,7 +17,7 @@ Recommend install and manage requirements with `Anaconda <https://conda.io/minic
 
     $ conda create -n dlohic python=3.6  # create virtual environment
     $ source activate dlohic
-    (dlohic) $ conda install numpy scipy matplotlib pandas cython h5py
+    (dlohic) $ conda install numpy scipy matplotlib pandas cython h5py jsonschema
     (dlohic) $ conda install -c bioconda --yes bwa samtools bedtools pairix tabix cooler pysam
 
 Install DLO-HiC-Tools
