@@ -134,6 +134,14 @@ class Bedpe(object):
                           self.name, str(self.score), self.strand1, self.strand2])
         return line
 
+    @property
+    def pos1(self):
+        return self.end1
+
+    @property
+    def pos2(self):
+        return self.start2
+
     def to_pairs_line(self, pos1='start', pos2='start'):
         """
         convert to pairs format line.
