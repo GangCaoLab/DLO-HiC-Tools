@@ -15,10 +15,14 @@ and following softwares are required:
 
 Recommend install and manage requirements with `Anaconda <https://conda.io/miniconda.html>`_, just use following commands::
 
+    $ conda config --add channels defaults  # add channels
+    $ conda config --add channels bioconda
+    $ conda config --add channels conda-forge
     $ conda create -n dlohic python=3.6  # create virtual environment
     $ source activate dlohic
-    (dlohic) $ conda install numpy scipy matplotlib pandas cython h5py jsonschema
+    (dlohic) $ conda install numpy scipy matplotlib pandas cython h5py jsonschema graphviz
     (dlohic) $ conda install -c bioconda --yes coreutils bwa samtools bedtools pairix tabix cooler pysam
+    (dlohic) $ conda install -c conda-forge bgzip2
 
 Install DLO-HiC-Tools
 ---------------------

@@ -74,13 +74,14 @@ RUN echo 'export PATH=/opt/conda/bin:$PATH' > /etc/profile.d/conda.sh && \
 ENV PATH=/opt/conda/bin:$PATH
 
 # add channels
-RUN conda config --add channels r
 RUN conda config --add channels bioconda
+RUN conda config --add channels conda-forge
 RUN conda upgrade conda
 
 # install dependency
-RUN conda install --yes cython numpy scipy matplotlib pandas h5py jsonschema
+RUN conda install --yes cython numpy scipy matplotlib pandas h5py jsonschema graphviz
 RUN conda install --yes -c coreutils bioconda bwa samtools bedtools pairix tabix pysam
+RUN conda install --yes -c conda-forge
 
 # install DLO-HiC-Tools
 RUN wget ${DLOHIC} -O DLO-HiC-Tools.tar.gz && \
