@@ -32,32 +32,3 @@ def open_file(fname, mode='r'):
         fh = open(fname, mode=mode)
     return fh
 
-
-def infer_interaction_file_type(path):
-    """
-    Inference a interaction file in Pairs or Bedpe format.
-    """
-    from .parse_text import Bedpe, Pairs, is_comment
-    f_st = os.stat(path)
-    if f_st.st_size == 0:
-        raise IOError("Empty file")
-    with open_file(path) as f:
-        while True:  # skip header lines
-            line = f.readline()
-            if not is_comment(line):
-                break
-        else:
-            raise IOError("{} not have any contents.")
-    try:  # try Bedpe
-        Bedpe(line)
-        return Bedpe
-    except:
-        pass
-    try:  # try Pairs
-        Pairs(line)
-        return Pairs
-    except:
-        pass
-    raise NotImplementedError("Only support pairs and bedpe file format.")
-
-            

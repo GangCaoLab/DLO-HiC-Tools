@@ -11,7 +11,12 @@ log = logging.getLogger(__name__)
 
 
 def read_file(path):
-    with open(path) as f:
+    """
+    Read a text file, yield lines.
+    Support gziped file.
+    """
+    from .filetools import open_file
+    with open_file(path) as f:
         for line in f:
             line = line.strip()
             yield line

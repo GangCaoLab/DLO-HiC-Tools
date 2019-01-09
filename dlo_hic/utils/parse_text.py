@@ -1,3 +1,4 @@
+import os
 import re
 
 
@@ -76,6 +77,8 @@ class Bedpe(object):
 
         self.center1 = (self.start1 + self.end1) // 2
         self.center2 = (self.start2 + self.end2) // 2
+
+        self.fields = ("chr1", "start1", "end1", "chr2", "start2", "end2", "name", "score", "strand1", "strand2")
 
     def is_rep_with(self, another, dis=10):
         """ Judge another bedpe record is replection of self or not. """
@@ -177,6 +180,8 @@ class Pairs(object):
         self.pos1, self.pos2 = items[2], items[4]
         self.strand1, self.strand2 = items[5], items[6]
 
+        self.fields = ("name", "chr1", "pos1", "chr2", "pos2", "strand1", "strand2")
+
     def __str__(self):
         return "\t".join([self.name,
                           self.chr1, str(self.pos1),
@@ -220,3 +225,33 @@ class Pairs(object):
             if self.strand2 != another.strand2:
                 return False
         return True
+
+
+def infer_interaction_file_type(path):
+    """
+    Inference a interaction file in Pairs or Bedpe format.
+    """
+    from .filetools import open_file
+    f_st = os.stat(path)
+    if f_st.st_size == 0:
+        raise IOError("Empty file")
+    with open_file(path) as f:
+        while True:  # skip header lines
+            line = f.readline()
+            if not is_comment(line):
+                break
+        else:
+            raise IOError("{} not have any contents.")
+    try:  # try Bedpe
+        Bedpe(line)
+        return Bedpe
+    except:
+        pass
+    try:  # try Pairs
+        Pairs(line)
+        return Pairs
+    except:
+        pass
+    raise NotImplementedError("Only support pairs and bedpe file format.")
+
+            

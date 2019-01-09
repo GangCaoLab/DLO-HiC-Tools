@@ -6,8 +6,8 @@ from collections import namedtuple
 
 import click
 
-from dlo_hic.utils.parse_text import is_comment
-from dlo_hic.utils.filetools import infer_interaction_file_type, open_file
+from dlo_hic.utils.parse_text import is_comment, infer_interaction_file_type
+from dlo_hic.utils.filetools import open_file
 
 
 log = logging.getLogger(__name__)

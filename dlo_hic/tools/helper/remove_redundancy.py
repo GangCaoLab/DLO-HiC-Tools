@@ -5,7 +5,8 @@ import click
 
 from dlo_hic.utils.stream import (upper_triangle, remove_redundancy,
                                   read_file, write_to_file,
-                                  sort_pairs, sort_bedpe_reads1)
+                                  sort_pairs, sort_bedpe)
+from dlo_hic.utils.parse_text import Bedpe, Pairs, infer_interaction_file_type
 
 
 log = logging.getLogger(__name__)
@@ -26,14 +27,16 @@ def _main(input, output, distance, ncpu):
     Remove the redundancy within pairs.
 
     If pairs both ends's distance,
-    small than the threshold distance at same time,
+    small than the threshold distance at same time, and have same strand.
     consider them as the redundancy.
 
     \b
     for example:
+                  +             -
         reads1    <---  ...  --->
                |-----|      |-----|
         reads2   <--- ... --->
+                 +           -
 
         reads2 can be consider as the replection of reads1.
         reads2 will be remove.
@@ -54,12 +57,14 @@ def _main(input, output, distance, ncpu):
     log.info("transform to upper triangle form.")
     tmp0 = input + '.tmp.0'
     line_iter = read_file(input)
-    if input.endswith(".pairs"):
+
+    fmt = infer_interaction_file_type(input)
+    if fmt == Pairs:
         fmt = 'pairs'
         sort_func = sort_pairs
     else:
         fmt = 'bedpe'
-        sort_func = sort_bedpe_reads1
+        sort_func = sort_bedpe
 
     line_iter = upper_triangle(line_iter, fmt=fmt)
     write_to_file(line_iter, tmp0)
