@@ -139,6 +139,43 @@
     </div>
 </%def>
 
+<%def name="pet_span_stats_table(stats_list)">
+    <table>
+        <tr>
+            % for item, _ in stats_list:
+                <th>${item}</th>
+            % endfor
+        </tr>
+
+        <tr>
+            % for _, val in stats_list:
+                <%
+                    if val - int(val) != 0:
+                        val_str = "{:.2}".format(val)
+                    else:
+                        val_str = "{}".format(int(val))
+                %>
+                <td>${val_str}</td>
+            % endfor
+        </tr>
+    </table>
+</%def>
+
+<%def name="include_svg(svg)">
+    ${svg}
+</%def>
+
+<%def name="pet_span(qc_contents)">
+    <div class="pet_span">
+        <div class="pet_span_stats_table">
+            ${pet_span_stats_table(qc_contents['stats'])}
+        </div>
+        <div class="pet_span_svg">
+            ${include_svg(qc_contents['svg'])}
+        </div>
+    </div>
+</%def>
+
 <html>
     <head>
         <style>
@@ -166,6 +203,11 @@
         <div class="counts_table">
             <h2>Reads counts</h2>
             ${reads_counts_table(qc_contents['reads_counts'])}
+        </div>
+
+        <div class="pet_span">
+            <h2>PET span distribution</h2>
+            ${pet_span(qc_contents['pet_span'])}
         </div>
 
         <div class="compositions">

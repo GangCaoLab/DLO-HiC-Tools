@@ -76,6 +76,30 @@ def load_chr_interaction_csv(path):
     return res
 
 
+def load_span_stats(path):
+    stats = []
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith("[Describe]"):
+                continue
+            elif len(line) == 0 or line.startswith("["):
+                break
+            else:
+                items = line.split("\t")
+                key = items[0]
+                val = float(items[1])
+                stats.append((key, val)) 
+    return stats
+
+
+def load_svg(path):
+    with open(path) as f:
+        contents = f.read()
+    contents = contents.strip()
+    return contents
+
+
 def get_qc_contents(pipe_workdir, sample_id):
     reads_counts_qc = get_reads_comp_qc(pipe_workdir, sample_id)
 
@@ -83,8 +107,17 @@ def get_qc_contents(pipe_workdir, sample_id):
     csv_path = join(pipe_workdir, csv_path)
     chr_interactions = load_chr_interaction_csv(csv_path)
 
+    span_stats_path = join(pipe_workdir, qc_files(sample_id)['bedpe2pairs']['pet_span_stats'])
+    pet_span_stats = load_span_stats(span_stats_path)
+    svg_path = join(pipe_workdir, qc_files(sample_id)['bedpe2pairs']['pet_span_fig'])
+    pet_span_svg = load_svg(svg_path)
+
     res = {
         'reads_counts': reads_counts_qc,
+        'pet_span': {
+            'stats': pet_span_stats,
+            'svg': pet_span_svg,
+        },
         'chr_interactions': chr_interactions,
     }
     return res

@@ -48,11 +48,11 @@ div.column {
     float: left;
 }
 
-div.column.left {
+div.qc_table.column.left {
     width: 70%;
 }
 
-div.column.right {
+div.piechart.column.right {
     width: 30%;
 }
 
