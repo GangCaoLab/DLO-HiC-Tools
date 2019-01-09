@@ -54,7 +54,7 @@ rule extract_PET:
     #  Tool Interface:
     #     ( fastq, out1, out2,
     #       linker_a, linker_b,
-    #       mismatch, rest, phred, processes, PET_len_range, PET_cut_len,
+    #       mismatch, rest, processes, PET_len_range, PET_cut_len,
     #       adapter, mismatch_adapter,
     #       log_file )
     # --------------------
@@ -77,9 +77,9 @@ rule extract_PET:
         # run tool
         dlo_main.extract_PET.log = llog
         dlo_main.extract_PET.main(
-            input[0], output.pet1, output.pet2, conf['linker_a'], conf['linker_b'],
-            conf['mismatch'], rest, 'auto',
-            setting.ncpu, conf['pet_len_range'], conf['pet_cut_len'],
+            input[0], output.pet1, output.pet2,
+            conf['linker_a'], conf['linker_b'],
+            conf['mismatch'], rest, setting.ncpu, conf['pet_len_range'], conf['pet_cut_len'],
             conf['adapter'], conf['mismatch_adapter'],
             output.qc_comp)
 

@@ -84,12 +84,11 @@ def add_base_to_PET(PET, base, pos='end'):
     """ add one base to fastq record object """
     if pos == 'end':
         qual = PET.quality[-1]
-        PET.quality.append(qual)
-        PET.seq.append(base)
+        new = Fastq(PET.seqid, PET.seq + base, PET.quality + qual)
     else:
         qual = PET.quality[0]
-        PET.quality.insert(0, qual)
-        PET.seq.insert(0, base)
+        new = Fastq(PET.seqid, base + PET.seq, qual + PET.quality)
+    return new
 
 
 def extract_PET(record, span, rest, adapter=("", 0)):
@@ -107,9 +106,9 @@ def extract_PET(record, span, rest, adapter=("", 0)):
     pet1_end = rest[0] + rest[1]
     pet2_start = rest[1] + rest[2]
     if PET1.seq[-len(pet1_end):] == pet1_end:
-        add_base_to_PET(PET1, rest[2], pos='end')
+        PET1 = add_base_to_PET(PET1, rest[2], pos='end')
     if PET2.seq[:len(pet2_start)] == pet2_start:
-        add_base_to_PET(PET2, rest[0], pos='start')
+        PET2 = add_base_to_PET(PET2, rest[0], pos='start')
     return PET1, PET2
 
 
