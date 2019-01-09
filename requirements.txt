@@ -1,7 +1,6 @@
 numpy>=1.13.0
 scipy>=0.18.0
 matplotlib>=2.0.0
-biopython>=1.70
 Cython>=0.25.2
 click>=6.7
 seaborn>=0.8.1
