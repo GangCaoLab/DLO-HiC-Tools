@@ -237,7 +237,7 @@ def qc_files(sample_id, dirs=DIRS):
     dir_ = dirs['qc']
     return OrderedDict([
         ('extract_PET',       {
-            "comp":                join(dir_, sample_id + '.pet.comp.txt')   # composition of cis/trans interactions
+            "comp":                join(dir_, sample_id + '.pet.comp.txt'),   # composition of cis/trans molecular interactions
         }),
         ('build_bedpe',       {
             'comp':                join(dir_, sample_id + '.bedpe.comp.txt'),
@@ -251,6 +251,8 @@ def qc_files(sample_id, dirs=DIRS):
         ('bedpe2pairs',       {
             'comp':                join(dir_, sample_id + '.valid.comp.txt'),
             'chr_interactions':    join(dir_, sample_id + '.valid.chr_interactions.csv'),
+            'pet_span_stats':      join(dir_, sample_id + '.pet_span.txt'),
+            'pet_span_fig':        join(dir_, sample_id + '.pet_span.svg'),
         }),
     ])
 

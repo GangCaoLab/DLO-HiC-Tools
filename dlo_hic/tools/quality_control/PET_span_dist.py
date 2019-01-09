@@ -33,7 +33,9 @@ def plot_hist(hist, input, outfig):
     xs = ranges[:-1] + np.diff(ranges)/2
 
     fig, ax = plt.subplots(figsize=(7, 5))
+    xs = xs[ys != 0]
     xs = np.log10(xs)
+    ys = ys[ys != 0]
     ys = np.log10(ys)
     plt.scatter(xs, ys, c="#66ccff", alpha=0.7)
     file_name = os.path.split(input)[1]
@@ -58,6 +60,7 @@ def save_describe(span, output):
 @click.command(name="PET_span_dist")
 @click.argument("input")
 @click.argument("output")
+@click.argument("outfig")
 @click.option("--sample", "-s",
     type=int,
     default=10000,
@@ -67,7 +70,7 @@ def save_describe(span, output):
     default=1000,
     show_default=True,
     help="How may bins in hist plot.")
-def _main(input, output, sample, hist_bins):
+def _main(input, output, outfig, sample, hist_bins):
     """
     Count the distribution of PET span.
 
@@ -77,6 +80,8 @@ def _main(input, output, sample, hist_bins):
         Path to bedpe file or pairs file, support gziped file.
     output : str
         Path to output file, which store the statistic information.
+    outfig : str
+        Path to output figure.
 
     Also plot a log-log distribution fig, store at the output file's dir.
 
@@ -90,7 +95,7 @@ def _main(input, output, sample, hist_bins):
         df = interactions_dataframe(input)
 
     df['span'] = abs(df.pos2 - df.pos1)
-    df.span[df.chr1 != df.chr2] = np.nan
+    df[df.chr1 != df.chr2] = np.nan
     #import ipdb; ipdb.set_trace()
 
     save_describe(df.span, output)
@@ -99,7 +104,6 @@ def _main(input, output, sample, hist_bins):
     plt.clf()
     save_hist(hist, output)
     
-    outfig = join(split(output)[0], splitext(split(input)[1])[0] + ".span_dist.svg")
     plot_hist(hist, input, outfig)
 
     if sample:
