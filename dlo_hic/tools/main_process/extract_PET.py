@@ -6,12 +6,12 @@ from copy import copy
 import multiprocessing as mp
 
 import click
-from Bio import SeqIO
 
 from dlo_hic.utils.align import Aligner
 from dlo_hic.utils import reverse_complement as rc
 from dlo_hic.utils import guess_fq_phred
 from dlo_hic.utils.filetools import open_file
+from dlo_hic.utils.fastqio import read_fastq, write_fastq, Fastq
 
 CHUNK_SIZE = 1000
 
@@ -19,8 +19,9 @@ log = logging.getLogger(__name__)
 
 
 def parse_rest(rest_str):
-    """ parse restriction enzyme site sequence,
-    return left, nick and right sequence. """
+    """
+    parse restriction enzyme site sequence
+    """
     left, nick, right = re.split("[*^]", rest_str)
     return left, nick, right
 
@@ -67,7 +68,7 @@ def log_counts(counts, log_file=None):
                 f.write(outline)
 
 
-def read_fastq(fastq_iter, n=CHUNK_SIZE):
+def read_fastq_chunk(fastq_iter, n=CHUNK_SIZE):
     """
     read fastq file, return records chunk
     default chunk size 1000
@@ -79,17 +80,16 @@ def read_fastq(fastq_iter, n=CHUNK_SIZE):
     return chunk
 
 
-def add_base_to_PET(PET, base, pos='end', base_qual=38):
+def add_base_to_PET(PET, base, pos='end'):
     """ add one base to fastq record object """
-    quality = PET.letter_annotations['phred_quality']
-    PET.letter_annotations = {}
     if pos == 'end':
-        quality.append(base_qual)
-        PET.seq = PET.seq + base
+        qual = PET.quality[-1]
+        PET.quality.append(qual)
+        PET.seq.append(base)
     else:
-        quality = [base_qual] + quality
-        PET.seq = base + PET.seq
-    PET.letter_annotations['phred_quality'] = quality
+        qual = PET.quality[0]
+        PET.quality.insert(0, qual)
+        PET.seq.insert(0, base)
 
 
 def extract_PET(record, span, rest, adapter=("", 0)):
@@ -146,27 +146,27 @@ def match_(seq, pattern, mismatch_threshold):
     return span
 
 
-def cut_adapter(seq, adapter_pattern, mismatch_threshold):
+def cut_adapter(rec, adapter_pattern, mismatch_threshold):
     """ cut the adapter sequence """
-    matched = match_(str(seq.seq), adapter_pattern, mismatch_threshold)
+    matched = match_(rec.seq, adapter_pattern, mismatch_threshold)
     if not matched:
-        clean_seq = seq
+        clean_seq = rec
     else:
         start, end = matched
-        clean_seq = seq[:start]
+        clean_seq = rec[:start]
     return clean_seq
 
 
 def cut_PET(PET1, PET2, length_range, PET_cut_len):
     lower, upper = length_range
-    if len(PET1) < lower:
+    if len(PET1.seq) < lower:
         PET1 = False
-    elif len(PET1) > upper:
+    elif len(PET1.seq) > upper:
         PET1 = PET1[-PET_cut_len:]
 
-    if len(PET2) < lower:
+    if len(PET2.seq) < lower:
         PET2 = False
-    elif len(PET2) > upper:
+    elif len(PET2.seq) > upper:
         PET2 = PET2[:PET_cut_len]
 
     return PET1, PET2
@@ -174,27 +174,18 @@ def cut_PET(PET1, PET2, length_range, PET_cut_len):
 
 def worker(task_queue, counter, lock, # objects for multi process work
            out1, out2, # output file name
-           phred, linkers, mismatch, rest, PET_len_range, PET_cut_len, adapter):  # parameters
+           linkers, mismatch, rest, PET_len_range, PET_cut_len, adapter):  # parameters
     """ stream processing(PET extract) task """
     from queue import Empty
     current = mp.current_process().pid
 
     file_out1 = open_file(out1, 'w')
     file_out2 = open_file(out2, 'w')
-    fastq_writer_1 = fastq_writer(file_out1, phred)
-    fastq_writer_2 = fastq_writer(file_out2, phred)
-
-    fastq_writer_1.write_header()
-    fastq_writer_2.write_header()
 
     all, inter, intra, unmatch = 0,0,0,0  # variables for count reads
     while 1:
         records = task_queue.get()
         if records is None:
-            fastq_writer_1.write_footer()
-            fastq_writer_1.handle.close()
-            fastq_writer_2.write_footer()
-            fastq_writer_2.handle.close()
 
             # update counter dict
             lock.acquire()
@@ -229,32 +220,14 @@ def worker(task_queue, counter, lock, # objects for multi process work
                             unmatch += 1
                             continue
                         intra += 1
-                        fastq_writer_1.write_record(PET_1)
-                        fastq_writer_2.write_record(PET_2)
+                        write_fastq(PET_1, file_out1)
+                        write_fastq(PET_2, file_out2)
                     elif (ltype == 'A-B') or (ltype == 'B-A'):
                         # inter-molcular interaction
                         inter += 1
                     break
             else: # all linkers can't match
                 unmatch += 1
-
-
-def get_fastq_iter(file_in, phred):
-    """ return a fastq iterator """
-    if str(phred) == '33':
-        fastq_iter = SeqIO.parse(file_in, 'fastq')
-    else:
-        fastq_iter = SeqIO.parse(file_in, 'fastq-illumina')
-    return fastq_iter
-
-
-def fastq_writer(file_out, phred):
-    """ return a fastq writer """
-    if str(phred) == '33':
-        fastq_writer = SeqIO.QualityIO.FastqPhredWriter(file_out)
-    else:
-        fastq_writer = SeqIO.QualityIO.FastqIlluminaWriter(file_out)
-    return fastq_writer
 
 
 @click.command(name="extract_PET")
@@ -272,8 +245,6 @@ def fastq_writer(file_out, phred):
 @click.option("--rest", default="A*AGCT*T",
     help="The sequence of restriction enzyme recognition site, " +\
          "default HindIII: 'A*AGCT*T' ")
-@click.option("--phred", default='auto', type=click.Choice(['33', '64', 'auto']),
-    help="The Phred score encode offset type, 33 or 64. default inference from fastq file.")
 @click.option("--processes", "-p", default=1,
     help="Use how many processes do calculation. default 1")
 @click.option("--PET-len-range", 'PET_len_range',
@@ -293,7 +264,7 @@ def fastq_writer(file_out, phred):
     help="Sperate log file record reads count information. default PET_count.txt")
 def _main(fastq, out1, out2,
         linker_a, linker_b,
-        mismatch, rest, phred, processes, PET_len_range, PET_cut_len,
+        mismatch, rest, processes, PET_len_range, PET_cut_len,
         adapter, mismatch_adapter, log_file):
     """
     Extract the PETs sequences on both sides of linker sequence.
@@ -306,9 +277,6 @@ def _main(fastq, out1, out2,
 
     """
     log.info("Extract PETs from file %s"%fastq)
-    if phred == 'auto':  # inference the phred 
-        phred = str(guess_fq_phred(fastq))
-    log.info("phred offset: {}".format(phred))
 
     # parse restriction enzyme site
     rest_site = parse_rest(rest)
@@ -329,7 +297,7 @@ def _main(fastq, out1, out2,
     counter['unmatchable'] = 0
 
     workers = [mp.Process(target=worker, 
-                          args=(task_queue, counter, lock, out1+".tmp.%d"%i, out2+".tmp.%d"%i, phred,
+                          args=(task_queue, counter, lock, out1+".tmp.%d"%i, out2+".tmp.%d"%i,
                                 linkers, mismatch, rest_site, PET_len_range, PET_cut_len, (adapter, mismatch_adapter)))
                for i in range(processes)]
 
@@ -340,10 +308,10 @@ def _main(fastq, out1, out2,
 
     # put reads in queue
     with open_file(fastq) as file_in:
-        fq_iter = get_fastq_iter(file_in, phred)
+        fq_iter = read_fastq(fastq)
         try:
             while 1:
-                task_queue.put(read_fastq(fq_iter))
+                task_queue.put(read_fastq_chunk(fq_iter))
         except StopIteration:
             pass
     
