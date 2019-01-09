@@ -295,7 +295,7 @@ rule qc_pairs:
         dlo_qc.interactions_qc.main(input[0], output.comp, cutoff)
         sample_lines = 1000
         hist_bins = 1000
-        dlo_qc.PET_span_dist.main(input[0], output.pet_span_stats, output.pet_span_fig, sample_lines, hist_bins)
+        dlo_qc.PET_span_stats.main(input[0], output.pet_span_stats, output.pet_span_fig, sample_lines, hist_bins)
 
 
 rule to_hic:
