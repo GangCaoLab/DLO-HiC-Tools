@@ -32,7 +32,7 @@ def plot_hist(hist, input, outfig):
     ranges = hist[1]
     xs = ranges[:-1] + np.diff(ranges)/2
 
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(7, 5))
     xs = np.log10(xs)
     ys = np.log10(ys)
     plt.scatter(xs, ys, c="#66ccff", alpha=0.7)
@@ -40,7 +40,8 @@ def plot_hist(hist, input, outfig):
     plt.title("PET span distribution: {}".format(file_name))
     plt.xlabel("$log_{10}(PET\ span)$")
     plt.ylabel("$log_{10}(number\ of\ PETs)$")
-    plt.savefig(outfig)
+    plt.tight_layout()
+    plt.savefig(outfig, dpi=300)
 
 
 def save_describe(span, output):
@@ -98,7 +99,7 @@ def _main(input, output, sample, hist_bins):
     plt.clf()
     save_hist(hist, output)
     
-    outfig = join(split(output)[0], splitext(split(input)[1])[0] + ".span_dist.png")
+    outfig = join(split(output)[0], splitext(split(input)[1])[0] + ".span_dist.svg")
     plot_hist(hist, input, outfig)
 
     if sample:
