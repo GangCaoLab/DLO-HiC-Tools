@@ -6,7 +6,8 @@ from collections import namedtuple
 
 import click
 
-from dlo_hic.utils.parse_text import Bedpe, Pairs, is_comment
+from dlo_hic.utils.parse_text import is_comment
+from dlo_hic.utils.filetools import infer_interaction_file_type, open_file
 
 
 log = logging.getLogger(__name__)
@@ -45,17 +46,10 @@ class InteractionCounts(object):
         self.inter = 0
         self.intra = 0
         self.long_range = 0
-        self.total = 0
-        self.abnormal_1 = 0
-        self.abnormal_2 = 0
 
-
-def open_file(file_name):
-    if file_name.endswith(".gz"):
-        f = io.TextIOWrapper(gzip.open(file_name))
-    else:
-        f = open(file_name)
-    return f
+    @property
+    def total(self):
+        return  self.inter + self.intra
 
 
 @click.command(name="interactions_qc")
@@ -83,29 +77,23 @@ def _main(input, log_file, long_range_cutoff):
     counter = InteractionCounts()
 
     # conform input file format
-    if 'pairs' in os.path.split(input)[1]:
-        fmt = Pairs
-        log.info("input pairs file.")
-    elif "bedpe" in os.path.split(input)[1]:
-        fmt = Bedpe
-        log.info("input bedpe file.")
-    else:
-        raise NotImplementedError("Only support pairs and bedpe file format.")
+    try:
+        fmt = infer_interaction_file_type(input)
+        with open_file(input) as f:
+            for line in f:
+                if is_comment(line):  # skip header
+                    continue
+                pair = fmt(line)
+                if pair.chr1 != pair.chr2:
+                    counter.inter += 1
+                else:
+                    counter.intra += 1
+                    span = abs(pair.pos2 - pair.pos1)
+                    if span >= long_range_cutoff:
+                        counter.long_range += 1
 
-    with open_file(input) as f:
-        for line in f:
-            if is_comment(line):  # skip header
-                continue
-            pair = fmt(line)
-            if pair.chr1 != pair.chr2:
-                counter.inter += 1
-            else:
-                counter.intra += 1
-                span = abs(pair.pos2 - pair.pos1)
-                if span >= long_range_cutoff:
-                    counter.long_range += 1
-
-            counter.total += 1
+    except IOError as e:
+        log.warning(str(e))  # empty file
 
     log_counts(counter)
     log_counts(counter, log_file=log_file)

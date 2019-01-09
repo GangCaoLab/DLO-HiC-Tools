@@ -1,6 +1,4 @@
 import re
-import io
-import gzip
 import logging
 import itertools
 import subprocess
@@ -13,6 +11,7 @@ from Bio import SeqIO
 from dlo_hic.utils.align import Aligner
 from dlo_hic.utils import reverse_complement as rc
 from dlo_hic.utils import guess_fq_phred
+from dlo_hic.utils.filetools import open_file
 
 CHUNK_SIZE = 1000
 
@@ -66,15 +65,6 @@ def log_counts(counts, log_file=None):
             for k, v in counts.items():
                 outline = "\t".join([str(k), str(v)]) + "\n"
                 f.write(outline)
-
-
-def open_file(fname, mode='r'):
-    if fname.endswith('.gz'):
-        fh = gzip.open(fname, mode=mode+'b')
-        fh = io.TextIOWrapper(fh)
-    else:
-        fh = open(fname, mode=mode)
-    return fh
 
 
 def read_fastq(fastq_iter, n=CHUNK_SIZE):

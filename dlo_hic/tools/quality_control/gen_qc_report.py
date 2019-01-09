@@ -20,7 +20,6 @@ def get_sample_ids(pipe_workdir):
     guess_exist_type = (pairs_step_id, 'pairs.gz')
 
     dir_ = join(pipe_workdir, DIRS[guess_exist_type[0]])
-    print(dir_)
     files = os.listdir(dir_)
 
     def extract_id(path):
@@ -136,7 +135,6 @@ def _main(pipe_workdir, output, out_format):
         with open(output, 'w') as f:
             f.write(report)
             log.info("Quility control report of sample '{}' generated, saving to {}".format(s_id, output))
-        print(output)
 
 
 main = _main.callback
