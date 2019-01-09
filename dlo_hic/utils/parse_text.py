@@ -65,6 +65,9 @@ def parse_line_short(line):
 
 class Bedpe(object):
     """ The abstract of bedpe record. """
+
+    fields = ("chr1", "start1", "end1", "chr2", "start2", "end2", "name", "score", "strand1", "strand2")
+
     def __init__(self, line):
         items = parse_line_bedpe(line)
         self.items = items
@@ -78,7 +81,6 @@ class Bedpe(object):
         self.center1 = (self.start1 + self.end1) // 2
         self.center2 = (self.start2 + self.end2) // 2
 
-        self.fields = ("chr1", "start1", "end1", "chr2", "start2", "end2", "name", "score", "strand1", "strand2")
 
     def is_rep_with(self, another, dis=10):
         """ Judge another bedpe record is replection of self or not. """
@@ -172,6 +174,9 @@ def parse_line_pairs(line):
 
 class Pairs(object):
     """ The abstract of bedpe record. """
+
+    fields = ("name", "chr1", "pos1", "chr2", "pos2", "strand1", "strand2")
+
     def __init__(self, line):
         items = parse_line_pairs(line)
         self.items = items
@@ -179,8 +184,6 @@ class Pairs(object):
         self.chr1, self.chr2 = items[1], items[3]
         self.pos1, self.pos2 = items[2], items[4]
         self.strand1, self.strand2 = items[5], items[6]
-
-        self.fields = ("name", "chr1", "pos1", "chr2", "pos2", "strand1", "strand2")
 
     def __str__(self):
         return "\t".join([self.name,
