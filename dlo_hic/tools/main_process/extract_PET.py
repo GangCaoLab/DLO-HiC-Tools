@@ -159,14 +159,14 @@ def cut_adapter(rec, adapter_pattern, mismatch_threshold):
 
 def cut_PET(PET1, PET2, length_range, PET_cut_len):
     lower, upper = length_range
-    if len(PET1.seq) < lower:
+    if len(PET1) < lower:
         PET1 = False
-    elif len(PET1.seq) > upper:
+    elif len(PET1) > upper:
         PET1 = PET1[-PET_cut_len:]
 
-    if len(PET2.seq) < lower:
+    if len(PET2) < lower:
         PET2 = False
-    elif len(PET2.seq) > upper:
+    elif len(PET2) > upper:
         PET2 = PET2[:PET_cut_len]
 
     return PET1, PET2

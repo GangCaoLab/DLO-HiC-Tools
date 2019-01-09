@@ -15,6 +15,9 @@ class Fastq(Fastq_):
         else:
             return super().__getitem__(key)
 
+    def __len__(self):
+        return len(self.seq)
+
 
 def read_fastq(path):
     """
