@@ -1,19 +1,16 @@
 import re
 import logging
-import itertools
-import subprocess
-from copy import copy
-import multiprocessing as mp
+from itertools import repeat
+from concurrent.futures import ProcessPoolExecutor
+from collections import OrderedDict
 
 import click
 
-from dlo_hic.utils.align import Aligner
 from dlo_hic.utils import reverse_complement as rc
-from dlo_hic.utils import guess_fq_phred
+from dlo_hic.utils.fastqio import read_fastq, write_fastq
 from dlo_hic.utils.filetools import open_file
-from dlo_hic.utils.fastqio import read_fastq, write_fastq, Fastq
+from dlo_hic.utils.linker_trim import LinkerTrimer
 
-CHUNK_SIZE = 1000
 
 log = logging.getLogger(__name__)
 
@@ -28,36 +25,45 @@ def parse_rest(rest_str):
 
 def load_linkers(linker_a, linker_b):
     """
-    compose linker A-A, A-B, B-A, B-B
+    compose linkers
+
+    Return
+    ------
+    linkers : tuple
+        (AA, BB, AB, BA)
     """
     linkers = {}
     # convert linker sequence from unicode to str
     linker_a = str(linker_a)
     linker_b = str(linker_b) if linker_b else None
     if linker_b:
-        linkers['A-A'] = linker_a + rc(linker_a)
-        linkers['A-B'] = linker_a + rc(linker_b)
-        linkers['B-A'] = linker_b + rc(linker_a)
-        linkers['B-B'] = linker_b + rc(linker_b)
+        AA = linker_a + rc(linker_a)
+        BB = linker_b + rc(linker_b)
+        AB = linker_a + rc(linker_b)
+        BA = linker_b + rc(linker_a)
+        linkers = (AA, BB, AB, BA)
     else:
-        log.warning("using single linker.")
-        linkers['A-A'] = linker_a + rc(linker_a)
+        AA = linker_a + rc(linker_a)
+        linkers = (AA, None, None, None)
     return linkers
 
 
 def log_linkers(linkers):
     log.info("linkers:")
-    for key, linker in linkers.items():
-        log.info("{}\t{}".format(key, linker))
+    linkers_name = ("AA", "BB", "AB", "BA")
+    for name, linker in zip(linkers_name, linkers):
+        if linker is None:
+            break
+        log.info("\t{}:\t{}".format(name, linker))
 
 
 def log_counts(counts, log_file=None):
     if not log_file:
         log.info("Quality Control:")
         for k, v in counts.items():
-            log.info("\t{}\t{}".format(k, v))
+            log.info("\t{}:\t{}".format(k, v))
         try:
-            ratio = counts['intra-molecular'] / float(counts['all'])
+            ratio = counts['valid reads'] / float(counts['all'])
         except ZeroDivisionError:
             ratio = 0
         log.info("Valid reads ratio: {}".format(ratio))
@@ -68,166 +74,69 @@ def log_counts(counts, log_file=None):
                 f.write(outline)
 
 
-def read_fastq_chunk(fastq_iter, n=CHUNK_SIZE):
-    """
-    read fastq file, return records chunk
-    default chunk size 1000
-    """
-    chunk_iter = itertools.islice(fastq_iter, n)
-    chunk = list(chunk_iter)
-    if len(chunk) == 0:
-        raise StopIteration
-    return chunk
+def chunking(fq_iter, chunk_size=10000):
+    chunk = []
+    for idx, fq_rec in enumerate(fq_iter):
+        if idx != 0 and idx % chunk_size == 0:
+            yield chunk
+            chunk = []
+        chunk.append(fq_rec)
+    yield chunk
 
 
-def add_base_to_PET(PET, base, pos='end'):
-    """ add one base to fastq record object """
-    if pos == 'end':
-        qual = PET.quality[-1]
-        new = Fastq(PET.seqid, PET.seq + base, PET.quality + qual)
-    else:
-        qual = PET.quality[0]
-        new = Fastq(PET.seqid, base + PET.seq, qual + PET.quality)
-    return new
+def get_counts():
+    counts = OrderedDict([
+        ("linker unmatchable", 0),
+        ("intra-molecular linker", 0),
+        ("inter-molecular linker", 0),
+        ("adapter unmatchable", 0),
+        ("added base to left PET", 0),
+        ("added base to right PET", 0),
+        ("left PET length less than threshold", 0),
+        ("left PET length large than threshold", 0),
+        ("right PET length less than threshold", 0),
+        ("right PET length large than threshold", 0),
+        ("valid reads", 0),
+        ("all", 0),
+    ])
+    return counts
 
 
-def extract_PET(record, span, rest, adapter=("", 0)):
-    """
-    extract PET in matched record.
-    """
-    start, end = span
-    PET1 = record[:start]
-    PET2 = record[end+1:]
+def process_chunk(chunk, args):
+    linker_trimer = LinkerTrimer(*args)
+    counts = get_counts()
+    out_chunk = []
+    for fq_rec in chunk:
+        fq_rec, flag, PET1, PET2 = linker_trimer.trim(fq_rec)
+        if flag & 1 == 0:
+            if flag & 2 != 0:
+                counts['intra-molecular linker'] += 1
+            else:
+                counts['inter-molecular linker'] += 1
 
-    adapter, mismatch = adapter
-    if adapter:
-        PET2 = cut_adapter(PET2, adapter, mismatch_threshold=mismatch)
+            if flag & 4 != 0:
+                counts['adapter unmatchable'] += 1
+            if flag & 8 != 0:
+                counts['added base to left PET'] += 1
+            if flag & 16 != 0:
+                counts['added base to right PET'] += 1
+            if flag & 32 != 0:
+                counts['left PET length less than threshold'] += 1
+            if flag & 64 != 0:
+                counts['left PET length large than threshold'] += 1
+            if flag & 128 != 0:
+                counts['right PET length less than threshold'] += 1
+            if flag & 256 != 0:
+                counts['right PET length large than threshold'] += 1
 
-    pet1_end = rest[0] + rest[1]
-    pet2_start = rest[1] + rest[2]
-    if PET1.seq[-len(pet1_end):] == pet1_end:
-        PET1 = add_base_to_PET(PET1, rest[2], pos='end')
-    if PET2.seq[:len(pet2_start)] == pet2_start:
-        PET2 = add_base_to_PET(PET2, rest[0], pos='start')
-    return PET1, PET2
+            if (flag & 32 == 0) and (flag & 128 == 0):
+                counts['valid reads'] += 1
+                out_chunk.append( (fq_rec, flag, PET1, PET2) )
+        else:
+            counts['linker unmatchable'] += 1
 
-
-def align_(seq, pattern, mismatch_threshold):
-    """
-    align pattern within seq, use local alignment.
-    if not matched return False.
-    """
-    err_rate = float(mismatch_threshold)/len(pattern)
-    aligner = Aligner(seq, err_rate)
-    aligner.min_overlap = len(pattern) - mismatch_threshold
-    alignment = aligner.locate(pattern)
-    if not alignment:
-        # linker can't alignment to seq
-        return False
-    start, end, s_, e_, m, err = alignment
-    return (start, end-1)
-
-
-def match_(seq, pattern, mismatch_threshold):
-    """
-    match algorithm.
-    if not matched return False.
-    """
-    if mismatch_threshold == 0:
-        start = seq.find(pattern)
-        if start == -1:
-            return False
-        end = start + len(pattern)
-        span = (start, end)
-        return span
-
-    span = align_(seq, pattern, mismatch_threshold)
-    return span
-
-
-def cut_adapter(rec, adapter_pattern, mismatch_threshold):
-    """ cut the adapter sequence """
-    matched = match_(rec.seq, adapter_pattern, mismatch_threshold)
-    if not matched:
-        clean_seq = rec
-    else:
-        start, end = matched
-        clean_seq = rec[:start]
-    return clean_seq
-
-
-def cut_PET(PET1, PET2, length_range, PET_cut_len):
-    lower, upper = length_range
-    if len(PET1) < lower:
-        PET1 = False
-    elif len(PET1) > upper:
-        PET1 = PET1[-PET_cut_len:]
-
-    if len(PET2) < lower:
-        PET2 = False
-    elif len(PET2) > upper:
-        PET2 = PET2[:PET_cut_len]
-
-    return PET1, PET2
-
-
-def worker(task_queue, counter, lock, # objects for multi process work
-           out1, out2, # output file name
-           linkers, mismatch, rest, PET_len_range, PET_cut_len, adapter):  # parameters
-    """ stream processing(PET extract) task """
-    from queue import Empty
-    current = mp.current_process().pid
-
-    file_out1 = open_file(out1, 'w')
-    file_out2 = open_file(out2, 'w')
-
-    all, inter, intra, unmatch = 0,0,0,0  # variables for count reads
-    while 1:
-        records = task_queue.get()
-        if records is None:
-
-            # update counter dict
-            lock.acquire()
-            counter['all'] += all
-            counter['inter-molecular'] += inter
-            counter['intra-molecular'] += intra
-            counter['unmatchable'] += unmatch
-            log.debug("conter increse, %d, %d, %d, %d"%(all, inter, intra, unmatch))
-            log.debug("%d, %d, %d, %d"%(
-                counter['all'],
-                counter['inter-molecular'],
-                counter['intra-molecular'],
-                counter['unmatchable'],
-            ))
-            lock.release()
-
-            log.debug("Process-%d done"%current)
-            break
-
-        for r in records:
-            all += 1
-            seq = str(r.seq) # extract reocrd's sequence
-            for ltype, linker in linkers.items():
-                span = match_(seq, linker, mismatch)
-                if span:  # linker matched
-                    if (ltype == 'A-A') or (ltype == 'B-B'):
-                        # intra-molcular interaction
-                        PET_1, PET_2 = extract_PET(r, span, rest, adapter)
-                        PET_1, PET_2 = cut_PET(PET_1, PET_2, PET_len_range, PET_cut_len)
-                        if (not PET_1) or (not PET_2):
-                            # PET too short
-                            unmatch += 1
-                            continue
-                        intra += 1
-                        write_fastq(PET_1, file_out1)
-                        write_fastq(PET_2, file_out2)
-                    elif (ltype == 'A-B') or (ltype == 'B-A'):
-                        # inter-molcular interaction
-                        inter += 1
-                    break
-            else: # all linkers can't match
-                unmatch += 1
-
+        counts['all'] += 1
+    return out_chunk, counts
 
 @click.command(name="extract_PET")
 @click.argument("fastq", nargs=1)
@@ -255,90 +164,96 @@ def worker(task_queue, counter, lock, # objects for multi process work
     default=20, show_default=True,
     help="If PET length large than the upper len range, will cut to this length.")
 @click.option("--cut-adapter", "adapter",
+    default="",
     help="If specified, Cut the adapter sequence in the PET2.")
 @click.option("--mismatch-adapter", "mismatch_adapter", default=3,
     help="mismatch threshold in alignment in cut adapter step.")
 @click.option("--log-file",
     default="PET_count.txt",
     help="Sperate log file record reads count information. default PET_count.txt")
+@click.option("--flag-file",
+    help="If specified, write the addition information(like flag) in linker trim to a file.")
+@click.option("--chunk-size",
+    default=10000,
+    show_default=True,
+    help="How many records in one chunk, when do parallel computing.")
 def _main(fastq, out1, out2,
-        linker_a, linker_b,
-        mismatch, rest, processes, PET_len_range, PET_cut_len,
-        adapter, mismatch_adapter, log_file):
+          linker_a, linker_b,
+          mismatch, rest, processes, PET_len_range, PET_cut_len,
+          adapter, mismatch_adapter, log_file, flag_file, chunk_size):
     """
     Extract the PETs sequences on both sides of linker sequence.
 
+    \b
     Input:
         fastq file, support gziped file.
 
+    \b
     Output:
-        two fastq files contain PETs sequences.
+        Two fastq files contain PETs sequences.
+
+    \b
+    About flag:
+        Bit    Description
+        ------------------
+        1      linker unmatchable
+        2      intra-molecular linker (AA, BB)
+        4      adapter unmatchable
+        8      added base to left PET
+        16     added base to right PET
+        32     left PET len less than threshold
+        64     left PET len large than threshold
+        128    right PET len less than threshold
+        256    right PET len large than threshold
 
     """
     log.info("Extract PETs from file %s"%fastq)
 
     # parse restriction enzyme site
     rest_site = parse_rest(rest)
-
     log.info("enzyme cutting site: %s"%rest)
+
     # load linkers
     linkers = load_linkers(linker_a, linker_b)
     log_linkers(linkers)
+    log.info("linker alignment mismatch threshold: {}".format(mismatch))
 
-    manager = mp.Manager()
-    task_queue = mp.Queue()
-    counter = manager.dict() # a global queue for count record how many:
-    lock = mp.Lock()
-    # init counter
-    counter['all'] = 0
-    counter['inter-molecular'] = 0
-    counter['intra-molecular'] = 0
-    counter['unmatchable'] = 0
+    if adapter:
+        log.info("adapter: {}".format(adapter))
+        log.info("adapter alignment mismatch threshold: {}".format(mismatch_adapter))
 
-    workers = [mp.Process(target=worker, 
-                          args=(task_queue, counter, lock, out1+".tmp.%d"%i, out2+".tmp.%d"%i,
-                                linkers, mismatch, rest_site, PET_len_range, PET_cut_len, (adapter, mismatch_adapter)))
-               for i in range(processes)]
 
-    for w in workers:
-        w.start()
+    # Perform linker trimer on fastq file
 
-    log.info("%d worker process spawned for extract PETs."%len(workers))
+    fq_iter = read_fastq(fastq)
+    fq_pet1 = open_file(out1, mode='w')
+    fq_pet2 = open_file(out2, mode='w')
+    if flag_file:
+        flag_fh = open_file(flag_file, "w")
+        header = "Read_ID\tFlag\n"
+        flag_fh.write(header)
 
-    # put reads in queue
-    with open_file(fastq) as file_in:
-        fq_iter = read_fastq(fastq)
-        try:
-            while 1:
-                task_queue.put(read_fastq_chunk(fq_iter))
-        except StopIteration:
-            pass
-    
-    for w in workers:
-        task_queue.put(None)
+    counts = get_counts()
+    with ProcessPoolExecutor(max_workers=processes) as exc:
+        map_ = exc.map if processes > 1 else map
+        args = linkers, adapter, rest_site, mismatch, mismatch_adapter, PET_len_range, PET_cut_len
+        for out_chunk, counts_ in map_(process_chunk, chunking(fq_iter, chunk_size), repeat(args)):
+            for k in counts.keys():
+                counts[k] += counts_[k]
+            for fq_rec, flag, PET1, PET2 in out_chunk:
+                write_fastq(PET1, fq_pet1)
+                write_fastq(PET2, fq_pet2)
+                if flag_file:
+                    out_line = "{}\t{}\n".format(fq_rec.seqid, flag)
+                    flag_fh.write(out_line)
 
-    # wait subprocesses end
-    for w in workers:
-        w.join()
+    fq_pet1.close()
+    fq_pet2.close()
+    if flag_file:
+        flag_fh.close()
 
-    # merge all tmp files
-    tmpfiles_1 = [out1+".tmp.%d"%i for i in range(processes)]
-    tmpfiles_2 = [out2+".tmp.%d"%i for i in range(processes)]
-    # merge tmp files
-    log.info("merging temporary files ...")
-    cmd = "cat " + " ".join(tmpfiles_1) + " > " + out1
-    subprocess.check_call(cmd, shell=True)
-    cmd = "cat " + " ".join(tmpfiles_2) + " > " + out2
-    subprocess.check_call(cmd, shell=True)
-    # delete tmp files
-    log.info("delete temporary files.")
-    cmd = "rm " + " ".join(tmpfiles_1 + tmpfiles_2)
-    subprocess.check_call(cmd, shell=True)
-
-    counts = dict(counter)
+    # log counts
     log_counts(counts)
-
-    # write counts info to sperate file
     log_counts(counts, log_file)
 
     return counts

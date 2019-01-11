@@ -13,8 +13,11 @@ here = os.path.abspath(os.path.dirname(__file__))
 
 
 extensions = [
-    Extension('dlo_hic.utils.align', sources=['dlo_hic/utils/align.pyx'])
+    Extension('dlo_hic.utils.align',       sources=['dlo_hic/utils/align.pyx']),
+    Extension('dlo_hic.utils.fastqio',     sources=['dlo_hic/utils/fastqio.pyx']),
+    Extension('dlo_hic.utils.linker_trim', sources=['dlo_hic/utils/linker_trim.pyx']),
 ]
+
 
 keywords = [
     "DLO Hi-C",
