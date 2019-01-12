@@ -134,19 +134,11 @@ cdef class LinkerTrimer:
             pet2_seq = seq[pet2_start:]
             pet2_end = len(seq)
 
-        # add base
-        if pet1_seq[-len(self._rest_left_side):] == self._rest_left_side:
-            flag |= 8
-            pet1_seq = pet1_seq + self.rest_right
-        if pet2_seq[:len(self._rest_right_side)] == self._rest_right_side:
-            flag |= 16
-            pet2_seq = self.rest_left + pet2_seq
-
         # cut pet
         if len(pet1_seq) > self.pet_len_max:
             flag |= 64
             pet1_seq = pet1_seq[-self.pet_cut_len:]
-            pet1_start = len(pet1_seq) - self.pet_cut_len - 1
+            pet1_start = pet1_end - self.pet_cut_len
         elif len(pet1_seq) < self.pet_len_min:
             flag |= 32
 
@@ -157,12 +149,20 @@ cdef class LinkerTrimer:
         elif len(pet2_seq) < self.pet_len_min:
             flag |= 128
 
+        # add base
+        if pet1_seq[-len(self._rest_left_side):] == self._rest_left_side:
+            flag |= 8
+            pet1_seq = pet1_seq + self.rest_right
+        if pet2_seq[:len(self._rest_right_side)] == self._rest_right_side:
+            flag |= 16
+            pet2_seq = self.rest_left + pet2_seq
+
         # construct pet
-        if flag & 8 == 1:
+        if flag & 8 != 0:
             pet1_quality = fq_rec.quality[pet1_start:pet1_end] + len(self.rest_right) * fq_rec.quality[-1:]
         else:
             pet1_quality = fq_rec.quality[pet1_start:pet1_end]
-        if flag & 16 == 1:
+        if flag & 16 != 0:
             pet2_quality = len(self.rest_left) * fq_rec.quality[0] + fq_rec.quality[pet2_start:pet2_end]
         else:
             pet2_quality = fq_rec.quality[pet2_start:pet2_end]

@@ -169,6 +169,8 @@ def _main(fastq, out1, out2,
         log.info("adapter: {}".format(adapter))
         log.info("adapter alignment mismatch threshold: {}".format(mismatch_adapter))
 
+    log.info("Except PET length range: ({}, {})".format(*PET_len_range))
+
 
     # Perform linker trimer on fastq file
 
