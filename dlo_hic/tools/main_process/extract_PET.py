@@ -161,6 +161,8 @@ def _main(fastq, out1, out2,
     log.info("enzyme cutting site: %s"%rest)
 
     # load linkers
+    if linker_b == linker_a:
+        linker_b = None
     linkers = load_linkers(linker_a, linker_b)
     log_linkers(linkers)
     log.info("linker alignment mismatch threshold: {}".format(mismatch))
@@ -169,7 +171,7 @@ def _main(fastq, out1, out2,
         log.info("adapter: {}".format(adapter))
         log.info("adapter alignment mismatch threshold: {}".format(mismatch_adapter))
 
-    log.info("Except PET length range: ({}, {})".format(*PET_len_range))
+    log.info("Expect PET length range: [{}, {}]".format(*PET_len_range))
 
 
     # Perform linker trimer on fastq file
