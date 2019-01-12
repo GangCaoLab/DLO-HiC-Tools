@@ -180,7 +180,7 @@ def _main(fastq, out1, out2,
         header = "Read_ID\tFlag\n"
         flag_fh.write(header)
 
-    counts = np.zeros(len(COUNT_ITEM_NAMES))
+    counts = np.zeros(len(COUNT_ITEM_NAMES), dtype=np.int)
     with ProcessPoolExecutor(max_workers=processes) as exc:
         map_ = exc.map if processes > 1 else map
         args = linkers, adapter, rest_site, mismatch, mismatch_adapter, PET_len_range, PET_cut_len
