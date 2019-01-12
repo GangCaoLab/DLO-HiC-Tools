@@ -5,11 +5,12 @@ from concurrent.futures import ProcessPoolExecutor
 from collections import OrderedDict
 
 import click
+import numpy as np
 
 from dlo_hic.utils import reverse_complement as rc
 from dlo_hic.utils.fastqio import read_fastq, write_fastq
 from dlo_hic.utils.filetools import open_file
-from dlo_hic.utils.linker_trim import LinkerTrimer
+from dlo_hic.utils.linker_trim import process_chunk, COUNT_ITEM_NAMES
 
 
 log = logging.getLogger(__name__)
@@ -60,16 +61,16 @@ def log_linkers(linkers):
 def log_counts(counts, log_file=None):
     if not log_file:
         log.info("Quality Control:")
-        for k, v in counts.items():
+        for k, v in zip(COUNT_ITEM_NAMES, counts):
             log.info("\t{}:\t{}".format(k, v))
         try:
-            ratio = counts['valid reads'] / float(counts['all'])
+            ratio = counts[-2] / float(counts[-1])
         except ZeroDivisionError:
             ratio = 0
         log.info("Valid reads ratio: {}".format(ratio))
     else:
         with open(log_file, 'w') as f:
-            for k, v in counts.items():
+            for k, v in zip(COUNT_ITEM_NAMES, counts):
                 outline = "\t".join([str(k), str(v)]) + "\n"
                 f.write(outline)
 
@@ -83,60 +84,6 @@ def chunking(fq_iter, chunk_size=10000):
         chunk.append(fq_rec)
     yield chunk
 
-
-def get_counts():
-    counts = OrderedDict([
-        ("linker unmatchable", 0),
-        ("intra-molecular linker", 0),
-        ("inter-molecular linker", 0),
-        ("adapter unmatchable", 0),
-        ("added base to left PET", 0),
-        ("added base to right PET", 0),
-        ("left PET length less than threshold", 0),
-        ("left PET length large than threshold", 0),
-        ("right PET length less than threshold", 0),
-        ("right PET length large than threshold", 0),
-        ("valid reads", 0),
-        ("all", 0),
-    ])
-    return counts
-
-
-def process_chunk(chunk, args):
-    linker_trimer = LinkerTrimer(*args)
-    counts = get_counts()
-    out_chunk = []
-    for fq_rec in chunk:
-        fq_rec, flag, PET1, PET2 = linker_trimer.trim(fq_rec)
-        if flag & 1 == 0:
-            if flag & 2 != 0:
-                counts['intra-molecular linker'] += 1
-            else:
-                counts['inter-molecular linker'] += 1
-
-            if flag & 4 != 0:
-                counts['adapter unmatchable'] += 1
-            if flag & 8 != 0:
-                counts['added base to left PET'] += 1
-            if flag & 16 != 0:
-                counts['added base to right PET'] += 1
-            if flag & 32 != 0:
-                counts['left PET length less than threshold'] += 1
-            if flag & 64 != 0:
-                counts['left PET length large than threshold'] += 1
-            if flag & 128 != 0:
-                counts['right PET length less than threshold'] += 1
-            if flag & 256 != 0:
-                counts['right PET length large than threshold'] += 1
-
-            if (flag & 32 == 0) and (flag & 128 == 0):
-                counts['valid reads'] += 1
-                out_chunk.append( (fq_rec, flag, PET1, PET2) )
-        else:
-            counts['linker unmatchable'] += 1
-
-        counts['all'] += 1
-    return out_chunk, counts
 
 @click.command(name="extract_PET")
 @click.argument("fastq", nargs=1)
@@ -233,13 +180,12 @@ def _main(fastq, out1, out2,
         header = "Read_ID\tFlag\n"
         flag_fh.write(header)
 
-    counts = get_counts()
+    counts = np.zeros(len(COUNT_ITEM_NAMES))
     with ProcessPoolExecutor(max_workers=processes) as exc:
         map_ = exc.map if processes > 1 else map
         args = linkers, adapter, rest_site, mismatch, mismatch_adapter, PET_len_range, PET_cut_len
         for out_chunk, counts_ in map_(process_chunk, chunking(fq_iter, chunk_size), repeat(args)):
-            for k in counts.keys():
-                counts[k] += counts_[k]
+            counts += counts_
             for fq_rec, flag, PET1, PET2 in out_chunk:
                 write_fastq(PET1, fq_pet1)
                 write_fastq(PET2, fq_pet2)

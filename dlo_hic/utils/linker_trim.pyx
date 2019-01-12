@@ -1,3 +1,5 @@
+import numpy as np
+
 from dlo_hic.utils.fastqio import Fastq
 from dlo_hic.utils.align import Aligner
 
@@ -33,10 +35,10 @@ cdef class LinkerTrimer:
         self._rest_left_side  = rest[0] + rest[1]
         self._rest_right_side = rest[1] + rest[2]
         self.mismatch = mismatch
-        self._max_err_rate = mismatch / len(linkers[0])
+        self._max_err_rate = float(mismatch) / len(linkers[0])
         self._min_overlap = len(linkers[0]) - mismatch
         self.mismatch_adapter = mismatch_adapter
-        self._max_err_rate_adapter = mismatch_adapter / len(linkers[0])
+        self._max_err_rate_adapter = float(mismatch_adapter) / len(linkers[0])
         self._min_overlap_adapter = len(adapter) - mismatch_adapter
         self.pet_len_min = pet_len_range[0]
         self.pet_len_max = pet_len_range[1]
@@ -110,7 +112,7 @@ cdef class LinkerTrimer:
 
         m_start, m_end, s_, e_, m_, cost = alignment
         pet1_end = m_start
-        pet2_start = m_end + 1
+        pet2_start = m_end
 
         # align adapter with PET2 sequence
         if self._trim_adapter:
@@ -122,7 +124,7 @@ cdef class LinkerTrimer:
                 flag |= 4
             else:
                 a_start, a_end, s_, e_, m_, a_cost = alignment_adapter
-                pet2_end = m_end + 1 + a_start
+                pet2_end = pet2_start + a_start
 
         # extract pet seq
         pet1_seq = seq[:pet1_end]
@@ -169,3 +171,64 @@ cdef class LinkerTrimer:
         PET2 = Fastq(fq_rec.seqid, pet2_seq, pet2_quality)
 
         return (fq_rec, flag, PET1, PET2)
+
+
+COUNT_ITEM_NAMES = [
+    "linker unmatchable",
+    "intra-molecular linker",
+    "inter-molecular linker",
+    "adapter unmatchable",
+    "added base to left PET",
+    "added base to right PET",
+    "left PET length less than threshold",
+    "left PET length large than threshold",
+    "right PET length less than threshold",
+    "right PET length large than threshold",
+    "valid reads",
+    "all",
+]
+
+
+cpdef process_chunk(list chunk, tuple args):
+    """
+    Process a chunk of fastq records.
+    """
+
+    cdef int flag
+    cdef object PET1, PET2
+
+    linker_trimer = LinkerTrimer(*args)
+    counts = np.zeros(len(COUNT_ITEM_NAMES), dtype=np.int64)
+
+    out_chunk = []
+    for fq_rec in chunk:
+        fq_rec, flag, PET1, PET2 = linker_trimer.trim(fq_rec)
+        if flag & 1 == 0:
+            if flag & 2 != 0:
+                counts[1] += 1
+            else:
+                counts[2] += 1
+
+            if flag & 4 != 0:
+                counts[3] += 1
+            if flag & 8 != 0:
+                counts[4] += 1
+            if flag & 16 != 0:
+                counts[5] += 1
+            if flag & 32 != 0:
+                counts[6] += 1
+            if flag & 64 != 0:
+                counts[7] += 1
+            if flag & 128 != 0:
+                counts[8] += 1
+            if flag & 256 != 0:
+                counts[9] += 1
+
+            if (flag & 32 == 0) and (flag & 128 == 0):
+                counts[10] += 1
+                out_chunk.append( (fq_rec, flag, PET1, PET2) )
+        else:
+            counts[0] += 1
+
+        counts[11] += 1
+    return out_chunk, counts
