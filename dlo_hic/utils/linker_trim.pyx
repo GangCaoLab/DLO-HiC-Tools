@@ -11,10 +11,10 @@ cdef class LinkerTrimer:
     cdef str rest_left, rest_mid, rest_right
     cdef str _rest_left_side, _rest_right_side
     cdef int   mismatch
-    cdef float _min_err_rate
+    cdef float _max_err_rate
     cdef int   _min_overlap
     cdef int   mismatch_adapter
-    cdef float _min_err_rate_adapter
+    cdef float _max_err_rate_adapter
     cdef int   _min_overlap_adapter
     cdef int pet_len_max
     cdef int pet_len_min
@@ -33,10 +33,10 @@ cdef class LinkerTrimer:
         self._rest_left_side  = rest[0] + rest[1]
         self._rest_right_side = rest[1] + rest[2]
         self.mismatch = mismatch
-        self._min_err_rate = mismatch / len(linkers[0])
+        self._max_err_rate = mismatch / len(linkers[0])
         self._min_overlap = len(linkers[0]) - mismatch
         self.mismatch_adapter = mismatch_adapter
-        self._min_err_rate_adapter = mismatch_adapter / len(linkers[0])
+        self._max_err_rate_adapter = mismatch_adapter / len(linkers[0])
         self._min_overlap_adapter = len(adapter) - mismatch_adapter
         self.pet_len_min = pet_len_range[0]
         self.pet_len_max = pet_len_range[1]
@@ -84,7 +84,7 @@ cdef class LinkerTrimer:
         cdef int i
 
         seq = fq_rec.seq
-        aligner = Aligner(seq, self._min_err_rate)
+        aligner = Aligner(seq, self._max_err_rate)
         aligner.min_overlap = self._min_overlap
 
         # align linker with sequence
@@ -101,8 +101,8 @@ cdef class LinkerTrimer:
             for idx in range(4):
                 alignment = aligner.locate(self.linkers[idx])
                 if alignment:
-                    if idx < 2:  # AA or BB matched
-                        flag |= 1
+                    if idx < 2:  # AA/BB matched
+                        flag |= 2
                     break
             else:  # all linker unmatch
                 flag |= 1
@@ -115,7 +115,7 @@ cdef class LinkerTrimer:
         # align adapter with PET2 sequence
         if self._trim_adapter:
             pet2_seq = seq[pet2_start:]
-            aligner = Aligner(pet2_seq, self._min_err_rate_adapter)
+            aligner = Aligner(pet2_seq, self._max_err_rate_adapter)
             aligner.min_overlap = self._min_overlap_adapter
             alignment_adapter = aligner.locate(self.adapter)
             if not alignment_adapter:
