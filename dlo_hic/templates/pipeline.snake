@@ -56,7 +56,7 @@ rule extract_PET:
     #       linker_a, linker_b,
     #       mismatch, rest, processes, PET_len_range, PET_cut_len,
     #       adapter, mismatch_adapter,
-    #       log_file )
+    #       log_file, flag_file, chunk_size )
     # --------------------
     threads: setting.ncpu
     input:
@@ -64,6 +64,7 @@ rule extract_PET:
     output:
         pet1 = output_files('{sample}')['pet1.fq'],
         pet2 = output_files('{sample}')['pet2.fq'],
+        trim_flag = output_files('{sample}')['trim_flag'],
         qc_comp = qc_files('{sample}')['extract_PET']['comp']
     params:
         llog = local_logger
@@ -74,6 +75,7 @@ rule extract_PET:
         conf = config['EXTRACT_PET']
         rest = config['DATA']['restriction_site']
 
+        chunk_size = 100000
         # run tool
         dlo_main.extract_PET.log = llog
         dlo_main.extract_PET.main(
@@ -81,7 +83,7 @@ rule extract_PET:
             conf['linker_a'], conf['linker_b'],
             conf['mismatch'], rest, setting.ncpu, conf['pet_len_range'], conf['pet_cut_len'],
             conf['adapter'], conf['mismatch_adapter'],
-            output.qc_comp)
+            output.qc_comp, output.trim_flag, chunk_size)
 
 
 rule build_bedpe:

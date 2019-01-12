@@ -4,7 +4,15 @@
             total_key = 'total' if 'total' in qc_dict else 'all'
             total = qc_dict.pop(total_key)
 
-            if step not in ["extract_PET"]:
+            if step == "extract_PET":
+                intra = int(qc_dict['intra-molecular linker'])
+                inter = int(qc_dict['inter-molecular linker'])
+                qc_dict = {
+                    "intra-molecular linker": intra,
+                    "inter-molecular linker": inter,
+                }
+                total = inter + intra
+            else:
                 intra = int(qc_dict.pop("intra-chromosome"))
                 long_range = int(qc_dict.pop("long-range"))
                 qc_dict["intra-chromosome (long-range)"] = long_range
@@ -91,8 +99,8 @@
 <%def name="reads_counts_table(qc_contents)">
     <%
         raw_reads    = int(qc_contents['extract_PET']['all'])
-        linker_intra = int(qc_contents['extract_PET']['intra-molecular'])
-        linker_inter = int(qc_contents['extract_PET']['inter-molecular'])
+        linker_intra = int(qc_contents['extract_PET']['intra-molecular linker'])
+        linker_inter = int(qc_contents['extract_PET']['inter-molecular linker'])
         if linker_inter == 0:
             linker_reads = linker_intra
             linker_inter = 'NA'

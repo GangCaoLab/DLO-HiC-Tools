@@ -24,7 +24,7 @@ DIRS = {
 }
 
 OUTPUT_FILE_TYPES = [
-    ["pet.fq"],
+    ["pet.fq", "trim_flag"],
     ["pet.bam", "pet.uniq.bam", "pet.mul.bam", "pet.unm.bam", "pet.bed", "uniq.bedpe"],
     ["nr.bedpe", "nr.bedpe.sel", "nr.bedpe.re"],
     ["pairs", "pairs.gz", "pairs.gz.px2"],
