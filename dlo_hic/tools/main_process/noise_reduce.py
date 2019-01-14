@@ -178,15 +178,6 @@ def worker(task_queue,
                 err_re_f.write(out_line)
 
 
-def merge_tmp_files(tmp_files, merged_file):
-    # merge tmp files
-    cmd = "cat " + " ".join(tmp_files) + " > " + merged_file
-    subprocess.check_call(cmd, shell=True)
-    # remove tmp files
-    cmd = "rm " + " ".join(tmp_files)
-    subprocess.check_call(cmd, shell=True)
-
-
 @click.command(name="noise_reduce")
 @click.argument("bedpe")
 @click.argument("output")

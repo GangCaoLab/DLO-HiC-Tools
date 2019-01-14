@@ -32,3 +32,17 @@ def open_file(fname, mode='r'):
         fh = open(fname, mode=mode)
     return fh
 
+
+def merge_tmp_files(tmp_files, merged_file, header=""):
+    if os.path.exists(merged_file):
+        os.remove(merged_file)
+    if header:
+        with open(merged_file, 'w') as f:
+            f.write(header)
+    # merge tmp files
+    cmd = "cat " + " ".join(tmp_files) + " >> " + merged_file
+    subprocess.check_call(cmd, shell=True)
+    # remove tmp files
+    cmd = "rm " + " ".join(tmp_files)
+    subprocess.check_call(cmd, shell=True)
+

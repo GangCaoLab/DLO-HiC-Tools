@@ -1,7 +1,8 @@
 import re
 import logging
 from itertools import repeat
-from concurrent.futures import ProcessPoolExecutor
+import multiprocessing as mp
+from queue import Empty
 from collections import OrderedDict
 
 import click
@@ -9,7 +10,7 @@ import numpy as np
 
 from dlo_hic.utils import reverse_complement as rc
 from dlo_hic.utils.fastqio import read_fastq, write_fastq
-from dlo_hic.utils.filetools import open_file
+from dlo_hic.utils.filetools import open_file, merge_tmp_files
 from dlo_hic.utils.linker_trim import process_chunk, COUNT_ITEM_NAMES
 
 
@@ -83,6 +84,40 @@ def chunking(fq_iter, chunk_size=10000):
             chunk = []
         chunk.append(fq_rec)
     yield chunk
+
+
+def worker(task_queue, out1, out2, flag_file, lock, counter, args):
+    current = mp.current_process().pid
+    fq_pet1 = open_file(out1, mode='w')
+    fq_pet2 = open_file(out2, mode='w')
+    if flag_file:
+        flag_fh = open_file(flag_file, "w")
+    counts = np.zeros(len(COUNT_ITEM_NAMES), dtype=np.int)
+    while 1:
+        try:
+            chunk = task_queue.get()
+            if chunk is None:
+                raise Empty
+        except Empty:
+            fq_pet1.close()
+            fq_pet2.close()
+            if flag_file:
+                flag_fh.close()
+            log.debug("Process-%d done."%current)
+            lock.acquire()
+            counter[current] = counts
+            lock.release()
+            break
+
+        out_chunk, counts_ = process_chunk(chunk, args)
+        counts += counts_
+        for fq_rec, flag, PET1, PET2 in out_chunk:
+            if (flag & 1 == 0) and (flag & 32 == 0) and (flag & 128 == 0):
+                write_fastq(PET1, fq_pet1)
+                write_fastq(PET2, fq_pet2)
+            if flag_file:
+                out_line = "{}\t{}\n".format(fq_rec.seqid, flag)
+                flag_fh.write(out_line)
 
 
 @click.command(name="extract_PET")
@@ -173,39 +208,47 @@ def _main(fastq, out1, out2,
 
     log.info("Expect PET length range: [{}, {}]".format(*PET_len_range))
 
-
     # Perform linker trimer on fastq file
 
-    fq_iter = read_fastq(fastq)
-    fq_pet1 = open_file(out1, mode='w')
-    fq_pet2 = open_file(out2, mode='w')
+    args = linkers, adapter, rest_site, mismatch, mismatch_adapter, PET_len_range, PET_cut_len
+    tmp_files_o1 = [out1+".tmp."+str(i) for i in range(processes)]
+    tmp_files_o2 = [out2+".tmp."+str(i) for i in range(processes)]
     if flag_file:
-        flag_fh = open_file(flag_file, "w")
+        tmp_files_flag = [flag_file+".tmp."+str(i) for i in range(processes)]
+    else:
+        tmp_files_flag = ["" for _ in range(processes)]
+
+    lock = mp.Lock()
+    counter = mp.Manager().dict()
+    task_queue = mp.Queue()
+    workers = [mp.Process(target=worker,
+        args=(task_queue, o1, o2, fg, lock, counter, args))
+        for o1, o2, fg in zip(tmp_files_o1, tmp_files_o2, tmp_files_flag)
+    ]
+
+    log.info("%d workers spawned for extract PETs"%len(workers))
+    for w in workers:
+        w.start()
+
+    fq_iter = read_fastq(fastq)
+    for chunk in chunking(fq_iter, chunk_size):
+        task_queue.put(chunk)
+
+    for w in workers:
+        task_queue.put(None)
+
+    for w in workers:
+        w.join()
+
+    merge_tmp_files(tmp_files_o1, out1)
+    merge_tmp_files(tmp_files_o2, out2)
+    if flag_file:
         header = "Read_ID\tFlag\n"
-        flag_fh.write(header)
+        merge_tmp_files(tmp_files_flag, flag_file, header)
 
     counts = np.zeros(len(COUNT_ITEM_NAMES), dtype=np.int)
-    with ProcessPoolExecutor(max_workers=processes) as exc:
-        map_ = exc.map if processes > 1 else map
-        args = linkers, adapter, rest_site, mismatch, mismatch_adapter, PET_len_range, PET_cut_len
-        for out_chunk, counts_ in map_(process_chunk, chunking(fq_iter, chunk_size), repeat(args)):
-            counts += counts_
-            for fq_rec, flag, PET1, PET2 in out_chunk:
-                if (flag & 1 == 0) and (flag & 32 == 0) and (flag & 128 == 0):
-                    write_fastq(PET1, fq_pet1)
-                    write_fastq(PET2, fq_pet2)
-                if flag_file:
-                    out_line = "{}\t{}\n".format(fq_rec.seqid, flag)
-                    flag_fh.write(out_line)
-            print("flush")
-            fq_pet1.flush()
-            fq_pet2.flush()
-            if flag_file:
-                flag_fh.flush()
-        fq_pet1.close()
-        fq_pet2.close()
-        if flag_file:
-            flag_fh.close()
+    for v in counter.values():
+        counts += v
 
     # log counts
     log_counts(counts)
