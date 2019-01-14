@@ -196,6 +196,10 @@ def _main(fastq, out1, out2,
                 if flag_file:
                     out_line = "{}\t{}\n".format(fq_rec.seqid, flag)
                     flag_fh.write(out_line)
+            fq_pet1.flush()
+            fq_pet2.flush()
+            if flag_file:
+                flag_fh.flush()
 
     fq_pet1.close()
     fq_pet2.close()
