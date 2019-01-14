@@ -15,7 +15,6 @@ def read_fastq(str path):
     """
     from .filetools import open_file
     cdef str seqid, seq, quality
-    cdef size_t idx
     cdef str line
     with open_file(path) as f:
         for idx, line in enumerate(f):

@@ -191,20 +191,21 @@ def _main(fastq, out1, out2,
         for out_chunk, counts_ in map_(process_chunk, chunking(fq_iter, chunk_size), repeat(args)):
             counts += counts_
             for fq_rec, flag, PET1, PET2 in out_chunk:
-                write_fastq(PET1, fq_pet1)
-                write_fastq(PET2, fq_pet2)
+                if (flag & 1 == 0) and (flag & 32 == 0) and (flag & 128 == 0):
+                    write_fastq(PET1, fq_pet1)
+                    write_fastq(PET2, fq_pet2)
                 if flag_file:
                     out_line = "{}\t{}\n".format(fq_rec.seqid, flag)
                     flag_fh.write(out_line)
+            print("flush")
             fq_pet1.flush()
             fq_pet2.flush()
             if flag_file:
                 flag_fh.flush()
-
-    fq_pet1.close()
-    fq_pet2.close()
-    if flag_file:
-        flag_fh.close()
+        fq_pet1.close()
+        fq_pet2.close()
+        if flag_file:
+            flag_fh.close()
 
     # log counts
     log_counts(counts)

@@ -226,9 +226,9 @@ cpdef process_chunk(list chunk, tuple args):
 
             if (flag & 32 == 0) and (flag & 128 == 0):
                 counts[10] += 1
-                out_chunk.append( (fq_rec, flag, PET1, PET2) )
         else:
             counts[0] += 1
 
+        out_chunk.append( (fq_rec, flag, PET1, PET2) )
         counts[11] += 1
     return out_chunk, counts
