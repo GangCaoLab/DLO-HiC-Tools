@@ -8,6 +8,7 @@ import click
 import numpy as np
 
 from dlo_hic.utils.parse_text import parse_line_bed6, parse_line_bedpe
+from dlo_hic.utils.filetools import merge_tmp_files
 
 
 TIME_OUT = 1
