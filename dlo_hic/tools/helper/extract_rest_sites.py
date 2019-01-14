@@ -66,6 +66,9 @@ def _main(fasta, rest, output, processes):
 
     log.info("Extract restriction sites %s from %s"%(rest, fasta))
 
+    if output.endswith(".gz"):
+        output = output.replace(".gz", "")
+
     faidx = pyfaidx.Fasta(fasta)
     chrs = faidx.keys()
 
