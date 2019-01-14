@@ -153,7 +153,7 @@ rule qc_count_bedpe:
 rest_name = config['DATA']['restriction_name']
 rest_bed_gz = config['NOISE_REDUCE']['restriction_sites_bed']
 if not rest_bed_gz:
-    rest_bed_gz = join(setting.working_dir, rest_name + ".bed.gz")
+    rest_bed_gz = join(setting.working_dir, rest_name + ".bed")
 rest_bed_gz_idx = rest_bed_gz + ".tbi"
 
 fasta = config['DATA']['fasta']
