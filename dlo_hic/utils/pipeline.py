@@ -87,8 +87,14 @@ def config2dict(config):
     for sec_name, section in config.items():
         parsed_config[sec_name] = {}
         for field, val in section.items():
-            if val.strip() and not is_comment(val):
-                parsed_val = eval(val)
+            val = val.strip()
+            if val and not is_comment(val):
+                try:
+                    parsed_val = eval(val)
+                except Exception as e:
+                    print("Detected some error when parsing the pipeline config file.")
+                    print("Error occured when parsing field: {}".format(field))
+                    raise e
             else:
                 parsed_val = None
             parsed_config[sec_name][field] = parsed_val
