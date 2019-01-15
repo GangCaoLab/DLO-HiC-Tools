@@ -12,6 +12,10 @@ from functools import partial
 
 from .parse_text import is_comment
 
+
+log = logging.getLogger(__name__)
+
+
 # sub directories(under pipeline working dir), for store results
 DIRS = {
     "qc": "0a-qc",
@@ -92,8 +96,8 @@ def config2dict(config):
                 try:
                     parsed_val = eval(val)
                 except Exception as e:
-                    print("Detected some error when parsing the pipeline config file.")
-                    print("Error occured when parsing field: {}".format(field))
+                    log.error("Detected some error when parsing the pipeline config file.")
+                    log.error("Error occured when parsing field: {}".format(field))
                     raise e
             else:
                 parsed_val = None
