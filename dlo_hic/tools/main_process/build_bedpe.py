@@ -71,17 +71,17 @@ def log_split_count(pet1_count, pet2_count, log_file):
         u_r = 0 if total == 0 else u/total
         m_r = 0 if total == 0 else m/total
         o_r = 0 if total == 0 else o/total
-        msg = "Unique-mapped: {}\tPercent: {:.2%}\t".format(u, u_r)
-        msg += "Multiple-mapped: {}\tPercent: {:.2%}\t".format(m, m_r)
-        msg += "other: {}\tPercent: {:.2%}".format(o, o_r)
+        msg = "unique-mapped\t{}\tpercent\t{:.2%}".format(u, u_r) + "\t"
+        msg += "multiple-mapped\t{}\tpercent\t{:.2%}".format(m, m_r) + "\t"
+        msg += "other\t{}\tpercent\t{:.2%}".format(o, o_r)
         return msg
     msg1 = count_msg(pet1_count)
     msg2 = count_msg(pet2_count)
     log.info("PET1 alignment results:\t" + msg1)
     log.info("PET2 alignment results:\t" + msg2)
-    with open(log_file, 'a') as fo:
-        fo.write("PET1" + msg1 + "\n")
-        fo.write("PET2" + msg2 + "\n")
+    with open(log_file, 'w') as fo:
+        fo.write("PET1\t" + msg1 + "\n")
+        fo.write("PET2\t" + msg2 + "\n")
 
 
 @click.command(name="build_bedpe")
