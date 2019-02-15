@@ -36,7 +36,8 @@ Use the pipeline
 ----------------
 
 DLO-HiC-Tools implemented the pipeline with `Snakemake <https://snakemake.readthedocs.io/en/stable/>`_.
-If you want generate the HiC matrix at once, you can use this pipeline.
+If you want generate the HiC matrix and the quality control report(see `example <https://nanguage.github.io/examples/DLO_HiC_Tools/test.html>`_) at once,
+you can use this pipeline.
 
 The pipeline contain two files, a Snakemake file and a configuration file.
 
