@@ -65,7 +65,7 @@ def find_frag(rest_sites, start, end):
     else:
         left_span = mid - sites[frag_idx - 1]
         right_span = sites[frag_idx] - mid
-        if left_span > right_span:
+        if left_span < right_span:
             pos = 's'
         else:
             pos = 'e'
@@ -121,15 +121,10 @@ def bedpe_type(rest_sites, bedpe_items, threshold_span):
 
     # intra chromosome interaction
     span =  abs(start1 - start2)
-    if span > threshold_span:
+    if span > threshold_span and threshold_span != -1:
         # safe span: interaction distance enough long
         if threshold_span != -1:
             return "normal", None, None
-        else:
-            sites = rest_sites[chr1]
-            frag1 = find_frag(sites, start1, end1)
-            frag2 = find_frag(sites, start2, end2)
-            return "normal", frag1, frag2
     else:
         # unsafe span, need to check
         sites = rest_sites[chr1]
@@ -147,11 +142,12 @@ def bedpe_type(rest_sites, bedpe_items, threshold_span):
 def worker(task_queue,
            rest_sites,
            output_file, err_sel_file, err_re_file,
-           threshold_span):
+           threshold_span, counts):
     current = mp.current_process().pid
     output_f = open(output_file, 'w')
     err_sel_f = open(err_sel_file, 'w')
     err_re_f = open(err_re_file, 'w')
+    l_counts = [0, 0, 0] # local counts, (normal, sel, re)
     while 1:
         try:
             chunk = task_queue.get()
@@ -161,6 +157,9 @@ def worker(task_queue,
             output_f.close()
             err_sel_f.close()
             err_re_f.close()
+            counts['normal'] += l_counts[0]
+            counts['self-ligation'] += l_counts[1]
+            counts['re-ligation'] += l_counts[2]
             log.debug("Process-%d done."%current)
             break
 
@@ -173,10 +172,30 @@ def worker(task_queue,
 
             if type_ == 'normal':
                 output_f.write(out_line)
+                l_counts[0] += 1
             elif type_ == 'self-ligation':
                 err_sel_f.write(out_line)
+                l_counts[1] += 1
             elif type_ == 're-ligation':
                 err_re_f.write(out_line)
+                l_counts[2] += 1
+
+
+def log_counts(counts, log_file):
+    log.info("Noise reduce result count:")
+    total = sum(list(counts.values()))
+    n = counts['normal']
+    s = counts['self-ligation']
+    r = counts['re-ligation']
+    n_r = 0 if total == 0 else n / total
+    s_r = 0 if total == 0 else s / total
+    r_r = 0 if total == 0 else r / total
+    msg = "normal\t{}\tpercent\t{}".format(n, n_r) + "\n"
+    msg += "self-ligation\t{}\tpercent\t{}".format(s, s_r) + "\n"
+    msg += "re-ligation\t{}\tpercent\t{}".format(r, r_r)
+    log.info(msg)
+    with open(log_file, 'w'):
+        log_file.write(msg + "\n")
 
 
 @click.command(name="noise_reduce")
@@ -193,9 +212,13 @@ def worker(task_queue,
     default=1000,
     show_default=True,
     help="Threshold of pair span. Use -1 to force check.")
+@click.option("--log-file",
+    default="noise_reduce.log",
+    help="Sperate log file for storage some count information.")
 def _main(bedpe, output,
          restriction, processes,
-         threshold_span):
+         threshold_span,
+         log_file):
     """
     Remove noise in DLO-HiC data.
 
@@ -248,12 +271,19 @@ def _main(bedpe, output,
     log.info("loading restriction sites from file: {}".format(restriction))
     rest_sites, rest_site_len = load_rest_sites(restriction)
 
+    # init counts
+    counts = mp.Manager().dict()
+    counts['normal'] = 0
+    counts['self-ligation'] = 0
+    counts['re-ligation'] = 0
+
     task_queue = mp.Queue()
     workers = [mp.Process(target=worker,
                           args=(task_queue,
                                 rest_sites,
                                 output+".tmp.%d"%i, output+".tmp.sel.%d"%i, output+".tmp.re.%d"%i,
-                                threshold_span))
+                                threshold_span,
+                                counts))
                for i in range(processes)]
 
     log.info("%d workers spawned for noise refuce"%len(workers))
@@ -283,6 +313,7 @@ def _main(bedpe, output,
     tmp_re_files = [output+".tmp.re.%d"%i for i in range(processes)]
     merge_tmp_files(tmp_re_files, output+".re")
 
+    log_counts(counts, log_file)
     log.info("Noise reduce done.")
 
 
