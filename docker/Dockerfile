@@ -81,7 +81,7 @@ RUN conda upgrade conda
 # install dependency
 RUN conda install --yes cython numpy scipy matplotlib pandas h5py jsonschema graphviz
 RUN conda install --yes -c coreutils bioconda bwa samtools bedtools pairix tabix pysam
-RUN conda install --yes -c conda-forge
+RUN conda install --yes -c conda-forge bzip2
 
 # install DLO-HiC-Tools
 RUN wget ${DLOHIC} -O DLO-HiC-Tools.tar.gz && \

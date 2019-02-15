@@ -22,7 +22,7 @@ Recommend install and manage requirements with `Anaconda <https://conda.io/minic
     $ source activate dlohic
     (dlohic) $ conda install numpy scipy matplotlib pandas cython h5py jsonschema graphviz
     (dlohic) $ conda install -c bioconda --yes coreutils bwa samtools bedtools pairix tabix cooler pysam
-    (dlohic) $ conda install -c conda-forge bgzip2
+    (dlohic) $ conda install -c conda-forge bzip2
 
 Install DLO-HiC-Tools
 ---------------------
