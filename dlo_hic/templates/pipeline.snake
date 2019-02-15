@@ -193,7 +193,7 @@ rule noise_reduce:
         out = output_files("{sample}")['nr.bedpe'],
         sel = output_files("{sample}")['nr.bedpe.sel'],
         re  = output_files("{sample}")['nr.bedpe.re'],
-        qc_noise_reduce = qc_files('{sample}')['noise_reduce']['noise_reduce]
+        qc_noise_reduce = qc_files('{sample}')['noise_reduce']['noise_reduce']
     params:
         llog = local_logger
     run:
