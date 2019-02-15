@@ -190,9 +190,10 @@ rule noise_reduce:
         bedpe = rules.build_bedpe.output.bedpe,
         rest_bed_gz = rest_bed_gz
     output: 
-        output_files("{sample}")['nr.bedpe'],
-        output_files("{sample}")['nr.bedpe.sel'],
-        output_files("{sample}")['nr.bedpe.re'],
+        out = output_files("{sample}")['nr.bedpe'],
+        sel = output_files("{sample}")['nr.bedpe.sel'],
+        re  = output_files("{sample}")['nr.bedpe.re'],
+        qc_noise_reduce = qc_files('{sample}')['noise_reduce']['noise_reduce]
     params:
         llog = local_logger
     run:
@@ -203,15 +204,15 @@ rule noise_reduce:
         conf = config['NOISE_REDUCE']
 
         bedpe = input.bedpe
-        out = output[0]
         restriction = input.rest_bed_gz
         thresh_span = conf['threshold_span']
 
         # run tool
         dlo_main.noise_reduce.log = llog
         dlo_main.noise_reduce.main(
-            bedpe, out,
-            restriction, setting.ncpu, thresh_span)
+            bedpe, output.out,
+            restriction, setting.ncpu, thresh_span,
+            output.qc_noise_reduce)
 
 
 rule qc_count_bedpe_nr:

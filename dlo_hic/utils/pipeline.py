@@ -251,12 +251,13 @@ def qc_files(sample_id, dirs=DIRS):
         }),
         ('build_bedpe',       {
             'comp':                join(dir_, sample_id + '.bedpe.comp.txt'),
-            'build_bedpe':         join(dir_, sample_id + '.bedpe.txt')
+            'build_bedpe':         join(dir_, sample_id + '.bedpe.txt'),
         }),
         ('noise_reduce',      {
             'comp':                join(dir_, sample_id + '.nr.comp.txt'),
             'comp_abnormal_sel':   join(dir_, sample_id + '.nr.comp.sel.txt'),
             'comp_abnormal_re':    join(dir_, sample_id + '.nr.comp.re.txt'),
+            'noise_reduce':        join(dir_, sample_id + '.nr.txt'),
         }),
         ('bedpe2pairs',       {
             'comp':                join(dir_, sample_id + '.valid.comp.txt'),
