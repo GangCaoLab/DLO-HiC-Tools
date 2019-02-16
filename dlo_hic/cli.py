@@ -1,6 +1,8 @@
 """
 DLO HiC command line interface.
 """
+import matplotlib
+matplotlib.use("Agg")
 
 import sys
 import os

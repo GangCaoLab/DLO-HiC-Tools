@@ -74,6 +74,7 @@ def _main(input, output, outfig, sample, hist_bins):
     """
     Count the distribution of PET span.
 
+    \b
     Arguments
     ---------
     input : str
@@ -100,7 +101,7 @@ def _main(input, output, outfig, sample, hist_bins):
 
     save_describe(df.span, output)
 
-    hist = plt.hist(df.span, bins=hist_bins)
+    hist = plt.hist(df.span.dropna(), bins=hist_bins)
     plt.clf()
     save_hist(hist, output)
     
