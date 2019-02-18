@@ -23,7 +23,7 @@ def add_chr_prefix(chr_a, chr_b):
     return chr_a_, chr_b_
 
 
-def parse_line_bedpe(line, to_short=False):
+def parse_line_bedpe(line, to_short=False, extends=False):
     """ parse bedpe line 
     if to_short:
         return  chr_a, pos_a, chr_b, pos_b, score
@@ -34,12 +34,16 @@ def parse_line_bedpe(line, to_short=False):
     chr_a, a_s, a_e, chr_b, b_s, b_e, name, score, strand_a, strand_b = items[:10]
     score = int(score)
     a_s, a_e, b_s, b_e = [int(i) for i in (a_s, a_e, b_s, b_e)]
+
     if to_short:
         pos_a, pos_b = (a_s + a_e)//2, (b_s + b_e)//2
         chr_a, chr_b = add_chr_prefix(chr_a, chr_b)
         return chr_a, pos_a, chr_b, pos_b, score
-    else:
-        return chr_a, a_s, a_e, chr_b, b_s, b_e, name, score, strand_a, strand_b
+
+    if extends:
+        return (chr_a, a_s, a_e, chr_b, b_s, b_e, name, score, strand_a, strand_b), items[10:]
+
+    return chr_a, a_s, a_e, chr_b, b_s, b_e, name, score, strand_a, strand_b
 
 
 def parse_line_bed6(line):
@@ -69,7 +73,7 @@ class Bedpe(object):
     fields = ("chr1", "start1", "end1", "chr2", "start2", "end2", "name", "score", "strand1", "strand2")
 
     def __init__(self, line):
-        items = parse_line_bedpe(line)
+        items, extends = parse_line_bedpe(line, extends=True)
         self.items = items
         self.chr1 = items[0]
         self.chr2 = items[3]
@@ -80,6 +84,7 @@ class Bedpe(object):
 
         self.center1 = (self.start1 + self.end1) // 2
         self.center2 = (self.start2 + self.end2) // 2
+        self.extends = extends
 
 
     def is_rep_with(self, another, dis=10):
@@ -134,9 +139,13 @@ class Bedpe(object):
                 self.exchange_pos()                
 
     def __str__(self):
-        line = "\t".join([self.chr1, str(self.start1), str(self.end1),
-                          self.chr2, str(self.start2), str(self.end2),
-                          self.name, str(self.score), self.strand1, self.strand2])
+        fields = [self.chr1, str(self.start1), str(self.end1),
+                  self.chr2, str(self.start2), str(self.end2),
+                  self.name, str(self.score), self.strand1, self.strand2]
+        if self.extends:
+            line = "\t".join(fields + self.extends)
+        else:
+            line = "\t".join(fields)
         return line
 
     @property
