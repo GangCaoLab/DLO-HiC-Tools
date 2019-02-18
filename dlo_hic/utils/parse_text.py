@@ -94,7 +94,7 @@ class Bedpe(object):
         else:
             if dis == 0:
                 return (self.start1 == another.start1) and \
-                       (self.start2 == another.start1) and \
+                       (self.start2 == another.start2) and \
                        (self.end1 == another.end1) and \
                        (self.end2 == another.end2) and \
                        (self.strand1 == another.strand1) and \
