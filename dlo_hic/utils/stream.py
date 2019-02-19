@@ -138,7 +138,7 @@ def bedpe2pairs(line_iterator, pos1='start', pos2='start'):
 def sort_pairs(pairs_path, ncpu=8):
     """ sort pairs file. """
     import subprocess as subp
-    cmd = "sort --parallel={} -k2,2 -k4,4 -k3,3n -k5,5n {}".format(ncpu, pairs_path)
+    cmd = "sort --parallel={} -k2,2 -k4,4 -k3,3n -k5,5n -k6,6 -k7,7 {}".format(ncpu, pairs_path)
     p = subp.Popen(cmd, shell=True, stdout=subp.PIPE)
     for line in p.stdout:
         line = line.decode('utf-8')
@@ -149,7 +149,7 @@ def sort_pairs(pairs_path, ncpu=8):
 def sort_bedpe(bedpe_path, ncpu=8):
     """ sort bedpe file. """
     import subprocess as subp
-    cmd = "sort --parallel={} -k1,1 -k4,4 -k2,2n -k5,5n -k4,4n -k6,6n {}".format(ncpu, bedpe_path)
+    cmd = "sort --parallel={} -k1,1 -k4,4 -k2,2n -k5,5n -k4,4n -k6,6n -k9,9 -k10,10 {}".format(ncpu, bedpe_path)
     p = subp.Popen(cmd, shell=True, stdout=subp.PIPE)
     for line in p.stdout:
         line = line.decode('utf-8')
