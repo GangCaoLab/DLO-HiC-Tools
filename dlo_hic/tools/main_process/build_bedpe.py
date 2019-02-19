@@ -99,7 +99,7 @@ def log_split_count(pet1_count, pet2_count, log_file):
 @click.option("--mapq",
     default=1,
     help="the mapq threshold used to filter mapped records. default 1(for fetch unique mapping)")
-@click.option("--upper-tri/non-upper-tri",
+@click.option("--upper-tri/--non-upper-tri",
     default=True,
     help="Convert bedpe to upper-triangular format or not, default True")
 @click.option("--log-file",
