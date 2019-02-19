@@ -85,12 +85,17 @@ class Bedpe(object):
         self.center1 = (self.start1 + self.end1) // 2
         self.center2 = (self.start2 + self.end2) // 2
         self.extends = extends
+        if extends:
+            self.etag1 = extends[0]
+            self.etag2 = extends[1]
 
-
-    def is_rep_with(self, another, dis=10):
+    def is_rep_with(self, another, dis=10, by_etag=False):
         """ Judge another bedpe record is replection of self or not. """
         if (self.chr1 != another.chr1) or (self.chr2 != another.chr2):
             return False
+        if by_etag:
+            return (self.etag1 == another.etag1)     and (self.etag2 == another.etag2) and \
+                   (self.strand1 == another.strand1) and (self.strand2 == another.strand2)
         else:
             if dis == 0:
                 return (self.start1 == another.start1) and \

@@ -67,7 +67,7 @@ def upper_triangle(line_iterator, fmt='bedpe'):
         yield outline
 
 
-def remove_redundancy(line_iterator, fmt, distance):
+def remove_redundancy(line_iterator, fmt, distance, by_etag=False):
     """
     Remove redundancy lines in the interaction(BEDPE/Pairs) file,
     input file must in upper triangular form and sorted according to reads1(chr and position).
@@ -90,14 +90,19 @@ def remove_redundancy(line_iterator, fmt, distance):
         The input line format, 'bedpe' or 'pairs'
     distance : int
         Threshold distance, if distance less than this treat as the redundancy reads.
+    by_etag : bool
+        Remove redundancy by enzyme cutting site.
+        It's useful only when fmt is 'bedpe', and have the extends fields in file.
     """
     from dlo_hic.utils.parse_text import Bedpe, Pairs
     itr = line_iterator
 
     if fmt == "bedpe":
         fmt = Bedpe
+        is_rep = lambda a, b: a.is_rep_with(b, distance, by_etag)
     elif fmt == "pairs":
         fmt = Pairs
+        is_rep = lambda a, b: a.is_rep_with(b, distance)
     else:
         raise ValueError("fmt only 'bedpe' or 'pairs'.")
 
@@ -105,7 +110,7 @@ def remove_redundancy(line_iterator, fmt, distance):
     while True:
         for line in itr:
             another = fmt(line)
-            if base.is_rep_with(another, distance):  # is replication, check next line.
+            if is_rep(base, another):  # is replication, check next line.
                 continue
             else:  # not replication, output base line and change base line.
                 out_line = str(base)

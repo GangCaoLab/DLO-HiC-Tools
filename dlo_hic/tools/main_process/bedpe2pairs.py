@@ -34,6 +34,12 @@ def _main(bedpe, pairs, keep, remove_redundancy, ncpu):
     """
     log.info("sort bedpe ...")
     line_iter = sort_bedpe(bedpe, ncpu=ncpu)
+
+    if remove_redundancy:
+        log.info("Remove redundancy in the Pairs file.")
+        line_iter = upper_triangle(line_iter, fmt='bedpe')
+        line_iter = rr(line_iter, 'bedpe', 0, by_etag=True)
+
     log.info("convert %s to pairs file %s ..."%(bedpe, pairs))
     line_iter = bedpe2pairs(line_iter)
 
@@ -43,14 +49,9 @@ def _main(bedpe, pairs, keep, remove_redundancy, ncpu):
     with open(pairs, 'w') as f:
         f.write(header)
 
-    if remove_redundancy:
-        log.info("Remove redundancy in the Pairs file.")
-        line_iter = upper_triangle(line_iter, fmt='pairs')
-        line_iter = rr(line_iter, 'pairs', 0)
-
     write_to_file(line_iter, pairs, mode='a')
 
-    log.info("index and compressed the Pairs")
+    log.info("index and compress the Pairs")
     index_pairs(pairs)
     if keep:
         log.info("pairs file with header storaged at %s"%pairs)

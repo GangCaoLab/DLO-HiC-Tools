@@ -19,10 +19,14 @@ log = logging.getLogger(__name__)
     help="The threshold of distance, if pairs both ends's distance,"
          "small than this at same time, consider them as the redundancy."
          "default 0(exactly same)")
+@click.option("--by-etag", "-e", default=False,
+    is_flag=True,
+    help="Remove redundancy by enzyme cutting site. "
+         "It's useful only when input is bedpe format, and have the extends fields in file.")
 @click.option("--ncpu",
     default=1,
     help="The number of cpu cores used for sort.")
-def _main(input, output, distance, ncpu):
+def _main(input, output, distance, by_etag, ncpu):
     """
     Remove the redundancy within pairs.
 
@@ -71,7 +75,7 @@ def _main(input, output, distance, ncpu):
 
     log.info("sorting and remove redundancy ...")
     line_iter = sort_func(tmp0, ncpu=ncpu)
-    line_iter = remove_redundancy(line_iter, fmt, distance)
+    line_iter = remove_redundancy(line_iter, fmt, distance, by_etag=by_etag)
     write_to_file(line_iter, output)
 
     subprocess.check_call(['rm', tmp0])  # remove tmp files
