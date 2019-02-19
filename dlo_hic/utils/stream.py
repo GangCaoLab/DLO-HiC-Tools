@@ -146,10 +146,13 @@ def sort_pairs(pairs_path, ncpu=8):
         yield outline
 
 
-def sort_bedpe(bedpe_path, ncpu=8):
+def sort_bedpe(bedpe_path, ncpu=8, by_etag=False):
     """ sort bedpe file. """
     import subprocess as subp
-    cmd = "sort --parallel={} -k1,1 -k4,4 -k2,2n -k5,5n -k4,4n -k6,6n -k9,9 -k10,10 {}".format(ncpu, bedpe_path)
+    if by_etag:
+        cmd = "sort --parallel={} -k1,1 -k4,4 -k11,11 -k12,12 -k9,9 -k10,10 {}".format(ncpu, bedpe_path)
+    else:
+        cmd = "sort --parallel={} -k1,1 -k4,4 -k2,2n -k5,5n -k3,3n -k6,6n -k9,9 -k10,10 {}".format(ncpu, bedpe_path)
     p = subp.Popen(cmd, shell=True, stdout=subp.PIPE)
     for line in p.stdout:
         line = line.decode('utf-8')

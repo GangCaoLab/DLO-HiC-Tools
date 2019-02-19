@@ -1,5 +1,6 @@
 import logging
 import subprocess
+from functools import partial
 
 import click
 
@@ -68,7 +69,7 @@ def _main(input, output, distance, by_etag, ncpu):
         sort_func = sort_pairs
     else:
         fmt = 'bedpe'
-        sort_func = sort_bedpe
+        sort_func = partial(sort_bedpe, by_etag=by_etag)
 
     line_iter = upper_triangle(line_iter, fmt=fmt)
     write_to_file(line_iter, tmp0)
