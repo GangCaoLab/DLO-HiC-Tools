@@ -20,6 +20,10 @@ log = logging.getLogger(__name__)
     help="The threshold of distance, if pairs both ends's distance,"
          "small than this at same time, consider them as the redundancy."
          "default 0(exactly same)")
+@click.option("--upper-tri/--non-upper-tri",
+    default=True,
+    help="The input bedpe is upper-triangular format or not, "
+         "if not convert to it firstly, default True")
 @click.option("--by-etag", "-e", default=False,
     is_flag=True,
     help="Remove redundancy by enzyme cutting site. "
@@ -27,7 +31,7 @@ log = logging.getLogger(__name__)
 @click.option("--ncpu",
     default=1,
     help="The number of cpu cores used for sort.")
-def _main(input, output, distance, by_etag, ncpu):
+def _main(input, output, distance, upper_tri, by_etag, ncpu):
     """
     Remove the redundancy within pairs.
 
@@ -59,10 +63,7 @@ def _main(input, output, distance, by_etag, ncpu):
     log.info("remove redundancy on file %s"%input)
 
     # sort input file firstly
-    log.info("transform to upper triangle form.")
-    tmp0 = input + '.tmp.0'
     line_iter = read_file(input)
-
     fmt = infer_interaction_file_type(input)
     if fmt == Pairs:
         fmt = 'pairs'
@@ -71,15 +72,22 @@ def _main(input, output, distance, by_etag, ncpu):
         fmt = 'bedpe'
         sort_func = partial(sort_bedpe, by_etag=by_etag)
 
-    line_iter = upper_triangle(line_iter, fmt=fmt)
-    write_to_file(line_iter, tmp0)
+    if not upper_tri:
+        log.info("transform to upper triangle form.")
+        tmp0 = input + '.tmp.0'
+        line_iter = upper_triangle(line_iter, fmt=fmt)
+        write_to_file(line_iter, tmp0)
+    else:
+        tmp0 = input
 
     log.info("sorting and remove redundancy ...")
     line_iter = sort_func(tmp0, ncpu=ncpu)
     line_iter = remove_redundancy(line_iter, fmt, distance, by_etag=by_etag)
     write_to_file(line_iter, output)
 
-    subprocess.check_call(['rm', tmp0])  # remove tmp files
+    if not upper_tri:
+        subprocess.check_call(['rm', tmp0])  # remove tmp files
+
     log.info("Remove redundancy done.")
 
 
