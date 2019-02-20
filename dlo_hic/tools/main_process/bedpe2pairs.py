@@ -33,13 +33,15 @@ def _main(bedpe, pairs, keep, remove_redundancy, ncpu):
     about pairs format:
     https://github.com/4dn-dcic/pairix/blob/master/pairs_format_specification.md
     """
-    log.info("sort bedpe ...")
-    line_iter = sort_bedpe(bedpe, ncpu=ncpu, by_etag=True)
 
     if remove_redundancy:
         log.info("Remove redundancy in the Pairs file.")
+        log.info("sort bedpe ...")
+        line_iter = sort_bedpe(bedpe, ncpu=ncpu, by_etag=True)
         line_iter = upper_triangle(line_iter, fmt='bedpe')
         line_iter = rr(line_iter, 'bedpe', 0, by_etag=True)
+    else:
+        line_iter = read_file(bedpe)
 
     log.info("convert %s to pairs file %s ..."%(bedpe, pairs))
     line_iter = bedpe2pairs(line_iter)
