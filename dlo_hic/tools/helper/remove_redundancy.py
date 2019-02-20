@@ -71,6 +71,7 @@ def _main(input, output, distance, upper_tri, by_etag, ncpu):
     else:
         fmt = 'bedpe'
         sort_func = partial(sort_bedpe, by_etag=by_etag)
+        log.info("sort by etag: {}".format(by_etag))
 
     if not upper_tri:
         log.info("transform to upper triangle form.")
