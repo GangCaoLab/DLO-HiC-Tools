@@ -31,9 +31,9 @@ Install from source code
 ^^^^^^^^^^^^^^^^^^^^^^^^
 Download the source code firsyly, then install with setup.py ::
 
-    $ git clone https://github.com/Nanguage/DLO-HiC-Tools.git
-    $ cd DLO-HiC-Tools/
-    $ python setup.py install
+    $ (dlohic) git clone https://github.com/Nanguage/DLO-HiC-Tools.git
+    $ (dlohic) cd DLO-HiC-Tools/
+    $ (dlohic) python setup.py install
 
 Using Docker
 ------------
