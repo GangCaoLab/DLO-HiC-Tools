@@ -111,12 +111,35 @@ def worker(task_queue, out1, out2, flag_file, lock, counter, args):
 
         out_chunk, counts_ = process_chunk(chunk, args)
         counts += counts_
-        for fq_rec, flag, PET1, PET2 in out_chunk:
+        for fq_rec, flag, PET1, PET2, align, align_ada in out_chunk:
             if (flag & 1 == 0) and (flag & 32 == 0) and (flag & 128 == 0):
                 write_fastq(PET1, fq_pet1)
                 write_fastq(PET2, fq_pet2)
             if flag_file:
-                out_line = "{}\t{}\n".format(fq_rec.seqid, flag)
+                out_itms = [fq_rec.seqid, flag]
+
+                if align:
+                    lin_s, lin_e, lin_q_s, lin_q_e, lin_match, lin_cost = align
+                    out_itms.extend([lin_s, lin_e, lin_q_s, lin_q_e, lin_match, lin_cost])
+                else:
+                    out_itms.extend(['.']*6)
+
+                if PET1:
+                    out_itms.append(PET1.seq)
+                else:
+                    out_itms.append('.')
+                if PET2:
+                    out_itms.append(PET2.seq)
+                else:
+                    out_itms.append('.')
+
+                if align_ada:
+                    ada_s, ada_e, ada_q_s, ada_q_e, ada_match, ada_cost = align_ada
+                    out_itms.extend([ada_s, ada_e, ada_q_s, ada_q_e, ada_match, ada_cost])
+                else:
+                    out_itms.extend(['.'] * 4)
+                out_itms.append(fq_rec.seq)
+                out_line = "\t".join([str(i) for i in out_itms]) + "\n"
                 flag_fh.write(out_line)
 
 

@@ -85,6 +85,8 @@ cdef class LinkerTrimer:
         cdef tuple alignment, alignment_adapter
         cdef int i
 
+        alignment_adapter = None
+
         seq = fq_rec.seq
         aligner = Aligner(seq, self._max_err_rate)
         aligner.min_overlap = self._min_overlap
@@ -95,7 +97,7 @@ cdef class LinkerTrimer:
             if not alignment:
                 # unmatch
                 flag |= 1
-                return (fq_rec, flag, None, None)
+                return (fq_rec, flag, None, None, alignment, alignment_adapter)
             else:
                 # AA matched
                 flag |= 2
@@ -108,7 +110,7 @@ cdef class LinkerTrimer:
                     break
             else:  # all linker unmatch
                 flag |= 1
-                return (fq_rec, flag, None, None)
+                return (fq_rec, flag, None, None, alignment, alignment_adapter)
 
         m_start, m_end, s_, e_, m_, cost = alignment
         pet1_end = m_start
@@ -170,7 +172,7 @@ cdef class LinkerTrimer:
         PET1 = Fastq(fq_rec.seqid, pet1_seq, pet1_quality)
         PET2 = Fastq(fq_rec.seqid, pet2_seq, pet2_quality)
 
-        return (fq_rec, flag, PET1, PET2)
+        return (fq_rec, flag, PET1, PET2, alignment, alignment_adapter)
 
 
 COUNT_ITEM_NAMES = [
@@ -202,7 +204,9 @@ cpdef process_chunk(list chunk, tuple args):
 
     out_chunk = []
     for fq_rec in chunk:
-        fq_rec, flag, PET1, PET2 = linker_trimer.trim(fq_rec)
+        fq_rec, flag, PET1, PET2, align, align_ada = linker_trimer.trim(fq_rec)
+
+        # count flags
         if flag & 1 == 0:
             if flag & 2 != 0:
                 counts[1] += 1
@@ -229,6 +233,6 @@ cpdef process_chunk(list chunk, tuple args):
         else:
             counts[0] += 1
 
-        out_chunk.append( (fq_rec, flag, PET1, PET2) )
+        out_chunk.append( (fq_rec, flag, PET1, PET2, align, align_ada) )
         counts[11] += 1
     return out_chunk, counts
