@@ -243,7 +243,7 @@ def _main(fastq, out1, out2,
 
     lock = mp.Lock()
     counter = mp.Manager().dict()
-    task_queue = mp.Queue()
+    task_queue = mp.Queue(maxsize=processes)
     workers = [mp.Process(target=worker,
         args=(task_queue, o1, o2, fg, lock, counter, args))
         for o1, o2, fg in zip(tmp_files_o1, tmp_files_o2, tmp_files_flag)
@@ -255,7 +255,7 @@ def _main(fastq, out1, out2,
 
     fq_iter = read_fastq(fastq)
     for chunk in chunking(fq_iter, chunk_size):
-        task_queue.put(chunk)
+        task_queue.put(chunk, block=True)
 
     for w in workers:
         task_queue.put(None)
