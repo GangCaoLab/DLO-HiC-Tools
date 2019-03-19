@@ -38,7 +38,7 @@ cdef class LinkerTrimer:
         self._max_err_rate = float(mismatch) / len(linkers[0])
         self._min_overlap = len(linkers[0]) - mismatch
         self.mismatch_adapter = mismatch_adapter
-        self._max_err_rate_adapter = float(mismatch_adapter) / len(linkers[0])
+        self._max_err_rate_adapter = float(mismatch_adapter) / len(adapter)
         self._min_overlap_adapter = len(adapter) - mismatch_adapter
         self.pet_len_min = pet_len_range[0]
         self.pet_len_max = pet_len_range[1]
