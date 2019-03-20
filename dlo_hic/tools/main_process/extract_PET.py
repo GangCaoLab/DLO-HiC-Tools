@@ -11,7 +11,7 @@ import numpy as np
 from dlo_hic.utils import reverse_complement as rc
 from dlo_hic.utils.fastqio import read_fastq, write_fastq
 from dlo_hic.utils.filetools import open_file, merge_tmp_files
-from dlo_hic.utils.linker_trim import process_chunk, COUNT_ITEM_NAMES
+from dlo_hic.utils.linker_trim import process_chunk, COUNT_ITEM_NAMES, init_counts
 
 
 log = logging.getLogger(__name__)
@@ -62,18 +62,38 @@ def log_linkers(linkers):
 def log_counts(counts, log_file=None):
     if not log_file:
         log.info("Quality Control:")
-        for k, v in zip(COUNT_ITEM_NAMES, counts):
+        for k, v in zip(COUNT_ITEM_NAMES, counts['flag']):
             log.info("\t{}:\t{}".format(k, v))
         try:
-            ratio = counts[-2] / float(counts[-1])
+            ratio = counts['flag'][-2] / float(counts['flag'][-1])
         except ZeroDivisionError:
             ratio = 0
         log.info("Valid reads ratio: {}".format(ratio))
     else:
         with open(log_file, 'w') as f:
-            for k, v in zip(COUNT_ITEM_NAMES, counts):
+            f.write("# Flag counts(quality control), columns: [item, number]\n")
+            for k, v in zip(COUNT_ITEM_NAMES, counts['flag']):
                 outline = "\t".join([str(k), str(v)]) + "\n"
                 f.write(outline)
+
+            f.write("\n")
+            f.write("# PET1 length distribution, columns: [length, number]\n")
+            for k, v in counts['pet1_len'].most_common():
+                f.write("{}\t{}\n".format(k, v))
+            f.write("\n")
+            f.write("# PET2 length distribution, columns: [length, number]\n")
+            for k, v in counts['pet2_len'].most_common():
+                f.write("{}\t{}\n".format(k, v))
+
+            f.write("\n")
+            f.write("# Linker match score distribution, columns: [score, number]\n")
+            for k, v in counts['linker_match_score'].most_common():
+                f.write("{}\t{}\n".format(k, v))
+
+            f.write("\n")
+            f.write("# Adapter match score distribution, columns: [score, number]\n")
+            for k, v in counts['adapter_match_score'].most_common():
+                f.write("{}\t{}\n".format(k, v))
 
 
 def chunking(fq_iter, chunk_size=10000):
@@ -92,7 +112,9 @@ def worker(task_queue, out1, out2, flag_file, lock, counter, args):
     fq_pet2 = open_file(out2, mode='w')
     if flag_file:
         flag_fh = open_file(flag_file, "w")
-    counts = np.zeros(len(COUNT_ITEM_NAMES), dtype=np.int)
+
+    counts = init_counts()
+
     while 1:
         try:
             chunk = task_queue.get()
@@ -110,12 +132,14 @@ def worker(task_queue, out1, out2, flag_file, lock, counter, args):
             break
 
         out_chunk, counts_ = process_chunk(chunk, args)
-        counts += counts_
+        for cnt_itms in counts.keys():
+            counts[cnt_itms] += counts_[cnt_itms]
+
         for fq_rec, flag, PET1, PET2, align, align_ada in out_chunk:
             if (flag & 1 == 0) and (flag & 32 == 0) and (flag & 128 == 0):
                 write_fastq(PET1, fq_pet1)
                 write_fastq(PET2, fq_pet2)
-            if flag_file:
+            if flag_file:  # write flag file
                 out_itms = [fq_rec.seqid, flag]
                 out_itms.append(fq_rec.seq)
 
@@ -279,9 +303,10 @@ def _main(fastq, out1, out2,
         header = "\t".join(header_itms) + "\n"
         merge_tmp_files(tmp_files_flag, flag_file, header)
 
-    counts = np.zeros(len(COUNT_ITEM_NAMES), dtype=np.int)
-    for v in counter.values():
-        counts += v
+    counts = init_counts()
+    for pid in counter.keys():
+        for cnt_itm in counts.keys():
+            counts[cnt_itm] += counter[pid][cnt_itm]
 
     # log counts
     log_counts(counts)

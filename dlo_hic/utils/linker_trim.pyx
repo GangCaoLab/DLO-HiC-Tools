@@ -1,3 +1,5 @@
+from collections import Counter
+
 import numpy as np
 
 from dlo_hic.utils.fastqio import Fastq
@@ -191,6 +193,16 @@ COUNT_ITEM_NAMES = [
 ]
 
 
+def init_counts():
+    return {
+        'flag': np.zeros(len(COUNT_ITEM_NAMES), dtype=np.int64),
+        'pet1_len': Counter(),
+        'pet2_len': Counter(),
+        'linker_match_score': Counter(),
+        'adapter_match_score': Counter(),
+    }
+
+
 cpdef process_chunk(list chunk, tuple args):
     """
     Process a chunk of fastq records.
@@ -200,7 +212,8 @@ cpdef process_chunk(list chunk, tuple args):
     cdef object PET1, PET2
 
     linker_trimer = LinkerTrimer(*args)
-    counts = np.zeros(len(COUNT_ITEM_NAMES), dtype=np.int64)
+
+    counts = init_counts()
 
     out_chunk = []
     for fq_rec in chunk:
@@ -209,30 +222,48 @@ cpdef process_chunk(list chunk, tuple args):
         # count flags
         if flag & 1 == 0:
             if flag & 2 != 0:
-                counts[1] += 1
+                counts['flag'][1] += 1
             else:
-                counts[2] += 1
+                counts['flag'][2] += 1
 
             if flag & 4 != 0:
-                counts[3] += 1
+                counts['flag'][3] += 1
             if flag & 8 != 0:
-                counts[4] += 1
+                counts['flag'][4] += 1
             if flag & 16 != 0:
-                counts[5] += 1
+                counts['flag'][5] += 1
             if flag & 32 != 0:
-                counts[6] += 1
+                counts['flag'][6] += 1
             if flag & 64 != 0:
-                counts[7] += 1
+                counts['flag'][7] += 1
             if flag & 128 != 0:
-                counts[8] += 1
+                counts['flag'][8] += 1
             if flag & 256 != 0:
-                counts[9] += 1
+                counts['flag'][9] += 1
 
             if (flag & 32 == 0) and (flag & 128 == 0):
-                counts[10] += 1
+                counts['flag'][10] += 1
         else:
-            counts[0] += 1
+            counts['flag'][0] += 1
+
+        counts['flag'][11] += 1
+
+        # count pet length
+        if PET1 or PET2:
+            if (flag & 32 == 0) and (flag & 128 == 0):
+                counts['pet1_len'].update({str(len(PET1.seq)): 1})
+                counts['pet2_len'].update({str(len(PET2.seq)): 1})
+
+        # count linker match score
+        if align:
+            l_score = align[-2] - align[-1]
+            counts['linker_match_score'].update({str(l_score): 1})
+        
+        # count adapter match score
+        if align_ada:
+            a_score = align_ada[-2] - align_ada[-1]
+            counts['adapter_match_score'].update({str(a_score): 1})
 
         out_chunk.append( (fq_rec, flag, PET1, PET2, align, align_ada) )
-        counts[11] += 1
+
     return out_chunk, counts
