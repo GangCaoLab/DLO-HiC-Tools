@@ -184,11 +184,13 @@ def worker(task_queue, out1, out2, flag_file, lock, counter, args):
 @click.option("--linker-B",
     help="The sequence of linkerB")
 @click.option("--mismatch", default=4,
-    help="threshold of linkers base mismatch(and gap open extends) number, default 4")
+    show_default=True,
+    help="threshold of linkers base mismatch(and gap open extends) number.")
 @click.option("--rest", default="A*AGCT*T",
-    help="The sequence of restriction enzyme recognition site, " +\
-         "default HindIII: 'A*AGCT*T' ")
+    show_default=True,
+    help="The sequence of restriction enzyme recognition site.")
 @click.option("--processes", "-p", default=1,
+    show_default=True,
     help="Use how many processes do calculation. default 1")
 @click.option("--PET-len-range", 'PET_len_range',
     default=(10, 22), show_default=True,
@@ -202,9 +204,11 @@ def worker(task_queue, out1, out2, flag_file, lock, counter, args):
     default="",
     help="If specified, Cut the adapter sequence in the PET2.")
 @click.option("--mismatch-adapter", "mismatch_adapter", default=3,
+    show_default=True,
     help="mismatch threshold in alignment in cut adapter step.")
 @click.option("--log-file",
     default="PET_count.txt",
+    show_default=True,
     help="Sperate log file record reads count information. default PET_count.txt")
 @click.option("--flag-file",
     help="If specified, write the addition information(like flag) in linker trim to a file.")

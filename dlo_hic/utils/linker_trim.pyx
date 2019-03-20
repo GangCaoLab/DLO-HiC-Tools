@@ -37,7 +37,7 @@ cdef class LinkerTrimer:
         self._rest_left_side  = rest[0] + rest[1]
         self._rest_right_side = rest[1] + rest[2]
         self.mismatch = mismatch
-        self._max_err_rate = float(mismatch) / len(linkers[0])
+        self._max_err_rate = float(mismatch) / len(linkers[0])  # assume all linker have same length
         self._min_overlap = len(linkers[0]) - mismatch
         self.mismatch_adapter = mismatch_adapter
         self._max_err_rate_adapter = float(mismatch_adapter) / len(adapter)
@@ -90,13 +90,13 @@ cdef class LinkerTrimer:
         alignment_adapter = None
 
         seq = fq_rec.seq
-        aligner = Aligner(seq, self._max_err_rate)
-        aligner.min_overlap = self._min_overlap
+        aligner = Aligner(seq, 1)
+#        aligner.min_overlap = self._min_overlap
 
         # align linker with sequence
         if self._single_linker:
             alignment = aligner.locate(self.linkers[0])
-            if not alignment:
+            if alignment[-1] / len(self.linkers[0]) >= self._max_err_rate:
                 # unmatch
                 flag |= 1
                 return (fq_rec, flag, None, None, alignment, alignment_adapter)
@@ -121,10 +121,10 @@ cdef class LinkerTrimer:
         # align adapter with PET2 sequence
         if self._trim_adapter:
             pet2_seq = seq[pet2_start:]
-            aligner = Aligner(pet2_seq, self._max_err_rate_adapter)
-            aligner.min_overlap = self._min_overlap_adapter
+            aligner = Aligner(pet2_seq, 1)
+#            aligner.min_overlap = self._min_overlap_adapter
             alignment_adapter = aligner.locate(self.adapter)
-            if not alignment_adapter:
+            if not alignment_adapter or alignment_adapter[-1]/len(self.adapter) >= self._max_err_rate_adapter:
                 flag |= 4
             else:
                 a_start, a_end, s_, e_, m_, a_cost = alignment_adapter
@@ -241,7 +241,7 @@ cpdef process_chunk(list chunk, tuple args):
             if flag & 256 != 0:
                 counts['flag'][9] += 1
 
-            if (flag & 32 == 0) and (flag & 128 == 0):
+            if (flag & 1 == 0) and (flag & 32 == 0) and (flag & 128 == 0):
                 counts['flag'][10] += 1
         else:
             counts['flag'][0] += 1
