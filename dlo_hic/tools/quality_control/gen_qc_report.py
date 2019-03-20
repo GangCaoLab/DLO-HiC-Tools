@@ -48,6 +48,10 @@ def load_reads_comp_qc(path):
     with open(path) as f:
         for line in f:
             line = line.strip()
+            if line.startswith("#"):
+                continue
+            if not line:
+                break
             items = line.split("\t")
             res[items[0]] = items[1]
     return res
