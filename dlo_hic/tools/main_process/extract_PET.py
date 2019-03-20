@@ -117,28 +117,34 @@ def worker(task_queue, out1, out2, flag_file, lock, counter, args):
                 write_fastq(PET2, fq_pet2)
             if flag_file:
                 out_itms = [fq_rec.seqid, flag]
+                out_itms.append(fq_rec.seq)
 
                 if align:
                     lin_s, lin_e, lin_q_s, lin_q_e, lin_match, lin_cost = align
                     out_itms.extend([lin_s, lin_e, lin_q_s, lin_q_e, lin_match, lin_cost])
+                    p2_ = fq_rec.seq[lin_e:]
                 else:
                     out_itms.extend(['.']*6)
+                    p2_ = '.'
 
                 if PET1:
                     out_itms.append(PET1.seq)
+                    out_itms.append(p2_)
                 else:
                     out_itms.append('.')
-                if PET2:
-                    out_itms.append(PET2.seq)
-                else:
                     out_itms.append('.')
 
                 if align_ada:
                     ada_s, ada_e, ada_q_s, ada_q_e, ada_match, ada_cost = align_ada
                     out_itms.extend([ada_s, ada_e, ada_q_s, ada_q_e, ada_match, ada_cost])
                 else:
-                    out_itms.extend(['.'] * 4)
-                out_itms.append(fq_rec.seq)
+                    out_itms.extend(['.'] * 6)
+
+                if PET2:
+                    out_itms.append(PET2.seq)
+                else:
+                    out_itms.append('.')
+
                 out_line = "\t".join([str(i) for i in out_itms]) + "\n"
                 flag_fh.write(out_line)
 
@@ -266,7 +272,11 @@ def _main(fastq, out1, out2,
     merge_tmp_files(tmp_files_o1, out1)
     merge_tmp_files(tmp_files_o2, out2)
     if flag_file:
-        header = "Read_ID\tFlag\n"
+        header_itms = ['read_ID', 'flag', 'read_seq', 'linker_start']
+        header_itms.extend(['linker_end', 'linker_query_start', 'linker_query_end', 'linker_match', 'linker_cost'])
+        header_itms.extend(['PET1_seq', 'PET2_seq_with_adapter'])
+        header_itms.extend(['adapter_start', 'adapter_end', 'adapter_query_start', 'adapter_query_end', 'adapter_match', 'adapter_cost', 'pet2_seq'])
+        header = "\t".join(header_itms) + "\n"
         merge_tmp_files(tmp_files_flag, flag_file, header)
 
     counts = np.zeros(len(COUNT_ITEM_NAMES), dtype=np.int)
