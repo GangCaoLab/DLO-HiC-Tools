@@ -153,10 +153,9 @@ rule qc_count_bedpe:
 
 
 rest_name = config['DATA']['restriction_name']
-rest_bed_gz = config['NOISE_REDUCE']['restriction_sites_bed']
-if not rest_bed_gz:
-    rest_bed_gz = join(setting.working_dir, rest_name + ".bed.gz")
-rest_bed_gz_idx = rest_bed_gz + ".tbi"
+rest_file = config['NOISE_REDUCE']['restriction_sites_file']
+if not rest_file:
+    rest_file = join(setting.working_dir, rest_name+".hdf5")
 
 fasta = config['DATA']['fasta']
 
@@ -170,12 +169,12 @@ rule extract_rest_sites:
     # --------------------
     threads: setting.ncpu
     input: fasta
-    output: rest_bed_gz, rest_bed_gz_idx
+    output: rest_file
     run:
         rest = config['DATA']['restriction_site']
         rest = rest.replace("*", "")
         dlo_help.extract_rest_sites.main(
-            fasta, rest, output[0], setting.ncpu)
+            fasta, rest, output[0], 'hdf5', setting.ncpu)
 
 
 rule noise_reduce:
@@ -190,7 +189,7 @@ rule noise_reduce:
     threads: setting.ncpu
     input:
         bedpe = rules.build_bedpe.output.bedpe,
-        rest_bed_gz = rest_bed_gz
+        rest_file = rest_file
     output: 
         out = output_files("{sample}")['nr.bedpe'],
         sel = output_files("{sample}")['nr.bedpe.sel'],
@@ -206,7 +205,7 @@ rule noise_reduce:
         conf = config['NOISE_REDUCE']
 
         bedpe = input.bedpe
-        restriction = input.rest_bed_gz
+        restriction = input.rest_file
         thresh_span = conf['threshold_span']
 
         # run tool

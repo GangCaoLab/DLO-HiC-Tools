@@ -40,7 +40,7 @@ FILE_FIELDS = [
     'GLOBAL/working_dir',
     'DATA/input_dir',
     'DATA/fasta',
-    'NOISE_REDUCE/restriction_sites_bed',
+    'NOISE_REDUCE/restriction_sites_file',
     'RESULT/juicer_tools_jar',
 ]
 
