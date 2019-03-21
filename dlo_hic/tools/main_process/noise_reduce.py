@@ -6,6 +6,7 @@ import gzip
 
 import click
 import numpy as np
+import h5py
 
 from dlo_hic.utils.parse_text import parse_line_bed6, parse_line_bedpe
 from dlo_hic.utils.filetools import merge_tmp_files
@@ -22,16 +23,23 @@ def load_rest_sites(sites_file):
     load restriction sites(positions) into memory.
     """
     rest_sites = {}
-    with gzip.open(sites_file) as f:
-        for idx, line in enumerate(f):
-            line = line.decode('utf-8')
-            chr_, start, end, _, _, _ = parse_line_bed6(line)
-            if idx == 0:
-                rest_site_len = end - start
-            rest_sites.setdefault(chr_, [])
-            rest_sites[chr_].append(start)
-    for k in rest_sites.keys():
-        rest_sites[k] = np.asarray(rest_sites[k])
+    if sites_file.endswith(".gz"):
+        with gzip.open(sites_file) as f:
+            for idx, line in enumerate(f):
+                line = line.decode('utf-8')
+                chr_, start, end, _, _, _ = parse_line_bed6(line)
+                if idx == 0:
+                    rest_site_len = end - start
+                rest_sites.setdefault(chr_, [])
+                rest_sites[chr_].append(start)
+        for k in rest_sites.keys():
+            rest_sites[k] = np.asarray(rest_sites[k])
+    else:  # hdf5 file
+        with h5py.File(sites_file) as f:
+            rest_site_len = len(f.attrs['rest_seq'])
+            chromosomes = list(f['chromosomes'].keys())
+            for chr_ in chromosomes:
+                rest_sites[chr_] = f['chromosomes'][chr_].value
     return rest_sites, rest_site_len
 
 
@@ -164,7 +172,12 @@ def worker(task_queue,
             break
 
         for items in chunk:
-            type_, frag1, frag2 = bedpe_type(rest_sites, items, threshold_span)
+            try:
+                type_, frag1, frag2 = bedpe_type(rest_sites, items, threshold_span)
+            except KeyError as e:
+                log.warning(str(e))
+                continue
+
             out_line = "\t".join([str(i) for i in items])
             if frag1:
                 out_line = out_line + "\t{}-{}\t{}-{}".format(frag1[0], frag1[1], frag2[0], frag2[1])
