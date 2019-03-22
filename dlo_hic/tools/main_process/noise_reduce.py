@@ -66,13 +66,17 @@ def find_frag(rest_sites, start, end):
     sites = rest_sites
     mid = (start + end) // 2
     frag_idx = sites.searchsorted(mid, side='right')
+
+    frag_start = sites[frag_idx - 1]
+    frag_end = sites[frag_idx]
+
     if frag_idx == 0:
         pos = 'e'
     elif frag_idx == sites.shape[0]:
         pos = 's'
     else:
-        left_span = mid - sites[frag_idx - 1]
-        right_span = sites[frag_idx] - mid
+        left_span = mid - frag_start
+        right_span = frag_end - mid
         if left_span < right_span:
             pos = 's'
         else:
