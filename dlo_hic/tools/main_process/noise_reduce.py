@@ -43,7 +43,7 @@ def load_rest_sites(sites_file):
     return rest_sites, rest_site_len
 
 
-def find_frag(rest_sites, start, end):
+def find_frag(rest_sites, start, end, rest_site_len):
     """
     Assign genome interval to fragment.
 
@@ -55,33 +55,63 @@ def find_frag(rest_sites, start, end):
         PET start position
     end : int
         end position
+    rest_site_len : int
+        Length of restriction site.
 
-    Reture
+    Return
     ------
     n : int
         Index number of fragment.
     pos : {'s', 'e'}
         fragment start or end.
     """
+    end_search_point = end - rest_site_len - 1
+    assert start < end_search_point
     sites = rest_sites
     mid = (start + end) // 2
-    frag_idx = sites.searchsorted(mid, side='right')
+    frag_idx_s = sites.searchsorted(start, side='right')
+    frag_idx_e = sites.searchsorted(end_search_point,   side='right')
+    if frag_idx_s == frag_idx_e:  # PET start and end located into same fragment
+        frag_idx = frag_idx_s
+        frag_start = sites[frag_idx - 1]
+        frag_end = sites[frag_idx]
 
-    frag_start = sites[frag_idx - 1]
-    frag_end = sites[frag_idx]
-
-    if frag_idx == 0:
-        pos = 'e'
-    elif frag_idx == sites.shape[0]:
-        pos = 's'
-    else:
-        left_span = mid - frag_start
-        right_span = frag_end - mid
-        if left_span < right_span:
+        if frag_idx == 0:
+            pos = 'e'
+        elif frag_idx == sites.shape[0]:
             pos = 's'
         else:
+            left_span = mid - frag_start
+            right_span = frag_end - mid
+            if left_span < right_span:
+                pos = 's'
+            else:
+                pos = 'e'
+        return (frag_idx, pos)
+    else:
+        frag_start = sites[frag_idx_s - 1]
+        mid_frag_pos = sites[frag_idx_s]
+        frag_end = sites[frag_idx_e]
+
+        if frag_idx_s == 0:
+            frag_idx = frag_idx_s
             pos = 'e'
-    return (frag_idx, pos)
+        elif frag_idx_e == sites.shape[0]:
+            frag_idx = frag_idx_e
+            pos = 's'
+        else:
+            left_span = start - frag_start
+            right_span = frag_end - end_search_point - 1
+            if left_span < right_span:
+                pos = 's'
+                frag_idx = frag_idx_s
+            else:
+                pos = 'e'
+                frag_idx = frag_idx_e
+
+#        print(frag_idx_s, frag_idx_e, "|", start, mid_frag_pos, end, "|", frag_start, frag_end, "|", left_span, right_span, "|", frag_idx, pos)
+        
+        return (frag_idx, pos)
 
 
 def read_chunk(file, chunk_size=CHUNK_SIZE):
@@ -101,7 +131,7 @@ def read_chunk(file, chunk_size=CHUNK_SIZE):
     return chunk
 
 
-def bedpe_type(rest_sites, bedpe_items, threshold_span):
+def bedpe_type(rest_sites, bedpe_items, threshold_span, rest_site_len):
     """
     judge interaction type,
 
@@ -114,6 +144,8 @@ def bedpe_type(rest_sites, bedpe_items, threshold_span):
     threshold_span : int
         If span large than this, will not check.
         Use -1 to force assign PET to fragment.
+    rest_site_len : int
+        Length of restriction site.
 
     Return
     ------
@@ -127,8 +159,8 @@ def bedpe_type(rest_sites, bedpe_items, threshold_span):
         if threshold_span != -1:
             return "normal", None, None
         else:
-            frag1 = find_frag(rest_sites[chr1], start1, end1)
-            frag2 = find_frag(rest_sites[chr2], start2, end2)
+            frag1 = find_frag(rest_sites[chr1], start1, end1, rest_site_len)
+            frag2 = find_frag(rest_sites[chr2], start2, end2, rest_site_len)
             return "normal", frag1, frag2
 
     # intra chromosome interaction
@@ -140,8 +172,8 @@ def bedpe_type(rest_sites, bedpe_items, threshold_span):
     else:
         # unsafe span, need to check
         sites = rest_sites[chr1]
-        frag1 = find_frag(sites, start1, end1)
-        frag2 = find_frag(sites, start2, end2)
+        frag1 = find_frag(sites, start1, end1, rest_site_len)
+        frag2 = find_frag(sites, start2, end2, rest_site_len)
 
         if frag1[0] == frag2[0]:
             return "self-ligation", frag1, frag2
@@ -152,7 +184,7 @@ def bedpe_type(rest_sites, bedpe_items, threshold_span):
 
 
 def worker(task_queue,
-           rest_sites,
+           rest_sites, rest_site_len,
            output_file, err_sel_file, err_re_file,
            threshold_span, counts):
     current = mp.current_process().pid
@@ -177,7 +209,7 @@ def worker(task_queue,
 
         for items in chunk:
             try:
-                type_, frag1, frag2 = bedpe_type(rest_sites, items, threshold_span)
+                type_, frag1, frag2 = bedpe_type(rest_sites, items, threshold_span, rest_site_len)
             except KeyError as e:
                 log.warning(str(e))
                 continue
@@ -301,7 +333,7 @@ def _main(bedpe, output,
     task_queue = mp.Queue()
     workers = [mp.Process(target=worker,
                           args=(task_queue,
-                                rest_sites,
+                                rest_sites, rest_site_len,
                                 output+".tmp.%d"%i, output+".tmp.sel.%d"%i, output+".tmp.re.%d"%i,
                                 threshold_span,
                                 counts))
