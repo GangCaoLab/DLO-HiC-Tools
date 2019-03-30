@@ -1,4 +1,5 @@
-var plotPieChart = function(total, dataset, stepName) {
+var plotPieChart = function(total, dataset, pieID,
+        colorPattle=["#fcd6cf", "#6ec9f7", "#ffcc99", "#9efadb", "#9efafa"]) {
 
     var w = 160,
         h = w
@@ -7,9 +8,9 @@ var plotPieChart = function(total, dataset, stepName) {
         return ((portion / total) * 100).toFixed(2) + '%'
     }
 
-    var svg = d3.select("div.piechart#" + stepName)
+    var svg = d3.select("div.piechart#" + pieID)
                 .append("svg")
-                .attr("id", stepName)
+                .attr("id", pieID)
                 .attr("width", w)
                 .attr("height", h)
 
@@ -22,7 +23,7 @@ var plotPieChart = function(total, dataset, stepName) {
         .innerRadius(innerRadius)
         .outerRadius(outerRadius)
 
-    var arcs = svg.selectAll("svg#" + stepName + " g.arc")
+    var arcs = svg.selectAll("svg#" + pieID + " g.arc")
                   .data(pie(dataset.map(
                       function(d){return +d.number})))
                   .enter()
@@ -30,7 +31,6 @@ var plotPieChart = function(total, dataset, stepName) {
                   .attr("class", "arc")
                   .attr("transform", "translate(" + outerRadius + ", " + outerRadius + ")")
 
-    var colorPattle = ["#fcd6cf", "#6ec9f7", "#ffcc99", "#9efadb", "#9efafa"]
     var color = d3.scaleOrdinal(colorPattle)
 
     arcs.append("path")

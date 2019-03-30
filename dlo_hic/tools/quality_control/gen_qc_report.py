@@ -16,6 +16,9 @@ pairs_step_id = 4
 
 
 def get_sample_ids(pipe_workdir):
+    """
+    Get the sample ids in a pipeline work dir.
+    """
     # suppose the pairs.gz file which in the subdir 4 exist
     guess_exist_type = (pairs_step_id, 'pairs.gz')
 
@@ -31,30 +34,6 @@ def get_sample_ids(pipe_workdir):
     sample_ids = list(set( map(extract_id, files_) ))
     return sample_ids
 
-
-def get_reads_comp_qc(pipe_workdir, sample_id):
-    res = OrderedDict()
-    reads_counts_qc = []
-    for step, val in list(qc_files(sample_id).items())[:pairs_step_id]:
-        reads_counts_qc.append( (step, val['comp']) )
-    for step, qc_file in reads_counts_qc:
-        qc_path = join(pipe_workdir, qc_file)
-        res[step] = load_reads_comp_qc(qc_path)
-    return res
-
-
-def load_reads_comp_qc(path):
-    res = OrderedDict()
-    with open(path) as f:
-        for line in f:
-            line = line.strip()
-            if line.startswith("#"):
-                continue
-            if not line:
-                break
-            items = line.split("\t")
-            res[items[0]] = items[1]
-    return res
 
 
 def load_chr_interaction_csv(path):
@@ -80,7 +59,7 @@ def load_chr_interaction_csv(path):
     return res
 
 
-def load_span_stats(path):
+def load_pet_span_stats(path):
     stats = []
     with open(path) as f:
         for line in f:
@@ -104,43 +83,74 @@ def load_svg(path):
     return contents
 
 
-def get_qc_contents(pipe_workdir, sample_id):
-    reads_counts_qc = get_reads_comp_qc(pipe_workdir, sample_id)
-
-    csv_path = qc_files(sample_id)['bedpe2pairs']['chr_interactions']
-    csv_path = join(pipe_workdir, csv_path)
-    chr_interactions = load_chr_interaction_csv(csv_path)
-
-    span_stats_path = join(pipe_workdir, qc_files(sample_id)['bedpe2pairs']['pet_span_stats'])
-    pet_span_stats = load_span_stats(span_stats_path)
-    svg_path = join(pipe_workdir, qc_files(sample_id)['bedpe2pairs']['pet_span_fig'])
-    pet_span_svg = load_svg(svg_path)
-
-    res = {
-        'reads_counts': reads_counts_qc,
-        'pet_span': {
-            'stats': pet_span_stats,
-            'svg': pet_span_svg,
-        },
-        'chr_interactions': chr_interactions,
-    }
+def read_tab_splited(fh):
+    """
+    read a tab splited section in a file, return when read line is empty
+    """
+    res = OrderedDict()
+    for line in fh:
+        line = line.strip()
+        if line.startswith("#"):
+            continue
+        elif line == '':
+            break
+        else:
+            items = line.split("\t")
+            res[items[0]] = items[1]
     return res
 
 
-def render_report(sample_id, qc_contents, report_format):
-    if report_format == 'txt':
-        return render_txt_report(sample_id, qc_contents)
-    else:
-        return render_html_report(sample_id, qc_contents)
+def load_comp(path):
+    with open(path) as f:
+        content = read_tab_splited(f)
+    return content
 
 
-def render_txt_report(sample_id, qc_contents):
-    res = ""
-    for step, qc in qc_contents.items():
-        res += "[{}]\n".format(step)
-        for item, val in qc.items():
-            res += "{}\t{}\n".format(item, val)
-        res += "\n"
+def load_pet_main(path):
+    res = OrderedDict()
+    with open(path) as f:
+        res['flag_stat'] = read_tab_splited(f)
+        res['PET1_len_dist'] = read_tab_splited(f)
+        res['PET2_len_dist'] = read_tab_splited(f)
+        res['linker_match_score_dist'] = read_tab_splited(f)
+        res['adapter_match_score_dist'] = read_tab_splited(f)
+    return res
+
+
+def load_bedpe_main(path):
+    res = OrderedDict()
+    with open(path) as f:
+        res['PET1'] = read_tab_splited(f)
+        res['PET2'] = read_tab_splited(f)
+        res['paired'] = read_tab_splited(f)
+    return res
+
+
+def get_qc_contents(pipe_workdir, sample_id):
+    load_funcs = OrderedDict({
+        'extract_PET': {
+            'main': load_pet_main,
+        },
+        'build_bedpe': {
+            'main': load_bedpe_main,
+        },
+        'noise_reduce': {
+            'main': load_comp,
+        },
+        'bedpe2pairs' : {
+            'comp': load_comp,
+            'chr_interactions': load_chr_interaction_csv,
+            'pet_span_stats': load_pet_span_stats,
+            'pet_span_fig': load_svg,
+        }
+    })
+    res = OrderedDict()
+    files = qc_files(sample_id)
+    for step in load_funcs:
+        res[step] = OrderedDict()
+        for item in load_funcs[step]:
+            func = load_funcs[step][item]
+            res[step][item] = func(files[step][item])
     return res
 
 
@@ -166,12 +176,17 @@ def render_html_report(sample_id, qc_contents):
     help="The format of quility control report, 'html' or 'txt'")
 def _main(pipe_workdir, output, out_format):
     for s_id in get_sample_ids(pipe_workdir):
-        qc_contents = get_qc_contents(pipe_workdir, s_id)
         log.info("Generating {} format quility control report of sample '{}'.".format(out_format, s_id))
-        report = render_report(s_id, qc_contents, out_format)
-        with open(output, 'w') as f:
-            f.write(report)
-            log.info("Quility control report of sample '{}' generated, saving to {}".format(s_id, output))
+        if out_format == 'txt':
+            import subprocess as subp
+            cmd = "tail -n +1 {}/*.txt > {}".format(os.path.join(pipe_workdir, DIRS['qc']), output)
+            subp.check_call(cmd, shell=True)
+        else:
+            qc_contents = get_qc_contents(pipe_workdir, s_id)
+            report = render_html_report(s_id, qc_contents)
+            with open(output, 'w') as f:
+                f.write(report)
+                log.info("Quility control report of sample '{}' generated, saving to {}".format(s_id, output))
 
 
 main = _main.callback

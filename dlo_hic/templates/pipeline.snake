@@ -67,7 +67,7 @@ rule extract_PET:
         pet1 = output_files('{sample}')['pet1.fq'],
         pet2 = output_files('{sample}')['pet2.fq'],
         trim_flag = output_files('{sample}')['trim_flag'],
-        qc_comp = qc_files('{sample}')['extract_PET']['comp']
+        qc_comp = qc_files('{sample}')['extract_PET']['main']
     params:
         llog = local_logger
     run:
@@ -112,7 +112,7 @@ rule build_bedpe:
         pet2_unm_bam = output_files("{sample}")["pet2.unm.bam"],
         pet1_bed   = output_files("{sample}")["pet1.bed"],
         pet2_bed   = output_files("{sample}")["pet2.bed"],
-        qc_bedpe   = qc_files('{sample}')['build_bedpe']['build_bedpe']
+        qc_bedpe   = qc_files('{sample}')['build_bedpe']['main']
     params:
         llog = local_logger,
         bwa_log    = sub_dir("log") + "/{sample}.bwa.log",
@@ -131,25 +131,6 @@ rule build_bedpe:
             'fastq', input[0], input[1], output.bedpe,
             setting.ncpu, bwa_index, conf['mapq'], True,
             output.qc_bedpe, params.bwa_log)
-
-
-rule qc_count_bedpe:
-    # --------------------
-    # qc_count_bedpe
-    #
-    # Generate bedpe counting report for quality control.
-    # 
-    #  Tool Interface:
-    #     ( input, log_file, long_range_cutoff )
-    # --------------------
-    threads: 1
-    input:
-        rules.build_bedpe.output
-    output:
-        qc_files('{sample}')['build_bedpe']['comp']
-    run:
-        cutoff = config['QUALITY_CONTROL']['long_range_cutoff']
-        dlo_qc.interactions_qc.main(input[0], output[0], cutoff)
 
 
 rest_name = config['DATA']['restriction_name']
@@ -194,7 +175,7 @@ rule noise_reduce:
         out = output_files("{sample}")['nr.bedpe'],
         sel = output_files("{sample}")['nr.bedpe.sel'],
         re  = output_files("{sample}")['nr.bedpe.re'],
-        qc_noise_reduce = qc_files('{sample}')['noise_reduce']['noise_reduce']
+        qc_noise_reduce = qc_files('{sample}')['noise_reduce']['main']
     params:
         llog = local_logger
     run:
@@ -214,29 +195,6 @@ rule noise_reduce:
             bedpe, output.out,
             restriction, setting.ncpu, thresh_span,
             output.qc_noise_reduce)
-
-
-rule qc_count_bedpe_nr:
-    # --------------------
-    # count_bedpe
-    #
-    # Generate nr bedpe counting report for quality control.
-    # 
-    #  Tool Interface:
-    #     ( input, log_file, long_range_cutoff )
-    # --------------------
-    threads: 1
-    input:
-        rules.noise_reduce.output
-    output:
-        qc_files('{sample}')['noise_reduce']['comp'],
-        qc_files('{sample}')['noise_reduce']['comp_abnormal_sel'],
-        qc_files('{sample}')['noise_reduce']['comp_abnormal_re'],
-    run:
-        cutoff = config['QUALITY_CONTROL']['long_range_cutoff']
-        dlo_qc.interactions_qc.main(input[0], output[0], cutoff)
-        dlo_qc.interactions_qc.main(input[1], output[1], cutoff)
-        dlo_qc.interactions_qc.main(input[2], output[2], cutoff)
 
 
 rule bedpe2pairs:

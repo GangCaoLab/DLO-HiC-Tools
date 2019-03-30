@@ -74,14 +74,21 @@ def log_split_count(pet1_count, pet2_count, log_file):
         msg = "unique-mapped\t{}\tpercent\t{:.2%}".format(u, u_r) + "\t"
         msg += "multiple-mapped\t{}\tpercent\t{:.2%}".format(m, m_r) + "\t"
         msg += "other\t{}\tpercent\t{:.2%}".format(o, o_r)
-        return msg
-    msg1 = count_msg(pet1_count)
-    msg2 = count_msg(pet2_count)
+        return (u, m, o), msg
+    c1, msg1 = count_msg(pet1_count)
+    c2, msg2 = count_msg(pet2_count)
     log.info("PET1 alignment results:\t" + msg1)
     log.info("PET2 alignment results:\t" + msg2)
     with open(log_file, 'w') as fo:
-        fo.write("PET1\t" + msg1 + "\n")
-        fo.write("PET2\t" + msg2 + "\n")
+        fo.write("# PET1\n")
+        fo.write("unique-mapped\t{}\n".format(c1[0]))
+        fo.write("multiple-mapped\t{}\n".format(c1[1]))
+        fo.write("other\t{}\n".format(c1[2]))
+        fo.write("\n")
+        fo.write("# PET2\n")
+        fo.write("unique-mapped\t{}\n".format(c2[0]))
+        fo.write("multiple-mapped\t{}\n".format(c2[1]))
+        fo.write("other\t{}\n".format(c2[2]))
 
 
 @click.command(name="build_bedpe")
@@ -157,7 +164,12 @@ def _main(file_format, input1, input2, bedpe, ncpu, bwa_index, mapq, upper_tri, 
     if upper_tri:
         log.info("Convert BEDPE to upper triangular form.")
         line_itr = upper_triangle(line_itr, 'bedpe')
-    write_to_file(line_itr, bedpe)
+
+    line_cnt = write_to_file(line_itr, bedpe)
+    with open(log_file, "a") as f:
+        f.write("\n")
+        f.write("# Unique paired\n")
+        f.write("total\t{}\n".format(line_cnt))
 
     log.info("Build bedpe done.")
 

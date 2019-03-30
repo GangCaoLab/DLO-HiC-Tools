@@ -175,8 +175,10 @@ def write_to_file(line_iterator, output_path, mode='w'):
     """
     Write lines in the iterator to a file,
     add a '\n' to the end.
+    return line count.
     """
     itr = line_iterator
     with open(output_path, mode) as of:
-        for line in itr:
+        for i, line in enumerate(itr):
             of.write(line + "\n")
+    return i + 1

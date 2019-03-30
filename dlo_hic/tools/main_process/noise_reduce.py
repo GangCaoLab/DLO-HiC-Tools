@@ -246,9 +246,9 @@ def log_counts(counts, log_file):
     log.info("\t" + msg2)
     log.info("\t" + msg3)
     with open(log_file, 'w') as f:
-        f.write(msg1 + "\n")
-        f.write(msg2 + "\n")
-        f.write(msg3 + "\n")
+        f.write("normal\t{}\n".format(n))
+        f.write("self-ligation\t{}\n".format(s))
+        f.write("re-ligation\t{}\n".format(r))
 
 
 @click.command(name="noise_reduce")

@@ -1,35 +1,30 @@
-<%def name="composition(step, qc_dict)">
-    <div class="composition row" id="${step}">
+<%def name="composition(comp, id_)">
+    <div class="composition row" id="${id_}">
         <%
-            total_key = 'total' if 'total' in qc_dict else 'all'
-            total = qc_dict.pop(total_key)
-
-            if step == "extract_PET":
-                intra = int(qc_dict['intra-molecular linker'])
-                inter = int(qc_dict['inter-molecular linker'])
-                qc_dict = {
-                    "intra-molecular linker": intra,
-                    "inter-molecular linker": inter,
-                }
-                total = inter + intra
+            if ('total' in comp) or ('all' in comp):
+                k_ = 'total' if 'total' in comp else 'all'
+                total = float(comp.pop(k_))
             else:
-                intra = int(qc_dict.pop("intra-chromosome"))
-                long_range = int(qc_dict.pop("long-range"))
-                qc_dict["intra-chromosome (long-range)"] = long_range
-                qc_dict['intra-chromosome (short-range)'] = (intra - long_range)
+                total = sum([float(v) for k, v in comp.items()])
+
+            if 'long-range' in comp:
+                intra_long = int(comp.pop('long-range'))
+                intra = int(comp.pop('intra-chromosome'))
+                comp['intra-chromosome(long-range)'] = intra_long
+                comp['intra-chromosome(short-range)'] = intra - intra_long
         %>
 
-        ${composition_table(qc_dict, total, step)}
-        ${composition_piechart(qc_dict, total, step)}
+        ${composition_table(comp, total, id_)}
+        ${composition_piechart(comp, total, id_)}
 
     </div>
     <div class="total_reads">
-        <p class="total-reads"> Total reads: ${total} </p>
+        <p class="total-reads"> Total reads: ${int(total)} </p>
     </div>
 </%def>
 
-<%def name="composition_table(qc_dict, total, step)">
-    <div class="qc_table column left" id="${step}">
+<%def name="composition_table(qc_dict, total, id_)">
+    <div class="qc_table column left" id="${id_}">
         <table>
             <tr>
                 <th></th>
@@ -53,40 +48,29 @@
     </div>
 </%def>
 
-<%def name="composition_piechart(qc_dict, total, step)">
+<%def name="composition_piechart(qc_dict, total, id_)">
     <%
         # Convert Python dict to JS objects Array literal.
         dataset = [{"item": item, "number": n} for item, n in qc_dict.items()]
         dataset = str(dataset)
     %>
-    <div class="piechart column right" id="${step}">
+    <div class="piechart column right" id="${id_}">
         <script> 
             var total = ${total}
             var dataset = ${dataset}
-            var stepName = "${step}"
+            var pieID = "${id_}"
 
-            plotPieChart(total, dataset, stepName)
+            plotPieChart(total, dataset, pieID)
 
         </script>
     </div>
 </%def>
 
-<%def name="reads_compositions(qc_contents)">
-    <div class="reads_compositions">
-        % for step, qc_dict in qc_contents.items():
-        <h3>Step: ${step}</h3>
-        <% step = step.replace(".", "_") %>
-            <div class="reads_compositions">
-                ${composition(step, qc_dict)}
-            </div>
-        % endfor
-    </div>
-</%def>
 
-<%def name="chr_interactions(qc_contents)">
+<%def name="chr_interactions(interactions)">
     <%
         # Convert Python dict to JS objects Array literal.
-        dataset = str(qc_contents)
+        dataset = str(interactions)
     %>
     <div class="chr_interactions heatmap">
         <script>
@@ -96,21 +80,22 @@
     </div>
 </%def>
 
+
 <%def name="reads_counts_table(qc_contents)">
     <%
-        raw_reads    = int(qc_contents['extract_PET']['all'])
-        linker_intra = int(qc_contents['extract_PET']['intra-molecular linker'])
-        linker_inter = int(qc_contents['extract_PET']['inter-molecular linker'])
+        raw_reads    = int(qc_contents['extract_PET']['main']['flag_stat']['all'])
+        linker_intra = int(qc_contents['extract_PET']['main']['flag_stat']['intra-molecular linker'])
+        linker_inter = int(qc_contents['extract_PET']['main']['flag_stat']['inter-molecular linker'])
         if linker_inter == 0:
             linker_reads = linker_intra
             linker_inter = 'NA'
             linker_intra = 'NA'
         else:
             linker_reads = linker_inter + linker_intra
-        unique_mapped_reads = int(qc_contents['build_bedpe']['total'])
-        non_redundant_reads = int(qc_contents['bedpe2pairs']['total'])
-        inter_chr_reads = int(qc_contents['bedpe2pairs']['inter-chromosome'])
-        intra_chr_reads = int(qc_contents['bedpe2pairs']['intra-chromosome'])
+        unique_mapped_reads = int(qc_contents['build_bedpe']['main']['paired']['total'])
+        non_redundant_reads = int(qc_contents['bedpe2pairs']['comp']['total'])
+        inter_chr_reads = int(qc_contents['bedpe2pairs']['comp']['inter-chromosome'])
+        intra_chr_reads = int(qc_contents['bedpe2pairs']['comp']['intra-chromosome'])
         counts_table = [
             ('Raw reads', raw_reads),
             ('Linker reads', linker_reads),
@@ -169,20 +154,29 @@
     </table>
 </%def>
 
+
 <%def name="include_svg(svg)">
+    ## include svg
     ${svg}
 </%def>
 
-<%def name="pet_span(qc_contents)">
+
+<%def name="pet_span(qc_contents_res)">
     <div class="pet_span">
         <div class="pet_span_stats_table">
-            ${pet_span_stats_table(qc_contents['stats'])}
+            ${pet_span_stats_table(qc_contents_res['pet_span_stats'])}
         </div>
         <div class="pet_span_svg">
-            ${include_svg(qc_contents['svg'])}
+            ${include_svg(qc_contents_res['pet_span_fig'])}
         </div>
     </div>
 </%def>
+
+
+##
+## Page structure
+##
+
 
 <html>
     <head>
@@ -198,7 +192,10 @@
 
     </head>
 
+## Report Header
+
     <body>
+
         <div class="header">
             <div>
             <h1>DLO-HiC-Tools</h1>
@@ -206,29 +203,65 @@
             <p class="sample-id">Sample: ${sample_id}</p>
             </div>
         </div>
+
         <div class="content">
 
-        <div class="counts_table">
-            <h2>Reads counts</h2>
-            ${reads_counts_table(qc_contents['reads_counts'])}
+## Overview counts table:
+
+            <div class="counts_table">
+                <h2>Reads counts</h2>
+                ${reads_counts_table(qc_contents)}
+            </div>
+
+## QC of each steps:
+
+            <div class="steps">
+                <h2>Steps:</h2>
+
+                <div class="PET_extract">
+                    <h3>1. PET extract</h3>
+
+                </div>
+
+                <div class="build_bedpe">
+                    <h3>2. build BEDPE</h3>
+
+                </div>
+
+                <div class="noise_reduce">
+                    <h3>3. noise reduce</h3>
+
+                </div>
+
+                <div class="bedpe2pairs">
+                    <h3>4. remove duplication</h3>
+
+                </div>
+            </div>
+
+## Final results:
+
+            <div class="final_results">
+                <h2>Results:</h2>
+
+                <div class="inter_intra_chr">
+                    <h3>Ratio of intra and inter chromosome interactions</h3>
+                    ${composition(qc_contents['bedpe2pairs']['comp'], "inter_intra_chr")}
+                </div>
+
+                <div class="pet_span_dist">
+                    <h3>PET span distribution</h3>
+                    ${pet_span(qc_contents['bedpe2pairs'])}
+                </div>
+
+                <div class="chr_interactions">
+                    <h3>Interaction between chromosomes</h3>
+                    ${chr_interactions(qc_contents['bedpe2pairs']['chr_interactions'])}
+                </div>
+            </div>
+
         </div>
 
-        <div class="pet_span">
-            <h2>PET span distribution</h2>
-            ${pet_span(qc_contents['pet_span'])}
-        </div>
-
-        <div class="compositions">
-            <h2>Reads compositions of each step's result</h2>
-            ${reads_compositions(qc_contents['reads_counts'])}
-        </div>
-
-        <div class="chr_interactions">
-            <h2>Interaction between chromosomes</h2>
-            ${chr_interactions(qc_contents['chr_interactions'])}
-        </div>
-
-        </div>
     </body>
 
 </html>
