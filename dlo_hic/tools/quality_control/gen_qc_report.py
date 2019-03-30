@@ -183,6 +183,7 @@ def _main(pipe_workdir, output, out_format):
             subp.check_call(cmd, shell=True)
         else:
             qc_contents = get_qc_contents(pipe_workdir, s_id)
+#            import ipdb; ipdb.set_trace()
             report = render_html_report(s_id, qc_contents)
             with open(output, 'w') as f:
                 f.write(report)

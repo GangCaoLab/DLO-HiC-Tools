@@ -14,7 +14,7 @@
                 comp['intra-chromosome(short-range)'] = intra - intra_long
         %>
 
-        ${composition_table(comp, total, id_)}
+        ${composition_table(comp, total, id_, flow=True)}
         ${composition_piechart(comp, total, id_)}
 
     </div>
@@ -23,8 +23,12 @@
     </div>
 </%def>
 
-<%def name="composition_table(qc_dict, total, id_)">
-    <div class="qc_table column left" id="${id_}">
+<%def name="composition_table(qc_dict, total, id_, flow=False)">
+    % if flow:
+    <div class="comp_table column left" id="${id_}">
+    % else:
+    <div class="comp_table left" id="${id_}">
+    % endif
         <table>
             <tr>
                 <th></th>
@@ -75,9 +79,32 @@
     <div class="chr_interactions heatmap">
         <script>
             var dataset = ${dataset}
-            <%include file="/heatmap.js" />
+
+            heatmap(dataset)
+
         </script>
     </div>
+</%def>
+
+
+<%def name="barchart(qc_dict, id_, x_numeric)">
+    <%
+        if x_numeric:
+            dataset = [{'x': int(k), 'y': v} for k, v in qc_dict.items()]
+        else:
+            dataset = [{'x': k, 'y': v} for k, v in qc_dict.items()]
+        dataset = sorted(dataset, key=lambda i:i['x'] )
+        dataset = str(dataset)
+    %>
+
+    <div class="barchart" id="${id_}">
+
+    <script>
+        var dataset = ${dataset}
+        var barID = "${id_}"
+
+        barchart(dataset, barID)
+    </script>
 </%def>
 
 
@@ -189,6 +216,12 @@
         <script>
             <%include file="/piechart.js" />
         </script>
+        <script>
+            <%include file="/heatmap.js" />
+        </script>
+        <script>
+            <%include file="/barchart.js" />
+        </script>
 
     </head>
 
@@ -221,6 +254,34 @@
                 <div class="PET_extract">
                     <h3>1. PET extract</h3>
 
+                    <div class="PET_len_stat">
+                        <h4>(1). PET length distribution</h4>
+                        <table>
+                        <tr>
+                        <td>
+                        <div class="PET1_len_dist">
+                            <h5> PET1 </h5>
+                            ${barchart(qc_contents['extract_PET']['main']['PET1_len_dist'], "PET1_len_dist", True)}
+                        </div>
+                        </td>
+                        <td>
+                        <div class="PET2_len_dist">
+                            <h5> PET2 </h5>
+                            ${barchart(qc_contents['extract_PET']['main']['PET2_len_dist'], "PET2_len_dist", True)}
+                        </div>
+                        </td>
+                        </tr>
+                        </table>
+                    </div>
+
+                    <div class="flag_stat">
+                        <h4>(2). Flag counts</h4>
+                        <%
+                            flag_stat  = qc_contents['extract_PET']['main']['flag_stat']
+                            total_flag = flag_stat.pop('all')
+                        %>
+                        ${composition_table(flag_stat, total_flag, "flag_stat")}
+                    </div>
                 </div>
 
                 <div class="build_bedpe">

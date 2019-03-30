@@ -1,8 +1,9 @@
 var plotPieChart = function(total, dataset, pieID,
+        width=160, height=160,
         colorPattle=["#fcd6cf", "#6ec9f7", "#ffcc99", "#9efadb", "#9efafa"]) {
 
-    var w = 160,
-        h = w
+    var w = width,
+        h = height
 
     var formatPercentage = function(portion) {
         return ((portion / total) * 100).toFixed(2) + '%'
