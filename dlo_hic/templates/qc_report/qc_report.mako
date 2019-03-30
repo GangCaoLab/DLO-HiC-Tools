@@ -27,7 +27,7 @@
     % if flow:
     <div class="comp_table column left" id="${id_}">
     % else:
-    <div class="comp_table left" id="${id_}">
+    <div class="comp_table" id="${id_}">
     % endif
         <table>
             <tr>
@@ -288,6 +288,26 @@
                         %>
                         ${composition_table(flag_stat, total_flag, "flag_stat")}
                     </div>
+
+                    <div class="match_score_dist">
+                        <h4>(3). Match score distribution</h4>
+                        <%
+                            linker_m_score = qc_contents['extract_PET']['main']['linker_match_score_dist']
+                            adapter_m_score = qc_contents['extract_PET']['main']['adapter_match_score_dist']
+                        %>
+                        <div class="linker_match_score_dist">
+                            <h5> Linker <h5>
+                            ${barchart(linker_m_score, "linker_match_score_dist", True, width=800, height=350, xLabel="Match Score", yLabel="Count", color="#ff9d9d")}
+                        </div>
+                        % if adapter_m_score:
+                        <div class="adapter_match_score_dist">
+                            <h5> Adapter <h5>
+                            ${barchart(adapter_m_score, "adapter_match_score_dist", True, width=800, height=350, xLabel="Match Score", yLabel="Count", color="#928287")}
+                        </div>
+                        % endif
+                    </div>
+
+
                 </div>
 
                 <div class="build_bedpe">
