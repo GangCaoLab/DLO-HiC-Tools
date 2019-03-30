@@ -87,7 +87,7 @@
 </%def>
 
 
-<%def name="barchart(qc_dict, id_, x_numeric)">
+<%def name="barchart(qc_dict, id_, x_numeric, width=400, height=300, color='#000000', ymax=None, xLabel='', yLabel='')">
     <%
         if x_numeric:
             dataset = [{'x': int(k), 'y': v} for k, v in qc_dict.items()]
@@ -95,6 +95,8 @@
             dataset = [{'x': k, 'y': v} for k, v in qc_dict.items()]
         dataset = sorted(dataset, key=lambda i:i['x'] )
         dataset = str(dataset)
+        if ymax is None:
+            ymax = 'null'
     %>
 
     <div class="barchart" id="${id_}">
@@ -103,7 +105,7 @@
         var dataset = ${dataset}
         var barID = "${id_}"
 
-        barchart(dataset, barID)
+        barchart(dataset, barID, ${width}, ${height}, "${color}", ${ymax}, "${xLabel}", "${yLabel}")
     </script>
 </%def>
 
@@ -256,22 +258,26 @@
 
                     <div class="PET_len_stat">
                         <h4>(1). PET length distribution</h4>
-                        <table>
-                        <tr>
-                        <td>
-                        <div class="PET1_len_dist">
-                            <h5> PET1 </h5>
-                            ${barchart(qc_contents['extract_PET']['main']['PET1_len_dist'], "PET1_len_dist", True)}
-                        </div>
-                        </td>
-                        <td>
-                        <div class="PET2_len_dist">
-                            <h5> PET2 </h5>
-                            ${barchart(qc_contents['extract_PET']['main']['PET2_len_dist'], "PET2_len_dist", True)}
-                        </div>
-                        </td>
-                        </tr>
-                        </table>
+                        <%
+                            pet1_len_dist = qc_contents['extract_PET']['main']['PET1_len_dist']
+                            pet2_len_dist = qc_contents['extract_PET']['main']['PET2_len_dist']
+                            len_dist = [int(i) for i in pet1_len_dist.values()] + [int(i) for i in pet2_len_dist.values()]
+                            barmax = max(len_dist)
+                        %>
+                        <table><tr>
+                            <td>
+                                <div class="PET1_len_dist">
+                                    <h5> PET1 </h5>
+                                    ${barchart(pet1_len_dist, "PET1_len_dist", True, xLabel="PET length", yLabel="Count", ymax=barmax)}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="PET2_len_dist">
+                                    <h5> PET2 </h5>
+                                    ${barchart(pet2_len_dist, "PET2_len_dist", True, xLabel="PET length", yLabel="Count", ymax=barmax)}
+                                </div>
+                            </td>
+                        </tr></table>
                     </div>
 
                     <div class="flag_stat">

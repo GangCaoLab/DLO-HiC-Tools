@@ -1,9 +1,12 @@
-function barchart (data, chartID) {
+function barchart(data, chartID, width=400, height=300,
+                  color="#000000", ymax=null,
+                  xLabel="x", yLabel="y") {
 
   // set the dimensions and margins of the graph
-  var margin = {top: 20, right: 20, bottom: 30, left: 60},
-      width = 400 - margin.left - margin.right,
-      height = 300 - margin.top - margin.bottom;
+  var margin = {top: 20, right: 20, bottom: 40, left: 70}
+
+  width = width - margin.left - margin.right
+  height = height - margin.top - margin.bottom;
 
   // set the ranges
   var x = d3.scaleBand()
@@ -30,13 +33,20 @@ function barchart (data, chartID) {
 
   // Scale the range of the data in the domains
   x.domain(data.map(function(d) { return d.x; }));
-  y.domain([0, d3.max(data, function(d) { return d.y; })]);
+  if (ymax) {
+    y.domain([0, ymax]);
+  } else {
+    ymax = d3.max(data, function(d) { return d.y; });
+    y.domain([0, ymax]);
+  }
+  var xmax = d3.max(data, function(d) { return d.x });
 
   // append the rectangles for the bar chart
   svg.selectAll(".bar")
       .data(data)
       .enter().append("rect")
       .attr("class", "bar")
+      .attr("fill", color)
       .attr("x", function(d) { return x(d.x); })
       .attr("width", x.bandwidth())
       .attr("y", function(d) { return y(d.y); })
@@ -50,5 +60,19 @@ function barchart (data, chartID) {
   // add the y Axis
   svg.append("g")
       .call(d3.axisLeft(y));
+
+  svg.append('text')
+    .attr('x', -y(ymax/2))
+    .attr('y', -margin.left/1.2)
+    .attr('transform', 'rotate(-90)')
+    .attr('text-anchor', 'middle')
+    .text(yLabel)
+
+  svg.append('text')
+    .attr('x', width / 2)
+    .attr('y', height + margin.bottom/1.2)
+    .attr('text-anchor', 'middle')
+    .text(xLabel)
+
 
 }  
