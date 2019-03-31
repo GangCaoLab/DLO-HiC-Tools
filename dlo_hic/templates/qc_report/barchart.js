@@ -42,7 +42,7 @@ function barchart(data, chartID, width=400, height=300,
   var xmax = d3.max(data, function(d) { return d.x });
 
   // append the rectangles for the bar chart
-  svg.selectAll(".bar")
+  var rects = svg.selectAll(".bar")
       .data(data)
       .enter().append("rect")
       .attr("class", "bar")
@@ -73,6 +73,19 @@ function barchart(data, chartID, width=400, height=300,
     .attr('y', height + margin.bottom/1.2)
     .attr('text-anchor', 'middle')
     .text(xLabel)
+
+  rects.append("title")
+       .data(data)
+       .text(function(d) {
+         return d.y
+       });
+
+  rects.on('mouseenter', function (actual, i) {
+        d3.select(this).attr('opacity', 0.5)
+    })
+    .on('mouseleave', function (actual, i) {
+        d3.select(this).attr('opacity', 1)
+    })
 
 
 }  

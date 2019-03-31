@@ -64,10 +64,17 @@ function heatmap(dataset) {
         .style("fill", function(d) {
             return colorScale(d.value)
         })
+        .on('mouseenter', function (actual, i) {
+            d3.select(this).attr('opacity', 0.5)
+        })
+        .on('mouseleave', function (actual, i) {
+            d3.select(this).attr('opacity', 1)
+        })
         .append("title")
         .text(function(d) {
             return d.chr[0] + " - " + d.chr[1] + ": " + d.value
         })
+
 
 
     var legendMargin = {top: 10, bottom: 10, left: 20, right: 20},
@@ -96,4 +103,5 @@ function heatmap(dataset) {
         .text(function(d) {return "\u2265 " + Math.round(d);})
         .attr("x", function(d, i) {return legendElementWidth * i})
         .attr("y", h + legendElementWidth/2)
+
 }    
