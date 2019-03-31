@@ -235,7 +235,10 @@
             <div>
             <h1>DLO-HiC-Tools</h1>
 
-            <p class="sample-id">Sample: ${sample_id}</p>
+            <p class="version">v${version}</p>
+            <p class="sample-id datetime">
+                sample: ${sample_id}, create: ${datetime}
+            </p>
             </div>
         </div>
 

@@ -7,6 +7,7 @@ import click
 from mako.template import Template
 from mako.lookup import TemplateLookup
 
+import dlo_hic
 from dlo_hic.utils.pipeline import qc_files, DIRS
 
 
@@ -163,7 +164,9 @@ def render_html_report(sample_id, qc_contents):
                             output_encoding='utf-8',
                             encoding_errors='replace')
     template = Template(filename=template_path, lookup=lookup)
-    report = template.render(sample_id=sample_id, qc_contents=qc_contents)
+    from datetime import datetime
+    now = datetime.strftime(datetime.now(), '%Y-%m-%d %H:%m:%d')
+    report = template.render(sample_id=sample_id, qc_contents=qc_contents, version=dlo_hic.__version__, datetime=now)
     return report
 
 
