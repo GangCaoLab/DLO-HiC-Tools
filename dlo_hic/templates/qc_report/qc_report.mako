@@ -321,6 +321,31 @@
     ## Step 2
                 <div class="build_bedpe">
                     <h3>2. build BEDPE</h3>
+                    <%
+                        from copy import copy
+                        comp = copy(qc_contents['build_bedpe']['main'])
+                        total = int(qc_contents['extract_PET']['main']['flag_stat']['valid reads'])
+                        pet1 = comp['PET1']
+                        pet2 = comp['PET2']
+                        paired = int(comp['paired']['total'])
+                        p_r = "{:.2%}".format(paired/total) if total != 0 else 0
+                    %>
+                    <h4>BWA alignment</h4>
+                    <table>
+                        <tr>
+                        <td>
+                            <p>PET1:</p>
+                            ${composition_table(pet1, total, 'pet1_align')}
+                        </td>
+                        <td>
+                            <p>PET2:</p>
+                            ${composition_table(pet2, total, 'pet2_align')}
+                        </td>
+                        </tr>
+                    </table>
+                    <p>Total reads(valid PET extracted): ${total}</p>
+                    <p>Paired unique mapped reads: ${paired}&nbsp;&nbsp;&nbsp; Ratio: ${p_r}</p>
+
 
                 </div>
 
