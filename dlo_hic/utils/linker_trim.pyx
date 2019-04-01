@@ -189,7 +189,7 @@ COUNT_ITEM_NAMES = [
     "right PET length less than threshold",
     "right PET length large than threshold",
     "valid reads",
-    "all",
+    "total",
 ]
 
 

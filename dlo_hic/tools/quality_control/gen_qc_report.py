@@ -151,7 +151,8 @@ def get_qc_contents(pipe_workdir, sample_id):
         res[step] = OrderedDict()
         for item in load_funcs[step]:
             func = load_funcs[step][item]
-            res[step][item] = func(files[step][item])
+            file_ = os.path.join(pipe_workdir, files[step][item])
+            res[step][item] = func(file_)
     return res
 
 

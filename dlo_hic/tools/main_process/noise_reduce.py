@@ -242,13 +242,16 @@ def log_counts(counts, log_file):
     msg1 = "normal\t{}\tpercent\t{:.2%}".format(n, n_r)
     msg2 = "self-ligation\t{}\tpercent\t{:.2%}".format(s, s_r)
     msg3 = "re-ligation\t{}\tpercent\t{:.2%}".format(r, r_r)
+    msg4 = "total\t{}".format(total)
     log.info("\t" + msg1)
     log.info("\t" + msg2)
     log.info("\t" + msg3)
+    log.info("\t" + msg4)
     with open(log_file, 'w') as f:
         f.write("normal\t{}\n".format(n))
         f.write("self-ligation\t{}\n".format(s))
         f.write("re-ligation\t{}\n".format(r))
+        f.write("total\t{}\n".format(total))
 
 
 @click.command(name="noise_reduce")

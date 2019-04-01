@@ -1,6 +1,8 @@
 <%def name="composition(comp, id_)">
     <div class="composition row" id="${id_}">
         <%
+            from copy import copy
+            comp = copy(comp)
             if ('total' in comp) or ('all' in comp):
                 k_ = 'total' if 'total' in comp else 'all'
                 total = float(comp.pop(k_))
@@ -112,7 +114,7 @@
 
 <%def name="reads_counts_table(qc_contents)">
     <%
-        raw_reads    = int(qc_contents['extract_PET']['main']['flag_stat']['all'])
+        raw_reads    = int(qc_contents['extract_PET']['main']['flag_stat']['total'])
         linker_intra = int(qc_contents['extract_PET']['main']['flag_stat']['intra-molecular linker'])
         linker_inter = int(qc_contents['extract_PET']['main']['flag_stat']['inter-molecular linker'])
         if linker_inter == 0:
@@ -258,7 +260,7 @@
 
                 <div class="PET_extract">
                     <h3>1. PET extract</h3>
-
+    ## Step 1
                     <div class="PET_len_stat">
                         <h4>(1). PET length distribution</h4>
                         <%
@@ -286,10 +288,14 @@
                     <div class="flag_stat">
                         <h4>(2). Flag counts</h4>
                         <%
+                            raw = int(qc_contents['extract_PET']['main']['flag_stat']['total'])
+                            from copy import copy
                             flag_stat  = qc_contents['extract_PET']['main']['flag_stat']
-                            total_flag = flag_stat.pop('all')
+                            flag_stat = copy(flag_stat)
+                            total_flag = flag_stat.pop('total')
                         %>
                         ${composition_table(flag_stat, total_flag, "flag_stat")}
+                        <p> Total (raw reads): ${raw} </p>
                     </div>
 
                     <div class="match_score_dist">
@@ -310,21 +316,40 @@
                         % endif
                     </div>
 
-
                 </div>
 
+    ## Step 2
                 <div class="build_bedpe">
                     <h3>2. build BEDPE</h3>
 
                 </div>
 
+    ## Step 3
                 <div class="noise_reduce">
                     <h3>3. noise reduce</h3>
+                    <h4>Ratio of self-ligation and re-ligation</h4>
+                    ${composition(qc_contents['noise_reduce']['main'], "ratio_noise")}
 
                 </div>
 
+    ## Step 4
                 <div class="bedpe2pairs">
                     <h3>4. remove duplication</h3>
+                    <h4>Duplicate ratio</h4>
+                    <%
+                        raw = int(qc_contents['extract_PET']['main']['flag_stat']['total'])
+                        final = int(qc_contents['bedpe2pairs']['comp']['total'])
+                        nr = int(qc_contents['noise_reduce']['main']['total'])
+
+                        dup = nr - final
+                        d_r_r = "{:.2%}".format(dup/raw) if raw != 0 else 0 
+                        d_n_r = "{:.2%}".format(dup/nr) if nr != 0 else 0
+
+                    %>
+                    <table>
+                    <tr><th>duplication</th><th>duplication / raw</th><th>duplication / noise-reduced</th></tr>
+                    <tr><td>${dup}</td><td>${d_r_r}</td><td>${d_n_r}</td></tr>
+                    </table>
 
                 </div>
             </div>
