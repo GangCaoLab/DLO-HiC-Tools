@@ -343,5 +343,7 @@ rule qc_gen_report:
         all_qc_files('{sample}', workdir=setting.working_dir)
     output:
         join(sub_dir("qc"), "{sample}." + setting.qc_report_format)
+    params:
+        s_id = '{sample}'
     run:
-        dlo_qc.gen_qc_report.main(setting.working_dir, output[0], setting.qc_report_format)
+        dlo_qc.gen_qc_report.main(setting.working_dir, params.s_id, output[0], setting.qc_report_format)

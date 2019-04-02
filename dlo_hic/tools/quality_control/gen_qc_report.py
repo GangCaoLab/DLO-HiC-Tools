@@ -173,25 +173,30 @@ def render_html_report(sample_id, qc_contents):
 
 @click.command(name="gen_qc_report")
 @click.argument("pipe-workdir")
+@click.argument("sample-id")
 @click.argument("output")
 @click.option("--out-format",
     default="html",
     type=click.Choice(['html', 'txt']),
     help="The format of quility control report, 'html' or 'txt'")
-def _main(pipe_workdir, output, out_format):
-    for s_id in get_sample_ids(pipe_workdir):
-        log.info("Generating {} format quility control report of sample '{}'.".format(out_format, s_id))
-        if out_format == 'txt':
-            import subprocess as subp
-            cmd = "tail -n +1 {}/*.txt > {}".format(os.path.join(pipe_workdir, DIRS['qc']), output)
-            subp.check_call(cmd, shell=True)
-        else:
-            qc_contents = get_qc_contents(pipe_workdir, s_id)
-#            import ipdb; ipdb.set_trace()
-            report = render_html_report(s_id, qc_contents)
-            with open(output, 'w') as f:
-                f.write(report)
-                log.info("Quility control report of sample '{}' generated, saving to {}".format(s_id, output))
+def _main(pipe_workdir, sample_id, output, out_format):
+    possible_ids = get_sample_ids(pipe_workdir)
+    s_id = sample_id
+    if s_id not in possible_ids:
+        raise IOError("{} is not a valid sample id, candidate sample ids: {}".format(s_id, possible_ids))
+
+    log.info("Generating {} format quility control report of sample '{}'.".format(out_format, s_id))
+    if out_format == 'txt':
+        import subprocess as subp
+        cmd = "tail -n +1 {}/*.txt > {}".format(os.path.join(pipe_workdir, DIRS['qc']), output)
+        subp.check_call(cmd, shell=True)
+    else:
+        qc_contents = get_qc_contents(pipe_workdir, s_id)
+#        import ipdb; ipdb.set_trace()
+        report = render_html_report(s_id, qc_contents)
+        with open(output, 'w') as f:
+            f.write(report)
+            log.info("Quility control report of sample '{}' generated, saving to {}".format(s_id, output))
 
 
 main = _main.callback
