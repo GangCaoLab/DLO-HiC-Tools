@@ -186,7 +186,7 @@ def bedpe_type(rest_sites, bedpe_items, threshold_span, rest_site_len):
 def worker(task_queue,
            rest_sites, rest_site_len,
            output_file, err_sel_file, err_re_file,
-           threshold_span, counts):
+           threshold_span, counts, lock):
     current = mp.current_process().pid
     output_f = open(output_file, 'w')
     err_sel_f = open(err_sel_file, 'w')
@@ -201,9 +201,11 @@ def worker(task_queue,
             output_f.close()
             err_sel_f.close()
             err_re_f.close()
+            lock.acquire()
             counts['normal'] += l_counts[0]
             counts['self-ligation'] += l_counts[1]
             counts['re-ligation'] += l_counts[2]
+            lock.release()
             log.debug("Process-%d done."%current)
             break
 
@@ -328,6 +330,7 @@ def _main(bedpe, output,
     rest_sites, rest_site_len = load_rest_sites(restriction)
 
     # init counts
+    lock = mp.Lock()
     counts = mp.Manager().dict()
     counts['normal'] = 0
     counts['self-ligation'] = 0
@@ -339,7 +342,7 @@ def _main(bedpe, output,
                                 rest_sites, rest_site_len,
                                 output+".tmp.%d"%i, output+".tmp.sel.%d"%i, output+".tmp.re.%d"%i,
                                 threshold_span,
-                                counts))
+                                counts, lock))
                for i in range(processes)]
 
     log.info("%d workers spawned for noise refuce"%len(workers))

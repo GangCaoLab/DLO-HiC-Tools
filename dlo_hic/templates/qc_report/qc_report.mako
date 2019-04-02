@@ -197,7 +197,7 @@
         <div class="pet_span_stats_table">
             ${pet_span_stats_table(qc_contents_res['pet_span_stats'])}
         </div>
-        <div class="pet_span_svg">
+        <div class="pet_span_svg" style="text-align:center">
             ${include_svg(qc_contents_res['pet_span_fig'])}
         </div>
     </div>
