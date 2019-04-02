@@ -179,6 +179,7 @@ def write_to_file(line_iterator, output_path, mode='w'):
     """
     itr = line_iterator
     with open(output_path, mode) as of:
+        i = 0
         for i, line in enumerate(itr):
             of.write(line + "\n")
     return i + 1
