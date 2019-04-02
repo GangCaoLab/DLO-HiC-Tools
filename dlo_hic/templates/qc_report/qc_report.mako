@@ -40,7 +40,7 @@
 
             % for item, val in qc_dict.items():
                 <%
-                    ratio = float(val)/float(total)
+                    ratio = 0 if total == 0 else float(val)/float(total)
                     ratio_str = "{:.2%}".format(ratio)
                 %>
                 <tr>
@@ -148,7 +148,7 @@
             % for key, count in counts_table:
                 <% 
                     if not isinstance(count, str):
-                        ratio = count / raw_reads
+                        ratio = 0 if raw_reads == 0 else count / raw_reads
                         ratio = "{0:.2%}".format(ratio)
                     else:
                         ratio = 'NA'
