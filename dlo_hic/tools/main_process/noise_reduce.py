@@ -73,14 +73,14 @@ def find_frag(rest_sites, start, end, rest_site_len):
     frag_idx_e = sites.searchsorted(end_search_point,   side='right')
     if frag_idx_s == frag_idx_e:  # PET start and end located into same fragment
         frag_idx = frag_idx_s
-        frag_start = sites[frag_idx - 1]
-        frag_end = sites[frag_idx]
 
         if frag_idx == 0:
             pos = 'e'
         elif frag_idx == sites.shape[0]:
             pos = 's'
         else:
+            frag_start = sites[frag_idx - 1]
+            frag_end = sites[frag_idx]
             left_span = mid - frag_start
             right_span = frag_end - mid
             if left_span < right_span:
@@ -89,10 +89,6 @@ def find_frag(rest_sites, start, end, rest_site_len):
                 pos = 'e'
         return (frag_idx, pos)
     else:
-        frag_start = sites[frag_idx_s - 1]
-        mid_frag_pos = sites[frag_idx_s]
-        frag_end = sites[frag_idx_e]
-
         if frag_idx_s == 0:
             frag_idx = frag_idx_s
             pos = 'e'
@@ -100,6 +96,10 @@ def find_frag(rest_sites, start, end, rest_site_len):
             frag_idx = frag_idx_e
             pos = 's'
         else:
+            frag_start = sites[frag_idx_s - 1]
+            mid_frag_pos = sites[frag_idx_s]
+            frag_end = sites[frag_idx_e]
+
             left_span = start - frag_start
             right_span = frag_end - end_search_point - 1
             if left_span < right_span:
