@@ -364,7 +364,7 @@
                     <%
                         raw = int(qc_contents['extract_PET']['main']['flag_stat']['total'])
                         final = int(qc_contents['bedpe2pairs']['comp']['total'])
-                        nr = int(qc_contents['noise_reduce']['main']['total'])
+                        nr = int(qc_contents['noise_reduce']['main']['normal'])
 
                         dup = nr - final
                         d_r_r = "{:.2%}".format(dup/raw) if raw != 0 else 0 
