@@ -35,7 +35,7 @@ def load_rest_sites(sites_file):
         for k in rest_sites.keys():
             rest_sites[k] = np.asarray(rest_sites[k])
     else:  # hdf5 file
-        with h5py.File(sites_file) as f:
+        with h5py.File(sites_file, 'r') as f:
             rest_site_len = len(f.attrs['rest_seq'])
             chromosomes = list(f['chromosomes'].keys())
             for chr_ in chromosomes:

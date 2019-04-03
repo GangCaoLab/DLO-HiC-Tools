@@ -66,16 +66,21 @@ rule extract_PET:
     output:
         pet1 = output_files('{sample}')['pet1.fq'],
         pet2 = output_files('{sample}')['pet2.fq'],
-        trim_flag = output_files('{sample}')['trim_flag'],
         qc_comp = qc_files('{sample}')['extract_PET']['main']
     params:
-        llog = local_logger
+        llog = local_logger,
+        sample = '{sample}'
     run:
         llog = params.llog
         llog.log_stage_boundary("extract_PET")
 
         conf = config['EXTRACT_PET']
         rest = config['DATA']['restriction_site']
+
+        if config['GLOBAL']['log_level'] <= 10:
+            trim_flag = output_files(params.sample)['trim_flag']
+        else:
+            trim_flag = None
 
         chunk_size = 100000
         # run tool
@@ -85,7 +90,7 @@ rule extract_PET:
             conf['linker_a'], conf['linker_b'],
             conf['mismatch'], rest, setting.ncpu, conf['pet_len_range'], conf['pet_cut_len'],
             conf['adapter'], conf['mismatch_adapter'],
-            output.qc_comp, output.trim_flag, chunk_size)
+            output.qc_comp, trim_flag, chunk_size)
 
 
 rule build_bedpe:
