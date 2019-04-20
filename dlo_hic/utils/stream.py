@@ -56,10 +56,10 @@ def upper_triangle(line_iterator, fmt='bedpe'):
     itr = line_iterator
     for line in itr:
         if fmt == 'bedpe':
-            o = Bedpe(line)
+            o = Bedpe.from_line(line)
             o.to_upper_trangle()
         elif fmt == 'pairs':
-            o = Pairs(line)
+            o = Pairs.from_line(line)
             o.to_upper_trangle()
         else:
             raise ValueError("fmt only 'bedpe' or 'pairs'.")
@@ -130,7 +130,7 @@ def bedpe2pairs(line_iterator, pos1='start', pos2='start'):
     from dlo_hic.utils.parse_text import Bedpe
     itr = line_iterator
     for line in itr:
-        bpe = Bedpe(line)
+        bpe = Bedpe.from_line(line)
         pairs_line = bpe.to_pairs_line(pos1, pos2)
         yield pairs_line
 

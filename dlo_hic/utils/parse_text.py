@@ -72,15 +72,15 @@ class Bedpe(object):
 
     fields = ("chr1", "start1", "end1", "chr2", "start2", "end2", "name", "score", "strand1", "strand2")
 
-    def __init__(self, line):
-        items, extends = parse_line_bedpe(line, extends=True)
-        self.items = items
-        self.chr1 = items[0]
-        self.chr2 = items[3]
-        self.name, self.score = items[6], items[7]
-        self.start1, self.start2 = items[1], items[4]
-        self.end1, self.end2 = items[2], items[5]
-        self.strand1, self.strand2 = items[8], items[9]
+    def __init__(self, chr1, start1, end1, chr2, start2, end2, name, score, strand1, strand2, extends=None):
+        self.chr1 = chr1
+        self.chr2 = chr2
+        self.name, self.score = name, score
+        self.start1, self.start2 = start1, start2
+        self.end1, self.end2 = end1, end2
+        self.strand1, self.strand2 = strand1, strand2
+
+        self.items = [getattr(self, f) for f in self.fields]
 
         self.center1 = (self.start1 + self.end1) // 2
         self.center2 = (self.start2 + self.end2) // 2
@@ -88,6 +88,11 @@ class Bedpe(object):
         if extends:
             self.etag1 = extends[0]
             self.etag2 = extends[1]
+
+    @classmethod
+    def from_line(cls, line):
+        items, extends = parse_line_bedpe(line, extends=True)
+        return cls(*items, extends=extends)
 
     def is_rep_with(self, another, dis=10, by_etag=False):
         """ Judge another bedpe record is replection of self or not. """
@@ -191,13 +196,18 @@ class Pairs(object):
 
     fields = ("name", "chr1", "pos1", "chr2", "pos2", "strand1", "strand2")
 
-    def __init__(self, line):
+    def __init__(self, name, chr1, pos1, chr2, pos2, strand1, strand2):
+        self.name = name
+        self.chr1, self.chr2 = chr1, chr2
+        self.pos1, self.pos2 = pos1, pos2
+        self.strand1, self.strand2 = strand1, strand2
+
+        self.items = [getattr(self, f) for f in self.fields]
+
+    @classmethod
+    def from_line(cls, line):
         items = parse_line_pairs(line)
-        self.items = items
-        self.name = items[0]
-        self.chr1, self.chr2 = items[1], items[3]
-        self.pos1, self.pos2 = items[2], items[4]
-        self.strand1, self.strand2 = items[5], items[6]
+        return Pairs(*items)
 
     def __str__(self):
         return "\t".join([self.name,
@@ -260,15 +270,14 @@ def infer_interaction_file_type(path):
         else:
             raise IOError("{} not have any contents.")
     try:  # try Bedpe
-        Bedpe(line)
+        Bedpe.from_line(line)
         return Bedpe
     except:
         pass
     try:  # try Pairs
-        Pairs(line)
+        Pairs.from_line(line)
         return Pairs
     except:
         pass
     raise NotImplementedError("Only support pairs and bedpe file format.")
 
-            
