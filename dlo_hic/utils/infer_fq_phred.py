@@ -80,7 +80,7 @@ def heuristic_filter(valid, qual_val_counts):
     return valid
 
 
-def guess_fq_format(input_fq, n=-1):
+def infer_fq_format(input_fq, n=-1):
     gmin = 99
     gmax = 0
     valid = []
@@ -112,9 +112,10 @@ def guess_fq_format(input_fq, n=-1):
     return valid
 
 
-def guess_fq_phred(input_fq, default=33):
+def infer_fq_phred(input_fq, default=33):
+    """ Inference the phred score format of a fastq file """
     try:
-        valid = guess_fq_format(input_fq, -1)
+        valid = infer_fq_format(input_fq, -1)
     except IOError:
         log.warning("Can not inference FASTQ phred. use phred 33")
         return default
