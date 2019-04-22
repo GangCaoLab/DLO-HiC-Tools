@@ -6,12 +6,14 @@ Requirements
 This package is only support UNIX-like system, and Python version must be >= 3.4, 
 and following softwares are required:
 
-- BWA
-- samtools
-- bedtools
+- BWA (>=0.7.15)
+- samtools (>=1.6)
+- coreutils (>=8.25)
 - pairix
 - tabix
 - cooler
+- mafft
+- java (optional, for create .hic file)
 
 Recommend install and manage requirements with `Anaconda <https://conda.io/miniconda.html>`_, just use following commands::
 
@@ -21,7 +23,7 @@ Recommend install and manage requirements with `Anaconda <https://conda.io/minic
     $ conda create -n dlohic python=3.6  # create virtual environment
     $ source activate dlohic
     (dlohic) $ conda install --yes numpy scipy matplotlib pandas cython h5py jsonschema graphviz
-    (dlohic) $ conda install -c bioconda --yes coreutils bwa samtools bedtools pairix tabix cooler pysam
+    (dlohic) $ conda install -c bioconda --yes coreutils bwa samtools mafft pairix tabix cooler pysam java-jdk
     (dlohic) $ conda install -c conda-forge --yes bzip2
 
 Install DLO-HiC-Tools
