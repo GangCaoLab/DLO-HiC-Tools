@@ -1,23 +1,30 @@
 import io
 import subprocess
-import random
 from itertools import cycle
+import logging
 
 from dlo_hic.utils.fastaio import read_fasta, FastaRec
 from dlo_hic.utils.fastqio import read_fastq
 from dlo_hic.utils.suffix_tree.STree import STree
 
 
-N_FQ_REC = 200
-N_BATCH = 20
-BATCH_SIZE = 5
+log = logging.getLogger(__name__)
+
+
+N_FQ_REC = 50
 SEARCH_START_POS = 76
+N_BATCH = 10
+BATCH_SIZE = 5
 START_POS_THRESH = 5
 
 
 def multiple_alignment(input_str):
     """ Perform mafft return result fasta records """
-    p = subprocess.Popen(["mafft", "-"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
+    try:
+        p = subprocess.Popen(["mafft", "-"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
+    except FileNotFoundError:
+        msg = "'mafft' for multiple alignment is not installed."
+        raise FileNotFoundError(msg)
     out, err = p.communicate(input_str.encode('utf-8'))
     p.kill()
     str_io = io.StringIO(out.decode('utf-8'))

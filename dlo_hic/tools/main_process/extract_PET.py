@@ -12,6 +12,7 @@ from dlo_hic.utils import reverse_complement as rc
 from dlo_hic.utils.fastqio import read_fastq, write_fastq
 from dlo_hic.utils.filetools import open_file, merge_tmp_files
 from dlo_hic.utils.linker_trim import process_chunk, COUNT_ITEM_NAMES, init_counts
+from dlo_hic.utils.infer_adapter import infer_adapter_seq
 
 
 log = logging.getLogger(__name__)
@@ -201,8 +202,9 @@ def worker(task_queue, out1, out2, flag_file, lock, counter, args):
     default=20, show_default=True,
     help="If PET length large than the upper len range, will cut to this length.")
 @click.option("--cut-adapter", "adapter",
-    default="",
-    help="If specified, Cut the adapter sequence in the PET2.")
+    default="auto",
+    help="Specify the sequence of adapter. If specified, Cut the adapter sequence in the PET2."
+         "If specify 'auto', will inference adapter sequence using mafft.")
 @click.option("--mismatch-adapter", "mismatch_adapter", default=3,
     show_default=True,
     help="mismatch threshold in alignment in cut adapter step.")
@@ -260,8 +262,14 @@ def _main(fastq, out1, out2,
     log.info("linker alignment mismatch threshold: {}".format(mismatch))
 
     if adapter:
-        log.info("adapter: {}".format(adapter))
-        log.info("adapter alignment mismatch threshold: {}".format(mismatch_adapter))
+        if adapter == 'auto':
+            try:
+                adapter, s_pos = infer_adapter_seq(fastq, start_pos=len(linker_a)*2+40)
+            except:
+                log.error("Fail to inference adapter, please specify the adapter sequence directly.")
+            adapter = adapter.upper()
+            log.info("adapter sequence found, seq: {}, length: {}, start pos in multiple-align: {}".format(adapter, len(adapter), s_pos))
+        log.info("adapter: {}, mismatch threshold: {}".format(adapter, mismatch_adapter))
 
     log.info("Expect PET length range: [{}, {}]".format(*PET_len_range))
 
