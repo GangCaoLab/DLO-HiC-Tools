@@ -106,10 +106,10 @@ def remove_redundancy(line_iterator, fmt, distance, by_etag=False):
     else:
         raise ValueError("fmt only 'bedpe' or 'pairs'.")
 
-    base = fmt(next(itr))
+    base = fmt.from_line(next(itr))
     while True:
         for line in itr:
-            another = fmt(line)
+            another = fmt.from_line(line)
             if is_rep(base, another):  # is replication, check next line.
                 continue
             else:  # not replication, output base line and change base line.

@@ -2,6 +2,7 @@ from os.path import join, split, splitext, dirname
 from copy import copy
 import logging
 import multiprocessing as mp
+import subprocess
 
 import click
 from pysam import Samfile
@@ -26,19 +27,19 @@ class IterRec(object):
         self.align_tp1, self.align_tp2 = align_tp1, align_tp2
         self.chr1, self.start1, self.end1 = chr1, start1, end1
         self.chr2, self.start2, self.end2 = chr2, start2, end2
-        if chr1:
+        if chr1 and start1 and end1:
             self.start1 = int(self.start1)
             self.end1 = int(self.end1)
-        if chr2:
+        if chr2 and start2 and end2:
             self.start2 = int(self.start2)
             self.end2 = int(self.end2)
         self.strand1, self.strand2 = strand1, strand2
 
     def __str__(self):
-        s1 = str(self.start1) if self.chr1 else ""
-        e1 = str(self.end1) if self.chr1 else ""
-        s2 = str(self.start2) if self.chr2 else ""
-        e2 = str(self.end2) if self.chr2 else ""
+        s1 = str(self.start1) if self.start1 else ""
+        e1 = str(self.end1) if self.end1 else ""
+        s2 = str(self.start2) if self.start2 else ""
+        e2 = str(self.end2) if self.end2 else ""
         fields = [self.seqid, self.seq1, self.seq2, self.align_tp1, self.align_tp2,
                   self.chr1 or "", s1, e1, self.chr2 or "", s2, e2,
                   self.strand1 or "", self.strand2 or ""]
@@ -389,7 +390,10 @@ def log_paired(counts):
 @click.option("--bwa-log-file",
     default="bwa.log",
     help="Separate log file for storage bwa output")
-def _main(file_format, input1, input2, bedpe, ncpu, bwa_index, mapq, iterative, log_file, bwa_log_file):
+@click.option("--keep-iter-files",
+    is_flag=True,
+    help="Don't delete intermediate iterations files")
+def _main(file_format, input1, input2, bedpe, ncpu, bwa_index, mapq, iterative, log_file, bwa_log_file, keep_iter_files):
     """ Build bedpe file from fastq or sam/bam file. """
     log.info("Build BEDPE from %s %s"%(input1, input2))
 
@@ -426,6 +430,10 @@ def _main(file_format, input1, input2, bedpe, ncpu, bwa_index, mapq, iterative, 
     if iterative > 0:
         log.info("Begin iterative mapping")
         iterative_mapping(bwa_index, iter_db, iter1_fq, bedpe, iterative, counts, ncpu, mapq)
+
+        # clear intermedia files
+        if not keep_iter_files:
+            subprocess.check_call("rm {}.iter.*".format(bedpe), shell=True)
 
     with open(log_file, "a") as f:
         f.write("\n")

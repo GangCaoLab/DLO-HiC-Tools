@@ -100,7 +100,8 @@ rule build_bedpe:
     #  Tool Interface:
     #     ( file_format, input1, input2, bedpe,
     #       ncpu, bwa_index, mapq, iterative,
-    #       log_file, bwa_log_file )
+    #       log_file, bwa_log_file,
+    #       keep_iter_files )
     # --------------------
     threads: setting.ncpu
     input:
@@ -109,18 +110,11 @@ rule build_bedpe:
         bedpe      = output_files("{sample}")["uniq.bedpe"],
         pet1_bam   = output_files("{sample}")["pet1.bam"],
         pet2_bam   = output_files("{sample}")["pet2.bam"],
-        pet1_uniq_bam = output_files("{sample}")["pet1.uniq.bam"],
-        pet2_uniq_bam = output_files("{sample}")["pet2.uniq.bam"],
-        pet1_mul_bam = output_files("{sample}")["pet1.mul.bam"],
-        pet2_mul_bam = output_files("{sample}")["pet2.mul.bam"],
-        pet1_unm_bam = output_files("{sample}")["pet1.unm.bam"],
-        pet2_unm_bam = output_files("{sample}")["pet2.unm.bam"],
-        pet1_bed   = output_files("{sample}")["pet1.bed"],
-        pet2_bed   = output_files("{sample}")["pet2.bed"],
         qc_bedpe   = qc_files('{sample}')['build_bedpe']['main']
     params:
         llog = local_logger,
         bwa_log    = sub_dir("log") + "/{sample}.bwa.log",
+        keep_iter_files = config['GLOBAL']['log_level'] <= 10
     run:
         llog = params.llog
         llog.log_stage_boundary("build_bedpe")
@@ -135,7 +129,8 @@ rule build_bedpe:
         dlo_main.build_bedpe.main(
             'fastq', input[0], input[1], output.bedpe,
             setting.ncpu, bwa_index, conf['mapq'], conf['iterations'],
-            output.qc_bedpe, params.bwa_log)
+            output.qc_bedpe, params.bwa_log,
+            params.keep_iter_files)
 
 
 rest_name = config['DATA']['restriction_name']

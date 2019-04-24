@@ -1,3 +1,4 @@
+import sys
 import re
 import logging
 import multiprocessing as mp
@@ -273,6 +274,7 @@ def _main(fastq, out1, out2,
                     raise ValueError()
             except:
                 log.error("Fail to inference adapter, please specify the adapter sequence directly.")
+                sys.exit()
             adapter = adapter.upper()
             log.info("adapter sequence found")
         if not mismatch_adapter.is_integer():

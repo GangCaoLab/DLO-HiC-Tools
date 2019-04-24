@@ -83,7 +83,7 @@ def _main(input, log_file, long_range_cutoff):
             for line in f:
                 if is_comment(line):  # skip header
                     continue
-                pair = fmt(line)
+                pair = fmt.from_line(line)
                 if pair.chr1 != pair.chr2:
                     counter.inter += 1
                 else:
