@@ -288,7 +288,8 @@ def iterative_mapping(bwa_index, iter_db, iter1_fq, bedpe, n_iters, counts, thre
 
     for iter_id in range(1, n_iters+1):
         counts['iters'][iter_id] = {'paired': 0}
-        log.info("Iterative mapping, round: {}".format(iter_id))
+        log.info("-"*30)
+        log.info("Iterative mapping, <round {}>".format(iter_id))
         iter_fq = bedpe + '.iter.{}.fq'.format(iter_id)
 
         log.info("Do alignment using 'bwa aln', with {} threads".format(threads))
@@ -300,7 +301,7 @@ def iterative_mapping(bwa_index, iter_db, iter1_fq, bedpe, n_iters, counts, thre
         bam = pre + '.bam'
 
         # process bam
-        log.info("Process BAM files".format(threads))
+        log.info("Process BAM file")
         with Samfile(bam, 'rb') as sam:
             sam_iter = sam.fetch(until_eof=True)
             old = None
@@ -310,11 +311,11 @@ def iterative_mapping(bwa_index, iter_db, iter1_fq, bedpe, n_iters, counts, thre
                 seq_id, pet_label, r_idx = rec_id.split("_")
                 if (seq_id, pet_label) == old:  # read id same to previous one
                     same_read_recs.append(rec)
-                else:  # new read id, process previous records
-                    process_sam_records_belong_to_same_read(iter_id, same_read_recs, seq_id, pet_label)
+                elif old is not None:  # new read id, process previous records
+                    process_sam_records_belong_to_same_read(iter_id, same_read_recs, old[0], old[1])
                     same_read_recs = [rec]
                 old = (seq_id, pet_label)
-            process_sam_records_belong_to_same_read(iter_id, same_read_recs, seq_id, pet_label)
+            process_sam_records_belong_to_same_read(iter_id, same_read_recs, old[0], old[1])
         log.info("{} new unique pair founded in <round {}>".format(counts['iters'][iter_id]['paired'], iter_id))
         log_paired(counts)
         iter_db.commit()
