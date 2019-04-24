@@ -26,19 +26,27 @@ class IterRec(object):
         self.align_tp1, self.align_tp2 = align_tp1, align_tp2
         self.chr1, self.start1, self.end1 = chr1, start1, end1
         self.chr2, self.start2, self.end2 = chr2, start2, end2
+        if chr1:
+            self.start1 = int(self.start1)
+            self.end1 = int(self.end1)
+        if chr2:
+            self.start2 = int(self.start2)
+            self.end2 = int(self.end2)
         self.strand1, self.strand2 = strand1, strand2
 
     def __str__(self):
+        s1 = str(self.start1) if self.chr1 else ""
+        e1 = str(self.end1) if self.chr1 else ""
+        s2 = str(self.start2) if self.chr2 else ""
+        e2 = str(self.end2) if self.chr2 else ""
         fields = [self.seqid, self.seq1, self.seq2, self.align_tp1, self.align_tp2,
-                  self.chr1 or "", str(self.start1) or "", str(self.end1) or "",
-                  self.chr2 or "", str(self.start2) or "", str(self.end2) or "",
+                  self.chr1 or "", s1, e1, self.chr2 or "", s2, e2,
                   self.strand1 or "", self.strand2 or ""]
         return "\t".join(fields)
 
     @classmethod
     def from_line(cls, line, iter_id):
         """ Construct from a string. """
-        line = line.strip()
         items = line.split("\t")
         rec = cls(iter_id, *items)
         return rec
@@ -92,6 +100,10 @@ class IterRec(object):
                     fq_recs.append(fq)
         return fq_recs
 
+    @property
+    def is_unique_paired(self):
+        return self.align_tp2 == self.align_tp1 == "unique"
+
     def to_bedpe(self):
         """ Convert to BEDPE record. """
         bpe = Bedpe(self.chr1, self.start1, self.end1, self.chr2, self.start2, self.end2,
@@ -99,7 +111,7 @@ class IterRec(object):
         return bpe
 
 
-def process_sam_pair(input1, input2, output, iter_prefix=None, iter_db=None, mapq_thresh=20):
+def process_sam_pair(input1, input2, output, iter1_fq=None, iter_db=None, mapq_thresh=20):
     """
     Process alignment result in first iteration.
     Merge the unique pair to bedpe file, and store unpaired data to an intermediate file.
@@ -117,8 +129,8 @@ def process_sam_pair(input1, input2, output, iter_prefix=None, iter_db=None, map
         Path to input2 SAM/BAM file.
     output : str
         Path to output BEDPE file.
-    iter_prefix : str, optional
-        Prefix to intermediate file and fastq file for iterative mapping.
+    iter1_fq : str, optional
+        Path to first round iteration fastq.
     iter_db : lsm.LSM, optional
         LSM database handler.
     mapq_thresh : int
@@ -146,9 +158,9 @@ def process_sam_pair(input1, input2, output, iter_prefix=None, iter_db=None, map
         'total': 0,
     }
 
-    if iter_prefix:
+    if iter1_fq:
         # create iter records and fastq file for iterative mapping
-        fq_fh = open(iter_prefix+'.fq', 'w')
+        fq_fh = open(iter1_fq, 'w')
 
     with Samfile(input1, mode_r1) as sam1, Samfile(input2, mode_r2) as sam2,\
             open(output, 'w') as out:
@@ -174,7 +186,7 @@ def process_sam_pair(input1, input2, output, iter_prefix=None, iter_db=None, map
                 bpe = sam_pair_to_bedpe(read1, read2)
                 out.write(str(bpe)+'\n')
             else:
-                if iter_prefix:  # write files for iterative mapping
+                if iter1_fq:  # write files for iterative mapping
                     iter_rec = IterRec.from_sam_pair(read1, read2, 1, mapq_thresh)
                     iter_db[iter_rec.seqid] = str(iter_rec)
                     for fq in iter_rec.to_fq_recs():
@@ -182,11 +194,15 @@ def process_sam_pair(input1, input2, output, iter_prefix=None, iter_db=None, map
 
             counts['total'] += 1
 
+    if iter1_fq:
+        iter_db.commit()
+        fq_fh.close()
+
     return counts
 
 
 def sam_read_type(read, mapq_thresh):
-    """ Judge sam read type """
+    """ Determine sam read type """
     def has_xa(read):
         return True if len(read.tags) > 0 and read.tags[-1][0] == 'XA' else False
 
@@ -210,17 +226,106 @@ def sam_pair_to_bedpe(read1, read2):
     return bpe
 
 
-def iterative_alignment(input, output, n, counts):
+def iterative_mapping(bwa_index, iter_db, iter1_fq, bedpe, n_iters, counts, threads, mapq_thresh):
     """
+    Take the sub-sequences of non-unique mapped reads,
+    alignment again, increase the reads use ratio.
 
     Parameters
     ----------
-    output : str
-    n : int
+    bwa_index : str
+        Prefix of BWA index files.
+    iter_db : lsm.LSM
+        Database handler for store unpaired records.
+    iter1_fq : str
+        Path to Fastq file in first iteration.
+    bedpe : str
+        Path to output BEDPE file.
+    n_iters : int
+        Number of iteration.
     counts : dict
+        Counter.
+    threads : int
+        Number of threads for run BWA.
+    mapq_thresh : int
+        mapq threshold.
     """
-    while n > 0:
-        n -= 1
+    bpe_fh = open(bedpe, 'a')
+    counts['iters'] = {}
+
+    def process_sam_records_belong_to_same_read(iter_id, records, seq_id, pet_label):
+        unique_recs = []
+        for rec in records:
+            if sam_read_type(rec, mapq_thresh) == 'unique':
+                unique_recs.append(rec)
+        if len(unique_recs) == 1:  # only process reads, which only one sub-seq unique mapped
+            u_rec = unique_recs[0]
+            iter_rec = IterRec.from_line(iter_db[seq_id].decode('utf-8'), iter_id)
+            if pet_label == 'pet1':
+                iter_rec.align_tp1 = "unique"
+                iter_rec.chr1 = u_rec.reference_name
+                iter_rec.start1 = u_rec.reference_start
+                iter_rec.end1 = u_rec.reference_end
+                iter_rec.strand1 = '-' if u_rec.is_reverse else '+'
+            else:
+                iter_rec.align_tp2 = "unique"
+                iter_rec.chr2 = u_rec.reference_name
+                iter_rec.start2 = u_rec.reference_start
+                iter_rec.end2 = u_rec.reference_end
+                iter_rec.strand2 = '-' if u_rec.is_reverse else '+'
+            iter_db[seq_id] = str(iter_rec)  # update db
+            if iter_rec.is_unique_paired:  # is paired, delete record, write pair to bedpe
+                counts['iters'][iter_id]['paired'] += 1
+                counts['paired'] += 1
+                bpe_fh.write(str(iter_rec.to_bedpe()) + "\n")
+                del iter_db[seq_id]
+
+    def reproduce_fastq(fq_fh, iter_id):
+        for seq_id, rec_str in iter_db[:]:
+            rec = IterRec.from_line(rec_str.decode('utf-8'), iter_id)
+            for fq in rec.to_fq_recs():
+                write_fastq(fq, fq_fh)
+
+    for iter_id in range(1, n_iters+1):
+        counts['iters'][iter_id] = {'paired': 0}
+        log.info("Iterative mapping, round: {}".format(iter_id))
+        iter_fq = bedpe + '.iter.{}.fq'.format(iter_id)
+
+        log.info("Do alignment using 'bwa aln', with {} threads".format(threads))
+        bwa_log_file = bedpe + '.iter.' + str(iter_id) + '.bwa.log'
+        outdir = dirname(bedpe)
+        pre = join(outdir, splitext(split(iter_fq)[1])[0])  # prefix of input fastq file
+        bwa = BWA(bwa_index, algorithm='aln', log_file=bwa_log_file)
+        bwa.run(iter_fq, pre, thread=threads, max_diff=0, bam=True)
+        bam = pre + '.bam'
+
+        # process bam
+        log.info("Process BAM files".format(threads))
+        with Samfile(bam, 'rb') as sam:
+            sam_iter = sam.fetch(until_eof=True)
+            old = None
+            same_read_recs = []
+            for rec in sam_iter:
+                rec_id = rec.query_name
+                seq_id, pet_label, r_idx = rec_id.split("_")
+                if (seq_id, pet_label) == old:  # read id same to previous one
+                    same_read_recs.append(rec)
+                else:  # new read id, process previous records
+                    process_sam_records_belong_to_same_read(iter_id, same_read_recs, seq_id, pet_label)
+                    same_read_recs = [rec]
+                old = (seq_id, pet_label)
+            process_sam_records_belong_to_same_read(iter_id, same_read_recs, seq_id, pet_label)
+        log.info("{} new unique pair founded in <round {}>".format(counts['iters'][iter_id]['paired'], iter_id))
+        log_paired(counts)
+        iter_db.commit()
+
+        if iter_id+1 <= n_iters:
+            new_fq = bedpe + '.iter.{}.fq'.format(iter_id+1)
+            with open(new_fq, 'w') as fq_fh:
+                log.info("Reproduce FASTQ: {}".format(new_fq))
+                reproduce_fastq(fq_fh, iter_id+1)
+
+    bpe_fh.close()
 
 
 def log_alignment_info(pet1_count, pet2_count, log_file=None):
@@ -253,6 +358,12 @@ def log_alignment_info(pet1_count, pet2_count, log_file=None):
             fo.write("other\t{}\n".format(c2[2]))
 
 
+def log_paired(counts):
+    total = counts['total']
+    ratio = 0 if total == 0 else counts['paired'] / total
+    log.info("Unique paired reads: {}\tpercent: {:.2%}".format(counts['paired'], ratio))
+
+
 @click.command(name="build_bedpe")
 @click.option("--file-format", "-f",
     default="fastq",
@@ -279,7 +390,7 @@ def log_alignment_info(pet1_count, pet2_count, log_file=None):
     help="Separate log file for storage bwa output")
 def _main(file_format, input1, input2, bedpe, ncpu, bwa_index, mapq, iterative, log_file, bwa_log_file):
     """ Build bedpe file from fastq or sam/bam file. """
-    log.info("Build bedpe from %s %s"%(input1, input2))
+    log.info("Build BEDPE from %s %s"%(input1, input2))
 
     outdir = dirname(bedpe)
 
@@ -298,22 +409,29 @@ def _main(file_format, input1, input2, bedpe, ncpu, bwa_index, mapq, iterative, 
         bam1 = input1
         bam2 = input2
 
-    log.info("merge beds to bedpe.")
+    log.info("Merge BEDs to BEDPE.")
     if iterative > 0:
-        iter_fq = bedpe + '.iter.0'
+        log.info("Init DB for iterative mapping.")
+        assert bwa_index is not None, 'bwa_index is required, when do iterative mapping.'
+        iter1_fq = bedpe + '.iter.1.fq'
         iter_db = LSM(bedpe + '.iter.db')
     else:
-        iter_fq = iter_db = None
-    counts = process_sam_pair(bam1, bam2, bedpe, iter_fq, iter_db, mapq_thresh=mapq)
+        iter1_fq = iter_db = None
 
+    counts = process_sam_pair(bam1, bam2, bedpe, iter1_fq, iter_db, mapq_thresh=mapq)
     log_alignment_info(counts['input1'], counts['input2'], log_file)
+    log_paired(counts)
+
+    if iterative > 0:
+        log.info("Begin iterative mapping")
+        iterative_mapping(bwa_index, iter_db, iter1_fq, bedpe, iterative, counts, ncpu, mapq)
 
     with open(log_file, "a") as f:
         f.write("\n")
         f.write("# Unique paired\n")
         f.write("total\t{}\n".format(counts['paired']))
 
-    log.info("Build bedpe done.")
+    log.info("Build BEDPE done.")
 
 
 main = _main.callback
