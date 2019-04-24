@@ -1,12 +1,9 @@
 import re
 import logging
-from itertools import repeat
 import multiprocessing as mp
 from queue import Empty
-from collections import OrderedDict
 
 import click
-import numpy as np
 
 from dlo_hic.utils import reverse_complement as rc
 from dlo_hic.utils.fastqio import read_fastq, write_fastq
@@ -184,9 +181,11 @@ def worker(task_queue, out1, out2, flag_file, lock, counter, args):
     help="The sequence of linkerA")
 @click.option("--linker-B",
     help="The sequence of linkerB")
-@click.option("--mismatch", default=4,
+@click.option("--mismatch", default=0.12,
     show_default=True,
-    help="threshold of linkers base mismatch(and gap open extends) number.")
+    help="Threshold of linkers base mismatch(and gap open extends) number. "
+         "If specify int type will fix the mismatch size, "
+         "otherwise, specify float type, will assign the ratio mismatch/len(linker)")
 @click.option("--rest", default="A*AGCT*T",
     show_default=True,
     help="The sequence of restriction enzyme recognition site.")
@@ -195,8 +194,8 @@ def worker(task_queue, out1, out2, flag_file, lock, counter, args):
     help="Use how many processes do calculation. default 1")
 @click.option("--PET-len-range", 'PET_len_range',
     default=(10, 22), show_default=True,
-    help="The expected length range of PET sequence," +\
-         "if the PET_length exceed the upper bound will cut the exceeded sequence, " +\
+    help="The expected length range of PET sequence, "
+         "if the PET_length exceed the upper bound will cut the exceeded sequence, "
          "if it lower than the lower bound will treat the sequence as the unmatched sequence. ")
 @click.option("--PET-cut-len", 'PET_cut_len',
     default=20, show_default=True,
@@ -205,9 +204,10 @@ def worker(task_queue, out1, out2, flag_file, lock, counter, args):
     default="auto",
     help="Specify the sequence of adapter. If specified, Cut the adapter sequence in the PET2."
          "If specify 'auto', will inference adapter sequence using mafft.")
-@click.option("--mismatch-adapter", "mismatch_adapter", default=3,
+@click.option("--mismatch-adapter", "mismatch_adapter", default=0.3,
     show_default=True,
-    help="mismatch threshold in alignment in cut adapter step.")
+    help="Mismatch threshold in alignment in cut adapter step. If specify int type will fix the mismatch size, "
+         "otherwise, specify float type, will assign the ratio mismatch/len(adapter)")
 @click.option("--log-file",
     default="PET_count.txt",
     show_default=True,
@@ -259,17 +259,30 @@ def _main(fastq, out1, out2,
         linker_b = None
     linkers = load_linkers(linker_a, linker_b)
     log_linkers(linkers)
-    log.info("linker alignment mismatch threshold: {}".format(mismatch))
+    if mismatch.is_integer():
+        mismatch = int(mismatch)
+    else:
+        mismatch = int(len(linkers[0]) * mismatch)
+    log.info("linker alignment mismatch threshold: {}, ratio: {:.2f}".format(mismatch, mismatch/len(linkers[0])))
 
     if adapter:
         if adapter == 'auto':
             try:
-                adapter, s_pos = infer_adapter_seq(fastq, start_pos=len(linker_a)*2+40)
+                adapter = infer_adapter_seq(fastq, start_pos=len(linker_a)*2+40)
+                if adapter is None:
+                    raise ValueError()
             except:
                 log.error("Fail to inference adapter, please specify the adapter sequence directly.")
             adapter = adapter.upper()
-            log.info("adapter sequence found, seq: {}, length: {}, start pos in multiple-align: {}".format(adapter, len(adapter), s_pos))
-        log.info("adapter: {}, mismatch threshold: {}".format(adapter, mismatch_adapter))
+            log.info("adapter sequence found")
+        if not mismatch_adapter.is_integer():
+            mismatch_adapter = int(mismatch_adapter * len(adapter))
+        else:
+            mismatch_adapter = int(mismatch_adapter)
+
+        msg = "adapter: {}, length: {}, ".format(adapter, len(adapter))
+        msg += "mismatch-N: {}, mismatch-ratio: {:.2f}".format(mismatch_adapter, mismatch_adapter/len(adapter))
+        log.info(msg)
 
     log.info("Expect PET length range: [{}, {}]".format(*PET_len_range))
 

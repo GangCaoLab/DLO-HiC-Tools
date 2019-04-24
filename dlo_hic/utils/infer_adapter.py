@@ -15,7 +15,8 @@ N_FQ_REC = 50
 SEARCH_START_POS = 76
 N_BATCH = 10
 BATCH_SIZE = 5
-START_POS_THRESH = 5
+N_ALIGN = 5
+MIN_LEN = 5
 
 
 def multiple_alignment(input_str):
@@ -75,20 +76,27 @@ def find_lcs(recs):
 
 
 def infer_adapter_seq(fastq_path, n_fq_rec=N_FQ_REC, start_pos=SEARCH_START_POS,
-                      n_batch=N_BATCH, batch_size=BATCH_SIZE, start_pos_thresh=START_POS_THRESH):
-    fq_recs = get_fq_recs(fastq_path, n_fq_rec)
-    fa_str = to_mafft_input(fq_recs, start_pos)
-    align_recs = multiple_alignment(fa_str)
-    candidates = []
-    for recs in make_batchs(align_recs, n_batch, batch_size):
-        lcs, start_pos = find_lcs(recs)
-        if '-' not in lcs:
-            candidates.append((lcs, start_pos))
-    candidates.sort(key=lambda c: (c[1], -len(c[0])))
+                      n_batch=N_BATCH, batch_size=BATCH_SIZE, n_align=N_ALIGN, min_adapter_len=MIN_LEN):
+    candidates = {}
+    for _ in range(n_align):
+        fq_recs = get_fq_recs(fastq_path, n_fq_rec)
+        fa_str = to_mafft_input(fq_recs, start_pos)
+        align_recs = multiple_alignment(fa_str)
+
+        for recs in make_batchs(align_recs, n_batch, batch_size):
+            lcs, start_pos = find_lcs(recs)
+            if (len(lcs) >= min_adapter_len) and ('-' not in lcs):
+                candidates.setdefault(start_pos, [])
+                candidates[start_pos].append(lcs)
+
     if not candidates:
-        return infer_adapter_seq(fastq_path, n_fq_rec, start_pos, n_batch, batch_size, start_pos_thresh)
-    seq, pos = candidates[0]
-    if (pos > start_pos_thresh) or (pos == 0):
-        return infer_adapter_seq(fastq_path, n_fq_rec, start_pos, n_batch, batch_size, start_pos_thresh)
-    else:
-        return seq, pos
+        return None
+
+    candidates = list(candidates.items())
+    candidates.sort(key=lambda t: len(t[1]), reverse=True)
+    candidates = candidates[0][1]
+    candidates.sort(key=lambda s: len(s), reverse=True)
+
+    return candidates[0]
+
+

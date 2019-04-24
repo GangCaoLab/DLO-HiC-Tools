@@ -316,7 +316,7 @@ def iterative_mapping(bwa_index, iter_db, iter1_fq, bedpe, n_iters, counts, thre
                     same_read_recs = [rec]
                 old = (seq_id, pet_label)
             process_sam_records_belong_to_same_read(iter_id, same_read_recs, old[0], old[1])
-        log.info("{} new unique pair founded in <round {}>".format(counts['iters'][iter_id]['paired'], iter_id))
+        log.info("{} new unique pair found in <round {}>".format(counts['iters'][iter_id]['paired'], iter_id))
         log_paired(counts)
         iter_db.commit()
 
