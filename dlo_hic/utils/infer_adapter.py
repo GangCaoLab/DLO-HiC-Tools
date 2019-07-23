@@ -14,6 +14,7 @@ log = logging.getLogger(__name__)
 
 N_FQ_REC = 50
 SEARCH_START_POS = 0
+PROB_THRESH = 0.75
 
 
 def multiple_alignment(input_str, result_file=None):
@@ -84,7 +85,7 @@ def get_char_prob(seqs):
     return probs
 
 
-def plot_char_prob_stacked_bar(probs):
+def plot_char_prob_stacked_bar(probs, start_pos=0):
     """ stacked bar plot of char probability """
     import matplotlib.pyplot as plt
     from matplotlib.patches import Patch
@@ -98,7 +99,8 @@ def plot_char_prob_stacked_bar(probs):
         '-': 'grey',
     })
     
-    r = list(range(len(probs)))
+    r = [start_pos + i for i in range(len(probs))]
+
     raw_data = defaultdict(list)
     for p in probs:
         for b, v in p.items():
@@ -116,13 +118,13 @@ def plot_char_prob_stacked_bar(probs):
     plt.xlabel("Positions in mafft alignment result")
     plt.ylabel("Percentage")
     plt.legend(handles=[Patch(color=c, label=l) for l,c in base2color.items()])
-    plt.xlim(0, len(probs))
+    plt.xlim(start_pos-1, start_pos+len(probs))
     plt.ylim(0, 1)
     return fig, ax
 
 
 
-def infer_conserved(probs, thresh=0.5):
+def infer_conserved(probs, thresh=PROB_THRESH):
     chars = []
     for p in probs:
         for b, v in p.items():
@@ -134,7 +136,7 @@ def infer_conserved(probs, thresh=0.5):
     return "".join(chars)
 
 
-def infer_adapter(fq_path, n_fq_rec=N_FQ_REC, prob_thresh=0.5):
+def infer_adapter(fq_path, n_fq_rec=N_FQ_REC, search_start_pos=SEARCH_START_POS, prob_thresh=PROB_THRESH):
     """ inference adapter sequence from a fastq file
     
     Arguments
@@ -144,6 +146,9 @@ def infer_adapter(fq_path, n_fq_rec=N_FQ_REC, prob_thresh=0.5):
 
     n_fq_rec : int
         Number of fastq records used for inference adapter sequence.
+
+    search_start_pos : int
+        Start position of adapter search.
 
     prob_thresh : float
         Threshold of occurace probability in adapter inference.
@@ -159,14 +164,14 @@ def infer_adapter(fq_path, n_fq_rec=N_FQ_REC, prob_thresh=0.5):
     adapter_seq : str
         adapter sequence.
     """
-    mafft_in = to_mafft_input(get_fq_recs(fq_path, n_fq_rec))
+    mafft_in = to_mafft_input(get_fq_recs(fq_path, n_fq_rec), search_start_pos)
     fa_recs = multiple_alignment(mafft_in)
     probs = get_char_prob(fa_to_seqs(fa_recs))
-    flag_seq = infer_conserved(probs)
-    adapter_seq = flag_seq.split("N")[-1].replace("-", "")
+    flag_seq = infer_conserved(probs, prob_thresh)
+    adapter_seq = sorted([s.replace('-', '') for s in flag_seq.split("N")], key=lambda s: len(s))[-1]
     return probs, flag_seq, adapter_seq
 
 
-def infer_adapter_seq(fq_path, n_fq_rec=N_FQ_REC, prob_thresh=0.5):
-    return infer_adapter(fq_path, n_fq_rec, prob_thresh)[2]
+def infer_adapter_seq(fq_path, n_fq_rec=N_FQ_REC, search_start_pos=SEARCH_START_POS, prob_thresh=0.5):
+    return infer_adapter(fq_path, n_fq_rec, search_start_pos, prob_thresh)[2]
 
