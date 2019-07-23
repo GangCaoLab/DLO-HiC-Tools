@@ -11,4 +11,3 @@ cooler>=0.7.6
 mako>=1.0.7
 snakemake>=5.2.2
 pysam>=0.14.1
-lsm-db>=0.6.4

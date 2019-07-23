@@ -3,10 +3,10 @@ from copy import copy
 import logging
 import multiprocessing as mp
 import subprocess
+from collections import OrderedDict
 
 import click
 from pysam import Samfile
-from lsm import LSM
 
 from dlo_hic.utils.wrap.bwa import BWA
 from dlo_hic.utils.parse_text import Bedpe
@@ -132,8 +132,8 @@ def process_sam_pair(input1, input2, output, iter1_fq=None, iter_db=None, mapq_t
         Path to output BEDPE file.
     iter1_fq : str, optional
         Path to first round iteration fastq.
-    iter_db : lsm.LSM, optional
-        LSM database handler.
+    iter_db : dict, optional
+        iter dict
     mapq_thresh : int
         mapq threshold.
 
@@ -189,14 +189,13 @@ def process_sam_pair(input1, input2, output, iter1_fq=None, iter_db=None, mapq_t
             else:
                 if iter1_fq:  # write files for iterative mapping
                     iter_rec = IterRec.from_sam_pair(read1, read2, 1, mapq_thresh)
-                    iter_db[iter_rec.seqid] = str(iter_rec)
+                    iter_db[iter_rec.seqid] = iter_rec
                     for fq in iter_rec.to_fq_recs():
                         write_fastq(fq, fq_fh)
 
             counts['total'] += 1
 
     if iter1_fq:
-        iter_db.commit()
         fq_fh.close()
 
     return counts
@@ -236,8 +235,8 @@ def iterative_mapping(bwa_index, iter_db, iter1_fq, bedpe, n_iters, counts, thre
     ----------
     bwa_index : str
         Prefix of BWA index files.
-    iter_db : lsm.LSM
-        Database handler for store unpaired records.
+    iter_db : dict
+        dict for store unpaired records.
     iter1_fq : str
         Path to Fastq file in first iteration.
     bedpe : str
@@ -259,9 +258,16 @@ def iterative_mapping(bwa_index, iter_db, iter1_fq, bedpe, n_iters, counts, thre
         for rec in records:
             if sam_read_type(rec, mapq_thresh) == 'unique':
                 unique_recs.append(rec)
-        if len(unique_recs) == 1:  # only process reads, which only one sub-seq unique mapped
+        if len(unique_recs) == 0:
+            return
+        elif len(unique_recs) > 1:
+            del iter_db[seq_id]
+        else:  # only process reads, which only one sub-seq unique mapped
             u_rec = unique_recs[0]
-            iter_rec = IterRec.from_line(iter_db[seq_id].decode('utf-8'), iter_id)
+            try:
+                iter_rec = iter_db[seq_id]
+            except KeyError:  # seqid already clean out
+                return
             if pet_label == 'pet1':
                 iter_rec.align_tp1 = "unique"
                 iter_rec.chr1 = u_rec.reference_name
@@ -274,7 +280,7 @@ def iterative_mapping(bwa_index, iter_db, iter1_fq, bedpe, n_iters, counts, thre
                 iter_rec.start2 = u_rec.reference_start
                 iter_rec.end2 = u_rec.reference_end
                 iter_rec.strand2 = '-' if u_rec.is_reverse else '+'
-            iter_db[seq_id] = str(iter_rec)  # update db
+            iter_db[seq_id] = iter_rec  # update db
             if iter_rec.is_unique_paired:  # is paired, delete record, write pair to bedpe
                 counts['iters'][iter_id]['paired'] += 1
                 counts['paired'] += 1
@@ -282,8 +288,7 @@ def iterative_mapping(bwa_index, iter_db, iter1_fq, bedpe, n_iters, counts, thre
                 del iter_db[seq_id]
 
     def reproduce_fastq(fq_fh, iter_id):
-        for seq_id, rec_str in iter_db[:]:
-            rec = IterRec.from_line(rec_str.decode('utf-8'), iter_id)
+        for seq_id, rec in iter_db.items():
             for fq in rec.to_fq_recs():
                 write_fastq(fq, fq_fh)
 
@@ -317,9 +322,14 @@ def iterative_mapping(bwa_index, iter_db, iter1_fq, bedpe, n_iters, counts, thre
                     same_read_recs = [rec]
                 old = (seq_id, pet_label)
             process_sam_records_belong_to_same_read(iter_id, same_read_recs, old[0], old[1])
-        log.info("{} new unique pair found in <round {}>".format(counts['iters'][iter_id]['paired'], iter_id))
+        
+        new_uniq_pairs = counts['iters'][iter_id]['paired']
+        log.info("{} new unique pairs found in <round {}>".format(new_uniq_pairs, iter_id))
         log_paired(counts)
-        iter_db.commit()
+
+        if new_uniq_pairs == 0:
+            log.info("No new unique pairs found, stop iteration.")
+            break
 
         if iter_id+1 <= n_iters:
             new_fq = bedpe + '.iter.{}.fq'.format(iter_id+1)
@@ -414,12 +424,12 @@ def _main(file_format, input1, input2, bedpe, ncpu, bwa_index, mapq, iterative, 
         bam1 = input1
         bam2 = input2
 
-    log.info("Merge BEDs to BEDPE.")
+    log.info("Process BAM files.")
     if iterative > 0:
-        log.info("Init DB for iterative mapping.")
+        log.info("Initialize for iterative mapping.")
         assert bwa_index is not None, 'bwa_index is required, when do iterative mapping.'
         iter1_fq = bedpe + '.iter.1.fq'
-        iter_db = LSM(bedpe + '.iter.db')
+        iter_db = OrderedDict()
     else:
         iter1_fq = iter_db = None
 
