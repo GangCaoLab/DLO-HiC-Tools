@@ -2,6 +2,7 @@ import io
 import subprocess
 from itertools import cycle
 import logging
+from collections import OrderedDict, defaultdict
 
 from dlo_hic.utils.fastaio import read_fasta, FastaRec
 from dlo_hic.utils.fastqio import read_fastq
@@ -12,15 +13,11 @@ log = logging.getLogger(__name__)
 
 
 N_FQ_REC = 50
-SEARCH_START_POS = 76
-N_BATCH = 10
-BATCH_SIZE = 5
-N_ALIGN = 5
-MIN_LEN = 5
+SEARCH_START_POS = 0
 
 
-def multiple_alignment(input_str):
-    """ Perform mafft return result fasta records """
+def multiple_alignment(input_str, result_file=None):
+    """ Perform `mafft` return result fasta records """
     try:
         p = subprocess.Popen(["mafft", "-"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
     except FileNotFoundError:
@@ -30,6 +27,9 @@ def multiple_alignment(input_str):
     p.kill()
     str_io = io.StringIO(out.decode('utf-8'))
     fa_recs = [r for r in read_fasta(str_io)]
+    if result_file is not None:
+        with open(result_file, 'w') as f:
+            f.write(out.decode('utf-8'))
     return fa_recs
 
 
@@ -48,21 +48,11 @@ def to_mafft_input(fq_recs, start_pos=SEARCH_START_POS):
     for fq in fq_recs:
         name = fq.seqid
         seq = fq.seq
-        seq = seq[start_pos-1:]
+        seq = seq[start_pos:]
         fa = FastaRec(name, seq)
         fa_recs.append(fa)
     fa_str = "".join([str(i) for i in fa_recs])
     return fa_str
-
-
-def make_batchs(fa_recs, n_batch=N_BATCH, batch_size=BATCH_SIZE):
-    """ Generate multiple align result batch. """
-    iter = cycle(fa_recs)
-    for _ in range(n_batch):
-        batch = []
-        for _ in range(batch_size):
-            batch.append(next(iter))
-        yield batch
 
 
 def find_lcs(recs):
@@ -75,28 +65,108 @@ def find_lcs(recs):
     return lcs, min_
 
 
-def infer_adapter_seq(fastq_path, n_fq_rec=N_FQ_REC, start_pos=SEARCH_START_POS,
-                      n_batch=N_BATCH, batch_size=BATCH_SIZE, n_align=N_ALIGN, min_adapter_len=MIN_LEN):
-    candidates = {}
-    for _ in range(n_align):
-        fq_recs = get_fq_recs(fastq_path, n_fq_rec)
-        fa_str = to_mafft_input(fq_recs, start_pos)
-        align_recs = multiple_alignment(fa_str)
+def fa_to_seqs(fa_recs):
+    return [rec.seq for rec in fa_recs]
 
-        for recs in make_batchs(align_recs, n_batch, batch_size):
-            lcs, start_pos = find_lcs(recs)
-            if (len(lcs) >= min_adapter_len) and ('-' not in lcs):
-                candidates.setdefault(start_pos, [])
-                candidates[start_pos].append(lcs)
 
-    if not candidates:
-        return None
+def get_char_prob(seqs):
+    """ count char(base) occurace probability at each position. """
+    seq_len = len(seqs[0])
+    probs = []
+    for i in range(seq_len):
+        p = {c:0 for c in 'ATCG-'}
+        for s in seqs:
+            c = s[i].upper()
+            if c != 'N':
+                p[c] += 1
+        probs.append(p)
+    probs = [{k:v/sum(p.values()) for k,v in p.items()} for p in probs]
+    return probs
 
-    candidates = list(candidates.items())
-    candidates.sort(key=lambda t: len(t[1]), reverse=True)
-    candidates = candidates[0][1]
-    candidates.sort(key=lambda s: len(s), reverse=True)
 
-    return candidates[0]
+def plot_char_prob_stacked_bar(probs):
+    """ stacked bar plot of char probability """
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Patch
+    import pandas as pd
 
+    base2color = OrderedDict({
+        'A': '#b5ffb9', 
+        'T': '#f9bc86',
+        'C': '#a3acff',
+        'G': '#ff9c9c',
+        '-': 'grey',
+    })
+    
+    r = list(range(len(probs)))
+    raw_data = defaultdict(list)
+    for p in probs:
+        for b, v in p.items():
+            raw_data[b].append(v)
+    df = pd.DataFrame(raw_data)
+    
+    # plot
+    fig, ax = plt.subplots()
+    # Create Bars
+    bottom = 0
+    for b, color in base2color.items():
+        ax.bar(r, df[b], bottom=bottom, color=color, edgecolor='white')
+        bottom = (bottom + df[b]) if (bottom is not 0) else df[b]
+    # modify
+    plt.xlabel("Positions in mafft alignment result")
+    plt.ylabel("Percentage")
+    plt.legend(handles=[Patch(color=c, label=l) for l,c in base2color.items()])
+    plt.xlim(0, len(probs))
+    plt.ylim(0, 1)
+    return fig, ax
+
+
+
+def infer_conserved(probs, thresh=0.5):
+    chars = []
+    for p in probs:
+        for b, v in p.items():
+            if v >= thresh:
+                chars.append(b)
+                break
+        else:
+            chars.append('N')
+    return "".join(chars)
+
+
+def infer_adapter(fq_path, n_fq_rec=N_FQ_REC, prob_thresh=0.5):
+    """ inference adapter sequence from a fastq file
+    
+    Arguments
+    ---------
+    fq_path : str
+        Path to input Fastq file.
+
+    n_fq_rec : int
+        Number of fastq records used for inference adapter sequence.
+
+    prob_thresh : float
+        Threshold of occurace probability in adapter inference.
+
+    Return
+    ------
+    probs : [dict]
+        char(base) occurace probability at each position.
+
+    flag_seq : str
+        flag sequence used for inference adapter sequence.
+    
+    adapter_seq : str
+        adapter sequence.
+    """
+    mafft_in = to_mafft_input(get_fq_recs(fq_path, n_fq_rec))
+    fa_recs = multiple_alignment(mafft_in)
+    probs = get_char_prob(fa_to_seqs(fa_recs))
+    flag_seq = infer_conserved(probs)
+    adapter_seq = flag_seq.split("N")[-1].replace("-", "")
+    return probs, flag_seq, adapter_seq
+
+
+def infer_adapter_seq(fq_path, n_fq_rec=N_FQ_REC, prob_thresh=0.5):
+    return infer_adapter(fq_path, n_fq_rec, prob_thresh)[2]
 
