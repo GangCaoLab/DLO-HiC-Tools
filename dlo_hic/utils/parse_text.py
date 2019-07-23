@@ -215,6 +215,14 @@ class Pairs(object):
                           self.chr2, str(self.pos2),
                           self.strand1, self.strand2])
 
+    def exchange_pos(self):
+        """
+        exchange position of chr1 and chr2
+        """
+        self.chr1,    self.chr2    = self.chr2, self.chr1
+        self.pos1,    self.pos2    = self.pos2, self.pos1
+        self.strand1, self.strand2 = self.strand2, self.strand1
+
     def to_upper_trangle(self):
         """
         rearrange item to upper trangle form.abs
@@ -226,10 +234,10 @@ class Pairs(object):
         ...                          ...
         """
         if self.chr1 > self.chr2:
-            self.chr1, self.pos1, self.strand1 = self.chr2, self.pos2, self.strand2
-        if self.chr1 == self.chr2:
+            self.exchange_pos()
+        elif self.chr1 == self.chr2:
             if self.pos1 > self.pos2:
-                self.pos1, self.strand1 = self.pos2, self.strand2
+                self.exchange_pos()                
 
     def is_rep_with(self, another, dis=10):
         """ Judge another bedpe record is replection of self or not. """
