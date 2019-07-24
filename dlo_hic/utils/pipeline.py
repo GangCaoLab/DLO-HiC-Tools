@@ -220,14 +220,22 @@ def local_logger(setting):
             handler.setFormatter(formatter)
             logger.addHandler(handler)
 
-            def log_stage_boundary(message, separator='=', num=30):
+            def log_start(process_name, separator='=', num=30):
                 """
                 log a stage boundary.
                 """
                 logger.info(separator*num)
-                logger.info(message)
+                logger.info("START: "+process_name)
+
+            def log_end(process_name, separator='=', num=30):
+                """
+                log a stage boundary.
+                """
+                logger.info("END: "+process_name)
                 logger.info(separator*num)
-            logger.log_stage_boundary = log_stage_boundary
+
+            logger.log_start = log_start
+            logger.log_end = log_end
 
         return logger
     return local_logger_

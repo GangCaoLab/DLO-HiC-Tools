@@ -127,12 +127,35 @@ def load_bedpe_main(path):
     return res
 
 
+def load_timepoints(log_file):
+    """ Extract key points timestamp from log file. """
+    import re
+    from datetime import datetime
+    from dlo_hic.config import LOGGING_DATE_FMT
+    key_time_points = OrderedDict()
+    with open(log_file) as f:
+        for line in f:
+            line = line.strip()
+            match = re.search("@ (.*): (START|END): (.*)", line)
+            if match:
+                time_, flag, pname = match.groups()
+                time = datetime.strptime(time_, LOGGING_DATE_FMT)
+                key_time_points.setdefault(pname, dict())
+                key_time_points[pname][flag.lower()] = time
+    for _, times in key_time_points.items():
+        start = times.get('start')
+        end = times.get('end')
+        diff = end - start if start and end else None
+        times['start'] = str(start) if start else ''
+        times['end']   = str(end) if end else ''
+        times['diff']  = str(diff) if diff else ''
+    return key_time_points
+
+
 def get_qc_contents(pipe_workdir, sample_id):
     load_funcs = OrderedDict({
         'extract_PET': {
             'main': load_pet_main,
-            'adapter': load_comp,
-            'adapter_svg': load_svg,
         },
         'build_bedpe': {
             'main': load_bedpe_main,
@@ -145,18 +168,31 @@ def get_qc_contents(pipe_workdir, sample_id):
             'chr_interactions': load_chr_interaction_csv,
             'pet_span_stats': load_pet_span_stats,
             'pet_span_fig': load_svg,
+        },
+        'other' : {
+            'time_points': load_timepoints,
         }
     })
     res = OrderedDict()
     files = qc_files(sample_id)
 
+    # if infer_adapter has output, update load_funcs and files
     qc_dir = join(pipe_workdir, DIRS['qc'])
-    if sample_id + '.adapter.txt' in os.listdir(qc_dir):  # if adapter file in path
+    if sample_id + '.adapter.txt' in os.listdir(qc_dir):
+        load_funcs['extract_PET'].update({
+            'adapter': load_comp,
+            'adapter_svg': load_svg,
+        })
         files['extract_PET'].update({
             'adapter': join(qc_dir, sample_id + '.adapter.txt'),
             'adapter_svg': join(qc_dir, sample_id + '.adapter.svg'),
         })
 
+    # add log file to files
+    log_dir = DIRS['log']
+    files['other'] = {'time_points': join(log_dir, sample_id + '.log')}
+
+    # load contents
     for step in load_funcs:
         res[step] = OrderedDict()
         for item in load_funcs[step]:

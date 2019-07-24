@@ -116,7 +116,7 @@ def plot_char_prob_stacked_bar(probs, start_pos=0):
         bottom = (bottom + df[b]) if (bottom is not 0) else df[b]
     # modify
     plt.xlabel("Positions in mafft alignment result")
-    plt.ylabel("Percentage")
+    plt.ylabel("Frequency of occurrence")
     plt.legend(handles=[Patch(color=c, label=l) for l,c in base2color.items()], loc='upper right')
     plt.xlim(start_pos-1, start_pos+len(probs))
     plt.ylim(0, 1)

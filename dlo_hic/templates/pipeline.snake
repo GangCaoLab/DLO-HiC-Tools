@@ -74,7 +74,7 @@ rule extract_PET:
         sample = '{sample}'
     run:
         llog = params.llog
-        llog.log_stage_boundary("extract_PET")
+        llog.log_start("extract_PET")
 
         conf = config['EXTRACT_PET']
         rest = config['DATA']['restriction_site']
@@ -105,6 +105,8 @@ rule extract_PET:
             adapter, conf['mismatch_adapter'],
             output.qc_comp, trim_flag, chunk_size)
 
+        llog.log_end("extract_PET")
+
 
 rule build_bedpe:
     # --------------------
@@ -130,7 +132,7 @@ rule build_bedpe:
         keep_iter_files = config['GLOBAL']['log_level'] <= 10
     run:
         llog = params.llog
-        llog.log_stage_boundary("build_bedpe")
+        llog.log_start("build_bedpe")
 
         # load parameters
         conf = config['BUILD_BEDPE']
@@ -144,6 +146,8 @@ rule build_bedpe:
             setting.ncpu, bwa_index, conf['mapq'], conf['iterations'],
             output.qc_bedpe, params.bwa_log,
             params.keep_iter_files)
+
+        llog.log_end("build_bedpe")
 
 
 rest_name = config['DATA']['restriction_name']
@@ -193,7 +197,7 @@ rule noise_reduce:
         llog = local_logger
     run:
         llog = params.llog
-        llog.log_stage_boundary("noise_reduce")
+        llog.log_start("noise_reduce")
 
         # load parameters
         conf = config['NOISE_REDUCE']
@@ -208,6 +212,8 @@ rule noise_reduce:
             bedpe, output.out,
             restriction, setting.ncpu, thresh_span,
             output.qc_noise_reduce)
+
+        llog.log_end("noise_reduce")
 
 
 rule bedpe2pairs:
@@ -227,7 +233,7 @@ rule bedpe2pairs:
         llog = local_logger
     run:
         llog = params.llog
-        llog.log_stage_boundary("bedpe2pairs")
+        llog.log_start("bedpe2pairs")
 
         if '.hic' in setting.result_formats:
             keep_ = True
@@ -239,6 +245,8 @@ rule bedpe2pairs:
         # run tool
         dlo_main.bedpe2pairs.log = llog
         dlo_main.bedpe2pairs.main(input[0], out, keep_, True, setting.ncpu)
+
+        llog.log_end("bedpe2pairs")
 
 
 rule qc_pairs:
@@ -286,8 +294,11 @@ rule to_hic:
     output:
         hic = output_files("{sample}")['hic'],
     params:
-        log = join(sub_dir("log"),  "{sample}.juicertools.log")
+        log = join(sub_dir("log"),  "{sample}.juicertools.log"),
+        llog = local_logger
     run:
+        llog = params.llog
+        llog.log_start("to_hic")
         conf = config['RESULT']
 
         input_pairs = input[2]
@@ -298,6 +309,7 @@ rule to_hic:
             p = subprocess.check_call(
                 ['java', '-jar', conf['juicer_tools_jar'], 'pre', input_pairs, output.hic, setting.chromosome_file, '-r', resolutions],
                 stderr=f_log, stdout=f_log)
+        llog.log_end("to_hic")
 
 
 rule to_cooler:
@@ -315,16 +327,19 @@ rule to_cooler:
         rules.bedpe2pairs.output
     output:
         [ output_files("{sample}")['cool'] ] +\ 
-        ([ output_files("{sample}")['mcool'] ] if config['RESULT']['zoomify'] else [])
+        [ output_files("{sample}")['mcool'] ]
     params:
-        log  = join(sub_dir('log'), '{sample}.cooler.log')
+        log  = join(sub_dir('log'), '{sample}.cooler.log'),
+        llog = local_logger
     run:
+        llog = params.llog
+        llog.log_start("to_cooler")
         chrom_file = setting.chromosome_file
 
         conf = config['RESULT']
-        binsize = str(conf['binsize'])
-        balance = conf['balance']
-        zoomify = conf['zoomify']
+        resolutions = sorted(conf['resolutions'])
+        binsize = str(resolutions[0])
+        resolutions_ = ",".join([str(i) for i in resolutions])
 
         input_pairs = input[0]
         outcool = output[0]
@@ -337,11 +352,15 @@ rule to_cooler:
 
         with open(bed, 'w') as f, open(params.log, 'w') as f_log:
             subprocess.check_call(['cooler', 'makebins', chrom_file, binsize], stdout=f, stderr=f_log)
-            subprocess.check_call(['cooler', 'cload', 'pairix', bed, input_pairs, outcool], stderr=f_log)
-            if balance:
-                subprocess.check_call(['cooler', 'balance', '-p', str(setting.ncpu), outcool], stderr=f_log)
-            if zoomify:
-                subprocess.check_call(['cooler', 'zoomify', '-p', str(setting.ncpu), outcool], stderr=f_log)
+            subprocess.check_call(['cooler', 'cload', 'pairix', '-p', str(setting.ncpu), bed, input_pairs, outcool], stderr=f_log)
+            try:
+                subprocess.check_call(['cooler', 'zoomify', '-p', str(setting.ncpu), '--balance', '-r', resolutions_, outcool], stderr=f_log)
+            except Exception as e:
+                llog.warning(str(e))
+                llog.warning("Matrix can not balance.")
+                subprocess.check_call(['cooler', 'zoomify', '-p', str(setting.ncpu), '-r', resolutions_, outcool], stderr=f_log)
+
+        llog.log_end("to_cooler")
 
 
 rule qc_gen_report:

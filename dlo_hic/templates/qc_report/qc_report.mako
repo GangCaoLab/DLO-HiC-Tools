@@ -420,6 +420,28 @@
                 </div>
             </div>
 
+            <div class="">
+                <h2>Run times:</h2>
+                <div class="run_time_table">
+                <table>
+                    <tr>
+                        % for item in ["", "start", "end", "duration"] :
+                            <th>${item}</th>
+                        % endfor
+                    </tr>
+
+                    % for pname in qc_contents['other']['time_points'].keys():
+                        <tr>
+                            <td>${pname}</td>
+                            % for key in ["start", "end", "diff"]:
+                            <td>${qc_contents['other']['time_points'][pname][key]}</td>
+                            % endfor
+                        </tr>
+                    % endfor
+                </table>
+                </div>
+            </div>
+
         </div>
 
     </body>
