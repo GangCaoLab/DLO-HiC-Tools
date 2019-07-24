@@ -21,6 +21,18 @@ div.header, div.content {
     margin:0;
 }
 
+.footer div{
+    width: 760px;
+    height: 40px;
+    background-color: #F1F1F1;
+    text-align: right;
+    padding: 10px;
+    padding-right: 20px;
+    padding-left: 20px;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
 .header h1 {
     font-family: "Courier New", Courier, monospace;
     font-size: 55px;

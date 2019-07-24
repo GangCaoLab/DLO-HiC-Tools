@@ -420,7 +420,7 @@
                 </div>
             </div>
 
-            <div class="">
+            <div class="run_time">
                 <h2>Run times:</h2>
                 <div class="run_time_table">
                 <table>
@@ -442,6 +442,21 @@
                 </div>
             </div>
 
+            <div class="pipe_config">
+                <h2>Pipeline configuration:</h2>
+                <div>
+                    <textarea rows="20" cols="98" readonly>${qc_contents['other']['pipe_config']}</textarea>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="footer">
+            <div>
+            <p class="footer">
+                Created by DLO-HiC-Tools, project page: <a href="https://github.com/GangCaoLab/DLO-HiC-Tools">GitHub</a>
+            </p>
+            </div>
         </div>
 
     </body>

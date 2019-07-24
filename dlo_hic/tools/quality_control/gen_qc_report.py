@@ -1,3 +1,4 @@
+import re
 import os
 from os.path import join, split, splitext, dirname
 import logging
@@ -8,7 +9,7 @@ from mako.template import Template
 from mako.lookup import TemplateLookup
 
 import dlo_hic
-from dlo_hic.utils.pipeline import qc_files, DIRS
+from dlo_hic.utils.pipeline import qc_files, DIRS, parse_config
 
 
 log = logging.getLogger(__name__)
@@ -129,7 +130,6 @@ def load_bedpe_main(path):
 
 def load_timepoints(log_file):
     """ Extract key points timestamp from log file. """
-    import re
     from datetime import datetime
     from dlo_hic.config import LOGGING_DATE_FMT
     key_time_points = OrderedDict()
@@ -152,7 +152,31 @@ def load_timepoints(log_file):
     return key_time_points
 
 
+def load_pipe_config(config_file):
+    lines = []
+    with open(config_file) as f:
+        for line in f:
+            line = line.strip()
+            if re.match("\s*#", line):  # skip comments
+                continue
+            line = re.sub("#.*$", "", line)
+            if line.startswith('['):
+                lines.append('')
+            if line != '':
+                lines.append(line)
+    res = "\n".join(lines)
+    return res
+
+
+def get_output_paths(pipe_workdir):
+    pass
+
+
 def get_qc_contents(pipe_workdir, sample_id):
+    """
+    Compose a dict for render qc report.
+    """
+
     load_funcs = OrderedDict({
         'extract_PET': {
             'main': load_pet_main,
@@ -171,6 +195,7 @@ def get_qc_contents(pipe_workdir, sample_id):
         },
         'other' : {
             'time_points': load_timepoints,
+            'pipe_config': load_pipe_config,
         }
     })
     res = OrderedDict()
@@ -192,13 +217,17 @@ def get_qc_contents(pipe_workdir, sample_id):
     log_dir = DIRS['log']
     files['other'] = {'time_points': join(log_dir, sample_id + '.log')}
 
-    # load contents
+    # add pip config file to files
+    files['other'].update({'pipe_config': join(qc_dir, sample_id + '.pipe_config.ini')})
+
+    # load contents from files
     for step in load_funcs:
         res[step] = OrderedDict()
         for item in load_funcs[step]:
             func = load_funcs[step][item]
             file_ = os.path.join(pipe_workdir, files[step][item])
             res[step][item] = func(file_)
+
     return res
 
 

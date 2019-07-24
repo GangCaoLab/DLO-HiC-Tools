@@ -378,4 +378,9 @@ rule qc_gen_report:
     params:
         s_id = '{sample}'
     run:
+        # copy config file to qc dir
+        dir_ = join(setting.working_dir, DIRS['qc'])
+        path_conf = join(dir_, params.s_id+'.pipe_config.ini')
+        subprocess.check_call(['cp', config_file, path_conf])
+
         dlo_qc.gen_qc_report.main(setting.working_dir, params.s_id, output[0], setting.qc_report_format)
