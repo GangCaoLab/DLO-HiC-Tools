@@ -261,8 +261,9 @@ def log_counts(counts, log_file):
 @click.argument("output")
 @click.option("--restriction", "-r",
     required=True,
-    help="bed file which recorded the position of all restriction sites"
-        "in the genome.")
+    help="File which recorded the position of all restriction sites"
+        "in the genome. BED format or hdf5 file(default) is supported."
+        "Which can be produced by 'dlohic extract_rest_sites' command")
 @click.option("--processes", "-p", 
     default=1,
     help="Use how many processes to run.")

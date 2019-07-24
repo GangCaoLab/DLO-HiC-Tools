@@ -261,7 +261,8 @@ def iterative_mapping(bwa_index, iter_db, iter1_fq, bedpe, n_iters, counts, thre
         if len(unique_recs) == 0:
             return
         elif len(unique_recs) > 1:
-            del iter_db[seq_id]
+            if seq_id in iter_db:
+                del iter_db[seq_id]
         else:  # only process reads, which only one sub-seq unique mapped
             u_rec = unique_recs[0]
             try:
