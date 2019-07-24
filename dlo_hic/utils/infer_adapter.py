@@ -117,9 +117,10 @@ def plot_char_prob_stacked_bar(probs, start_pos=0):
     # modify
     plt.xlabel("Positions in mafft alignment result")
     plt.ylabel("Percentage")
-    plt.legend(handles=[Patch(color=c, label=l) for l,c in base2color.items()])
+    plt.legend(handles=[Patch(color=c, label=l) for l,c in base2color.items()], loc='upper right')
     plt.xlim(start_pos-1, start_pos+len(probs))
     plt.ylim(0, 1)
+    plt.tight_layout()
     return fig, ax
 
 

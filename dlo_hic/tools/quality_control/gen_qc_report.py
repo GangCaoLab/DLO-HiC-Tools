@@ -131,6 +131,8 @@ def get_qc_contents(pipe_workdir, sample_id):
     load_funcs = OrderedDict({
         'extract_PET': {
             'main': load_pet_main,
+            'adapter': load_comp,
+            'adapter_svg': load_svg,
         },
         'build_bedpe': {
             'main': load_bedpe_main,
@@ -147,6 +149,14 @@ def get_qc_contents(pipe_workdir, sample_id):
     })
     res = OrderedDict()
     files = qc_files(sample_id)
+
+    qc_dir = join(pipe_workdir, DIRS['qc'])
+    if sample_id + '.adapter.txt' in os.listdir(qc_dir):  # if adapter file in path
+        files['extract_PET'].update({
+            'adapter': join(qc_dir, sample_id + '.adapter.txt'),
+            'adapter_svg': join(qc_dir, sample_id + '.adapter.svg'),
+        })
+
     for step in load_funcs:
         res[step] = OrderedDict()
         for item in load_funcs[step]:

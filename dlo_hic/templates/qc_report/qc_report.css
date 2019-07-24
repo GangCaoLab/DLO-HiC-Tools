@@ -67,3 +67,8 @@ div.piechart.right {
     margin-left: auto;
     margin-right: 0;
 }
+
+.adapter_svg svg {
+    max-width: 800px;
+    height: 360px;
+}

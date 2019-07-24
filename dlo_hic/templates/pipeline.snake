@@ -59,6 +59,8 @@ rule extract_PET:
     #       mismatch, rest, processes, PET_len_range, PET_cut_len,
     #       adapter, mismatch_adapter,
     #       log_file, flag_file, chunk_size )
+    #
+    #     ( fq_path, log_file, n, start_pos, prob_thresh, figure, fig_size, dpi )
     # --------------------
     threads: setting.ncpu
     input:
@@ -82,6 +84,17 @@ rule extract_PET:
         else:
             trim_flag = None
 
+        if conf['adapter'] == 'auto':
+            dir_ = join(setting.working_dir, DIRS['qc'])
+            log_path = join(dir_, params.sample + '.adapter.txt')
+            fig_path = join(dir_, params.sample + '.adapter.svg')
+            fig_size = (12, 5)
+            adapter = dlo_help.infer_adapter.main(input[0], log_path, conf['n_fq_for_infer'],
+                                                  conf['search_start_pos'], conf['prob_thresh'],
+                                                  fig_path, fig_size, 600)
+        else:
+            adapter = conf['adapter']
+
         chunk_size = 100000
         # run tool
         dlo_main.extract_PET.log = llog
@@ -89,7 +102,7 @@ rule extract_PET:
             input[0], output.pet1, output.pet2,
             conf['linker_a'], conf['linker_b'],
             conf['mismatch'], rest, setting.ncpu, conf['pet_len_range'], conf['pet_cut_len'],
-            conf['adapter'], conf['mismatch_adapter'],
+            adapter, conf['mismatch_adapter'],
             output.qc_comp, trim_flag, chunk_size)
 
 

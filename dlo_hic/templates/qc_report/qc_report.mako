@@ -316,6 +316,26 @@
                         % endif
                     </div>
 
+                    <%
+                        has_adapter_infer = 'adapter' in qc_contents['extract_PET']
+                    %>
+                    % if has_adapter_infer:
+                    <div class="infer_adapter">
+                        <h4>(4). Adapter inference</h4>
+                        
+                        <h5> Adapter decision graph </h5>
+                        <div class="adapter_svg">
+                            ${include_svg(qc_contents['extract_PET']['adapter_svg'])}
+                        </div>
+
+                        <h5> Adapter sequence </h5>
+                        <div class="adapter">
+                            <p>${qc_contents['extract_PET']['adapter']['adapter_seq']}</p>
+                        </div>
+                        
+                    </div>
+                    % endif
+
                 </div>
 
     ## Step 2

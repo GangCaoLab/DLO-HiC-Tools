@@ -269,7 +269,7 @@ def _main(fastq, out1, out2,
     if adapter:
         if adapter == 'auto':
             try:
-                adapter = infer_adapter_seq(fastq, start_pos=len(linker_a)*2+40)
+                adapter = infer_adapter_seq(fastq)
                 if adapter is None:
                     raise ValueError()
             except:
