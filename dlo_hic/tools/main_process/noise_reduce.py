@@ -3,6 +3,7 @@ import logging
 import subprocess
 from queue import Empty
 import multiprocessing as mp
+from collections import defaultdict
 
 import click
 import numpy as np
@@ -182,7 +183,11 @@ def worker(task_queue,
     output_f = open(output_file, 'w')
     err_sel_f = open(err_sel_file, 'w')
     err_re_f = open(err_re_file, 'w')
-    l_counts = [0, 0, 0] # local counts, (normal, sel, re)
+    l_t_counts = { k: 0 for k in ("normal", "self-ligation", "re-ligation") }
+    l_p_counts = { k: 0 for k in [ oc + pc for oc in [i+j for i in "+-" for j in "+-"]
+                                           for pc in [i+j for i in "st" for j in "st"] ] }
+    l_d_counts = { "PET1": defaultdict(lambda:0), "PET2": defaultdict(lambda:0) }
+
     while 1:
         try:
             chunk = task_queue.get()
@@ -193,9 +198,16 @@ def worker(task_queue,
             err_sel_f.close()
             err_re_f.close()
             lock.acquire()
-            counts['normal'] += l_counts[0]
-            counts['self-ligation'] += l_counts[1]
-            counts['re-ligation'] += l_counts[2]
+            for key, l_counts in zip(['type', 'position'], [l_t_counts, l_p_counts]):
+                counts_ = counts[key]
+                for k, v in l_counts.items():  # update 
+                    counts_[k] += v
+                counts[key] = counts_  # save to manager dict
+            counts_ = counts['distance']
+            for key in "PET1", "PET2":
+                for k, v in l_d_counts[key].items():
+                    counts_[key].setdefault(k, v)
+            counts['distance'] = counts_
             lock.release()
             log.debug("Process-%d done."%current)
             break
@@ -214,21 +226,28 @@ def worker(task_queue,
 
             if type_ == 'normal':
                 output_f.write(out_line)
-                l_counts[0] += 1
+                l_t_counts['normal'] += 1
             elif type_ == 'self-ligation':
                 err_sel_f.write(out_line)
-                l_counts[1] += 1
+                l_t_counts['self-ligation'] += 1
             elif type_ == 're-ligation':
                 err_re_f.write(out_line)
-                l_counts[2] += 1
+                l_t_counts['re-ligation'] += 1
+
+            position = items[8] + items[9] + frag1[1] + frag2[1]
+            l_p_counts[position] += 1
+
+            l_d_counts['PET1'][frag1[2]] += 1
+            l_d_counts['PET2'][frag2[2]] += 1
 
 
 def log_counts(counts, log_file):
     log.info("Noise reduce result count:")
-    total = sum(list(counts.values()))
-    n = counts['normal']
-    s = counts['self-ligation']
-    r = counts['re-ligation']
+    t_counts = counts['type']
+    total = sum(list(t_counts.values()))
+    n = t_counts['normal']
+    s = t_counts['self-ligation']
+    r = t_counts['re-ligation']
     n_r = 0 if total == 0 else n / total
     s_r = 0 if total == 0 else s / total
     r_r = 0 if total == 0 else r / total
@@ -241,10 +260,23 @@ def log_counts(counts, log_file):
     log.info("\t" + msg3)
     log.info("\t" + msg4)
     with open(log_file, 'w') as f:
+        f.write("# type count\n")
         f.write("normal\t{}\n".format(n))
         f.write("self-ligation\t{}\n".format(s))
         f.write("re-ligation\t{}\n".format(r))
         f.write("total\t{}\n".format(total))
+        f.write("\n")
+        f.write("# position count\n")
+        for k, v in counts['position'].items():
+            f.write("{}\t{}\n".format(k, v))
+        f.write("\n")
+        f.write("# PET1 distance distribution\n")
+        for k, v in sorted(counts['distance']['PET1'].items(), key=lambda t:t[0]):
+            f.write("{}\t{}\n".format(k, v))
+        f.write("\n")
+        f.write("# PET2 distance distribution\n")
+        for k, v in sorted(counts['distance']['PET2'].items(), key=lambda t:t[0]):
+            f.write("{}\t{}\n".format(k, v))
 
 
 @click.command(name="noise_reduce")
@@ -287,8 +319,8 @@ def _main(bedpe, output,
                            PET1             PET2
                            --------       --------
         genome    <---------------*---..--*--------------->
-                               ^       ^
-                               restriction sites
+                                  ^       ^
+                                  restriction sites
 
     \b
     abnormal-1 (self-ligation):
@@ -326,9 +358,19 @@ def _main(bedpe, output,
     # init counts
     lock = mp.Lock()
     counts = mp.Manager().dict()
-    counts['normal'] = 0
-    counts['self-ligation'] = 0
-    counts['re-ligation'] = 0
+    counts['type'] = {
+        k: 0 for k in ("normal", "self-ligation", "re-ligation")
+    }
+    counts['position'] = {  # permutation of "+-" and "st"
+        k: 0 for k in [
+            oc + pc for oc in [i+j for i in "+-" for j in "+-"]
+                    for pc in [i+j for i in "st" for j in "st"]
+        ]
+    }
+    counts['distance'] = {
+        "PET1": {},
+        "PET2": {},
+    }
 
     task_queue = mp.Queue()
     workers = [mp.Process(target=worker,
