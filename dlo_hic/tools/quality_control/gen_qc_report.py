@@ -128,6 +128,16 @@ def load_bedpe_main(path):
     return res
 
 
+def load_noise_reduce_main(path):
+    res = OrderedDict()
+    with open(path) as f:
+        res['type'] = read_tab_splited(f)
+        res['position'] = read_tab_splited(f)
+        res['distance_PET1'] = read_tab_splited(f)
+        res['distance_PET2'] = read_tab_splited(f)
+    return res
+
+
 def load_timepoints(log_file):
     """ Extract key points timestamp from log file. """
     from datetime import datetime
@@ -185,7 +195,7 @@ def get_qc_contents(pipe_workdir, sample_id):
             'main': load_bedpe_main,
         },
         'noise_reduce': {
-            'main': load_comp,
+            'main': load_noise_reduce_main,
         },
         'bedpe2pairs' : {
             'comp': load_comp,
@@ -202,8 +212,8 @@ def get_qc_contents(pipe_workdir, sample_id):
     files = qc_files(sample_id)
 
     # if infer_adapter has output, update load_funcs and files
-    qc_dir = join(pipe_workdir, DIRS['qc'])
-    if sample_id + '.adapter.txt' in os.listdir(qc_dir):
+    qc_dir = DIRS['qc']
+    if sample_id + '.adapter.txt' in os.listdir(join(pipe_workdir, qc_dir)):
         load_funcs['extract_PET'].update({
             'adapter': load_comp,
             'adapter_svg': load_svg,
@@ -255,6 +265,7 @@ def render_html_report(sample_id, qc_contents):
     type=click.Choice(['html', 'txt']),
     help="The format of quility control report, 'html' or 'txt'")
 def _main(pipe_workdir, sample_id, output, out_format):
+    """ Generate pipeline quality control report. """
     possible_ids = get_sample_ids(pipe_workdir)
     s_id = sample_id
     if s_id not in possible_ids:
@@ -267,7 +278,7 @@ def _main(pipe_workdir, sample_id, output, out_format):
         subp.check_call(cmd, shell=True)
     else:
         qc_contents = get_qc_contents(pipe_workdir, s_id)
-#        import ipdb; ipdb.set_trace()
+        #import ipdb; ipdb.set_trace()
         report = render_html_report(s_id, qc_contents)
         with open(output, 'w') as f:
             f.write(report)

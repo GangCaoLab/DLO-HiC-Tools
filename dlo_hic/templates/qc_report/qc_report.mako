@@ -373,7 +373,32 @@
                 <div class="noise_reduce">
                     <h3>3. noise reduce</h3>
                     <h4>Ratio of self-ligation and re-ligation</h4>
-                    ${composition(qc_contents['noise_reduce']['main'], "ratio_noise")}
+                    ${composition(qc_contents['noise_reduce']['main']['type'], "ratio_noise")}
+
+                    <h4>Count of reads orientation and position relative to fragment<h4>
+                    <div class="position_table">
+                    <table>
+                        <%
+                            ocs = ["++", "+-", "-+", "--"]  # orientation combinations
+                            pcs = ["ss", "st", "ts", "tt"]  # position compositions
+                        %>
+                        <tr>
+                            <th></th>
+                            % for oc in ocs:
+                            <th>${oc[0]+'/'+oc[1]}</th>
+                            % endfor
+                        </tr>
+
+                        % for pc in pcs:
+                        <tr>
+                            <td>${pc[0]+'/'+pc[1]}</td>
+                            % for oc in ocs:
+                            <td>${qc_contents['noise_reduce']['main']['position'][oc+pc]}</td>
+                            % endfor
+                        </tr>
+                        % endfor
+                    </table>
+                    <div>
 
                 </div>
 
@@ -384,7 +409,7 @@
                     <%
                         raw = int(qc_contents['extract_PET']['main']['flag_stat']['total'])
                         final = int(qc_contents['bedpe2pairs']['comp']['total'])
-                        nr = int(qc_contents['noise_reduce']['main']['normal'])
+                        nr = int(qc_contents['noise_reduce']['main']['type']['normal'])
 
                         dup = nr - final
                         d_r_r = "{:.2%}".format(dup/raw) if raw != 0 else 0 
