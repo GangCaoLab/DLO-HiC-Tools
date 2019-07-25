@@ -289,3 +289,13 @@ def infer_interaction_file_type(path):
         pass
     raise NotImplementedError("Only support pairs and bedpe file format.")
 
+
+def parse_rest(rest):
+    import re
+    pattern = "[*^]"
+    m = re.search(pattern, rest)
+    if not m:
+        raise ValueError("There are no cutting site in rest-seq")
+    cutting = m.span()[0]
+    seq = re.sub(pattern, '', rest)
+    return cutting, seq

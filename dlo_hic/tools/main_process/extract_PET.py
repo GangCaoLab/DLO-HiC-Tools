@@ -7,6 +7,7 @@ from queue import Empty
 import click
 
 from dlo_hic.utils import reverse_complement as rc
+from dlo_hic.utils.parse_text import parse_rest
 from dlo_hic.utils.fastqio import read_fastq, write_fastq
 from dlo_hic.utils.filetools import open_file, merge_tmp_files
 from dlo_hic.utils.linker_trim import process_chunk, COUNT_ITEM_NAMES, init_counts
@@ -16,12 +17,6 @@ from dlo_hic.utils.infer_adapter import infer_adapter_seq
 log = logging.getLogger(__name__)
 
 
-def parse_rest(rest_str):
-    """
-    parse restriction enzyme site sequence
-    """
-    left, nick, right = re.split("[*^]", rest_str)
-    return left, nick, right
 
 
 def load_linkers(linker_a, linker_b):
@@ -187,9 +182,9 @@ def worker(task_queue, out1, out2, flag_file, lock, counter, args):
     help="Threshold of linkers base mismatch(and gap open extends) number. "
          "If specify int type will fix the mismatch size, "
          "otherwise, specify float type, will assign the ratio mismatch/len(linker)")
-@click.option("--rest", default="A*AGCT*T",
+@click.option("--rest", default="A^AGCTT",
     show_default=True,
-    help="The sequence of restriction enzyme recognition site.")
+    help="The sequence of restriction enzyme recognition site. Use '^' to indicate the cutting site.")
 @click.option("--processes", "-p", default=1,
     show_default=True,
     help="Use how many processes do calculation. default 1")

@@ -158,9 +158,9 @@ if not rest_file:
 fasta = config['DATA']['fasta']
 
 
-rule extract_rest_sites:
+rule extract_fragments:
     # --------------------
-    # extract_rest_sites
+    # extract_fragments
     # 
     #  Tool Interface:
     #     ( fasta, rest, output, processes )
@@ -171,7 +171,7 @@ rule extract_rest_sites:
     run:
         rest = config['DATA']['restriction_site']
         rest = rest.replace("*", "")
-        dlo_help.extract_rest_sites.main(
+        dlo_help.extract_fragments.main(
             fasta, rest, output[0], 'hdf5', setting.ncpu)
 
 

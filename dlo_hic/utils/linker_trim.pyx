@@ -31,11 +31,12 @@ cdef class LinkerTrimer:
         self._single_linker = linkers[1] is None
         self.adapter = adapter
         self._trim_adapter = not (adapter == "")
-        self.rest_left = rest[0]
-        self.rest_mid = rest[1]
-        self.rest_right = rest[2]
-        self._rest_left_side  = rest[0] + rest[1]
-        self._rest_right_side = rest[1] + rest[2]
+        cutting_idx, rest_seq = rest
+        self.rest_left  = rest_seq[:cutting_idx]
+        self.rest_mid   = rest_seq[cutting_idx:-cutting_idx]
+        self.rest_right = rest_seq[-cutting_idx:]
+        self._rest_left_side  = self.rest_left + self.rest_mid
+        self._rest_right_side = self.rest_mid  + self.rest_right
         self.mismatch = mismatch
         self._max_err_rate = float(mismatch) / len(linkers[0])  # assume all linker have same length
         self._min_overlap = len(linkers[0]) - mismatch

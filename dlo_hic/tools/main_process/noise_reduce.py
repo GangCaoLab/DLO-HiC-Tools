@@ -1,15 +1,15 @@
+import io
 import logging
 import subprocess
 from queue import Empty
 import multiprocessing as mp
-import gzip
 
 import click
 import numpy as np
 import h5py
 
-from dlo_hic.utils.parse_text import parse_line_bed6, parse_line_bedpe
-from dlo_hic.utils.filetools import merge_tmp_files
+from dlo_hic.utils.parse_text import parse_line_bed6, parse_line_bedpe, parse_rest
+from dlo_hic.utils.filetools import merge_tmp_files, open_file
 
 
 TIME_OUT = 1
@@ -18,29 +18,35 @@ CHUNK_SIZE = 10000
 log = logging.getLogger(__name__)
 
 
-def load_rest_sites(sites_file):
+def load_rest_sites(frag_file):
     """
-    load restriction sites(positions) into memory.
+    load restriction cutting sites(positions) into memory.
     """
     rest_sites = {}
-    if sites_file.endswith(".gz"):
-        with gzip.open(sites_file) as f:
+    if frag_file.endswith(".gz") or frag_file.endswith(".bed"):
+        with io.TextIOWrapper(open_file(frag_file)) as f:
             for idx, line in enumerate(f):
-                line = line.decode('utf-8')
+                line = line.strip()
+                if line.startswith("# rest_seq"):
+                    rest_seq = line.split()[-1]
+                    continue
                 chr_, start, end, _, _, _ = parse_line_bed6(line)
-                if idx == 0:
-                    rest_site_len = end - start
+                if start == 0:  # remove first
+                    continue
                 rest_sites.setdefault(chr_, [])
                 rest_sites[chr_].append(start)
         for k in rest_sites.keys():
-            rest_sites[k] = np.asarray(rest_sites[k])
+            rest_list = rest_sites[k]
+            rest_list.pop()  # remove last
+            rest_sites[k] = np.asarray(rest_list)
     else:  # hdf5 file
-        with h5py.File(sites_file, 'r') as f:
-            rest_site_len = len(f.attrs['rest_seq'])
+        with h5py.File(frag_file, 'r') as f:
+            rest_seq = f.attrs['rest_seq']
             chromosomes = list(f['chromosomes'].keys())
             for chr_ in chromosomes:
-                rest_sites[chr_] = f['chromosomes'][chr_].value
-    return rest_sites, rest_site_len
+                fragments = f['chromosomes'][chr_].value
+                rest_sites[chr_] = fragments[1:-1]
+    return rest_sites, rest_seq
 
 
 def find_frag(rest_sites, start, end, rest_site_len):
@@ -62,56 +68,41 @@ def find_frag(rest_sites, start, end, rest_site_len):
     ------
     n : int
         Index number of fragment.
-    pos : {'s', 'e'}
+    pos : {'s', 't'}
         fragment start or end.
+    dis : int
+        distance to closest cutting site.
     """
-    end_search_point = end - rest_site_len - 1
-    assert start < end_search_point
+    search_s = start + 1  # start search point
+    search_e = end - rest_site_len - 1  # end search point
     sites = rest_sites
-    mid = (start + end) // 2
-    frag_idx_s = sites.searchsorted(start, side='right')
-    frag_idx_e = sites.searchsorted(end_search_point,   side='right')
-    if frag_idx_s == frag_idx_e:  # PET start and end located into same fragment
+    frag_idx_s = sites.searchsorted(search_s, side='right')
+    frag_idx_e = sites.searchsorted(search_e,   side='right')
+    frag_start = sites[frag_idx_s - 1]
+    frag_end = sites[frag_idx_e]
+
+    if frag_idx_s == 0:  # in first fragment
         frag_idx = frag_idx_s
-
-        if frag_idx == 0:
-            pos = 'e'
-        elif frag_idx == sites.shape[0]:
-            pos = 's'
-        else:
-            frag_start = sites[frag_idx - 1]
-            frag_end = sites[frag_idx]
-            left_span = mid - frag_start
-            right_span = frag_end - mid
-            if left_span < right_span:
-                pos = 's'
-            else:
-                pos = 'e'
-        return (frag_idx, pos)
+        pos = 't'
+        dis = end - frag_end
+    elif frag_idx_e == sites.shape[0]:  # in last fragment
+        frag_idx = frag_idx_e
+        pos = 's'
+        dis = start - frag_start
     else:
-        if frag_idx_s == 0:
-            frag_idx = frag_idx_s
-            pos = 'e'
-        elif frag_idx_e == sites.shape[0]:
-            frag_idx = frag_idx_e
+
+        left_span  = start - frag_start
+        right_span = end - frag_end
+        if abs(left_span) < abs(right_span):
             pos = 's'
+            frag_idx = frag_idx_s
+            dis = left_span
         else:
-            frag_start = sites[frag_idx_s - 1]
-            mid_frag_pos = sites[frag_idx_s]
-            frag_end = sites[frag_idx_e]
+            pos = 't'
+            frag_idx = frag_idx_e
+            dis = right_span
 
-            left_span = start - frag_start
-            right_span = frag_end - end_search_point - 1
-            if left_span < right_span:
-                pos = 's'
-                frag_idx = frag_idx_s
-            else:
-                pos = 'e'
-                frag_idx = frag_idx_e
-
-#        print(frag_idx_s, frag_idx_e, "|", start, mid_frag_pos, end, "|", frag_start, frag_end, "|", left_span, right_span, "|", frag_idx, pos)
-        
-        return (frag_idx, pos)
+    return (frag_idx, pos, dis)
 
 
 def read_chunk(file, chunk_size=CHUNK_SIZE):
@@ -150,8 +141,8 @@ def bedpe_type(rest_sites, bedpe_items, threshold_span, rest_site_len):
     Return
     ------
     types: {"normal", "self-ligation", "re-ligation"}
-    frag1: {(int, {'s', 'e'}), None}
-    frag2: {(int, {'s', 'e'}), None}
+    frag1: {(int, {'s', 't'}), None}
+    frag2: {(int, {'s', 't'}), None}
     """
     chr1, start1, end1, chr2, start2, end2 = bedpe_items[:6]
     # inter chromosome interaction
@@ -177,7 +168,7 @@ def bedpe_type(rest_sites, bedpe_items, threshold_span, rest_site_len):
 
         if frag1[0] == frag2[0]:
             return "self-ligation", frag1, frag2
-        elif (frag2[0] - frag1[0] == 1) and frag2[1] == 's' and frag1[1] == 'e':
+        elif (frag2[0] - frag1[0] == 1) and frag2[1] == 's' and frag1[1] == 't':
             return "re-ligation", frag1, frag2
         else:
             return "normal", frag1, frag2
@@ -218,7 +209,7 @@ def worker(task_queue,
 
             out_line = "\t".join([str(i) for i in items])
             if frag1:
-                out_line = out_line + "\t{}-{}\t{}-{}".format(frag1[0], frag1[1], frag2[0], frag2[1])
+                out_line = out_line + "\t{}-{}\t{}\t{}-{}\t{}".format(frag1[0], frag1[1], frag1[2], frag2[0], frag2[1], frag2[2])
             out_line += "\n"
 
             if type_ == 'normal':
@@ -261,9 +252,9 @@ def log_counts(counts, log_file):
 @click.argument("output")
 @click.option("--restriction", "-r",
     required=True,
-    help="File which recorded the position of all restriction sites"
-        "in the genome. BED format or hdf5 file(default) is supported."
-        "Which can be produced by 'dlohic extract_rest_sites' command")
+    help="File which recorded the position of all restriction sites(DNA fragments)"
+        "in the genome. BED6 format or hdf5 file(default) is supported."
+        "Which can be produced by 'dlohic extract_fragments' command")
 @click.option("--processes", "-p", 
     default=1,
     help="Use how many processes to run.")
@@ -328,7 +319,9 @@ def _main(bedpe, output,
     log.info("noise reduce on file %s"%bedpe)
 
     log.info("loading restriction sites from file: {}".format(restriction))
-    rest_sites, rest_site_len = load_rest_sites(restriction)
+    rest_sites, rest = load_rest_sites(restriction)
+    _, rest_seq = parse_rest(rest)
+    rest_site_len = len(rest_seq)
 
     # init counts
     lock = mp.Lock()
