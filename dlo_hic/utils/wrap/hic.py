@@ -29,21 +29,25 @@ class HiCWrap(ABC):
     def resolutions(self):
         pass
 
+    def fetch_chrom(self, chrom, binsize='auto'):
+        length = self.chrom_length[chrom]
+        g_range = chrom + ":1" + "-" + str(length)
+        mat = self.fetch(g_range, binsize=binsize)
+        return mat, length
+
     def fetch_all(self, chroms=MAIN_CHROM, binsize='auto', bin_num=2000):
         total_length = sum([v for k,v in self.chrom_length.items()])
         if binsize == 'auto':
             binsize = infer_resolution(total_length, self.resolutions, bin_num)
 
+        chrom_length = [(k, v) for k,v in self.chrom_length.items() if k in chroms]
+
         import numpy as np
         cache = {}
         rows = []
-        for chrom_1, length_1 in self.chrom_length.items():
-            if chrom_1 not in chroms:
-                continue
+        for chrom_1, length_1 in chrom_length:
             row = []
-            for chrom_2, length_2 in self.chrom_length.items():
-                if chrom_2 not in chroms:
-                    continue
+            for chrom_2, length_2 in chrom_length:
                 g_range_1 = chrom_1 + ":1" + "-" + str(length_1)
                 g_range_2 = chrom_2 + ":1" + "-" + str(length_2)
                 if (g_range_2, g_range_1) in cache:
@@ -55,7 +59,15 @@ class HiCWrap(ABC):
             rows.append(np.hstack(row))
         res = np.vstack(rows)
 
-        return res
+        mat_widths = [c.shape[1] for c in row]
+
+        chrom_start_pos = []
+        start = 0
+        for (chrom, length), width in zip(chrom_length, mat_widths):
+            chrom_start_pos.append((chrom, start))
+            start += width
+
+        return res, chrom_start_pos, binsize
 
 
 class StrawWrap(HiCWrap):
@@ -100,7 +112,8 @@ class StrawWrap(HiCWrap):
 
     @property
     def chrom_length(self):
-        res = {}
+        from collections import OrderedDict
+        res = OrderedDict()
         for k, v in self._chromosomes.items():
             if k != 0:
                 chr_ = v[1] if v[1].startswith('chr') else change_chrom_names(v[1])
@@ -276,8 +289,9 @@ class CoolerWrap(HiCWrap):
             c = self.coolers[self.resolutions[0]]
         else:
             c = self.cool
-        res =  {}
-        for k, v in dict(c.chromsizes).items():
+        from collections import OrderedDict
+        res =  OrderedDict()
+        for k, v in c.chromsizes.iteritems():
             chr_ = k if k.startswith('chr') else change_chrom_names(k)
             res[chr_] = v
         return res

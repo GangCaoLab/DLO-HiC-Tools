@@ -4,7 +4,7 @@ import numpy as np
 from dlo_hic.utils.wrap.hic import StrawWrap, CoolerWrap
 
 
-MAIN_CHROM = ['chr'+str(i) for i in range(1, 23)] + ['chrX', 'chrY']
+MAIN_CHROM = ['chr'+str(i) for i in range(1, 23)] + ['chrX']
 
 
 def matrix_val_range(arr, min_val=None, max_val=None):
@@ -122,10 +122,24 @@ def plot_hic_mat(path, region, binsize='auto', balance=True):
     #import ipdb; ipdb.set_trace()
 
     start, end = g_range.start, g_range.end
-    extent = (start, end, end, start)
-    fig, ax = plot_mat(mat, extent=extent, log=True)
+    #extent = (start, end, end, start)
+    fig, ax = plot_mat(mat, extent=None, log=True)
 
-    title = "region: \"" + region + "\"\nbinsize: " + str(fetched_binsize)
+    # plot ticks
+    tick_num = 4
+    interval = (end - start) // fetched_binsize
+    ticks = list(np.linspace(0, interval, tick_num).astype(int))
+    pos = list(np.linspace(start, end, tick_num).astype(int))
+    labels = [proper_unit(p) for p in pos]
+    ax.set_xticks(ticks)
+    ax.set_xticklabels(labels)
+    ax.set_yticks(ticks)
+    ax.set_yticklabels(labels)
+    ax.yaxis.set_ticks_position('left')
+    ax.xaxis.set_ticks_position('bottom')
+    ax.tick_params(axis = 'both', labelsize = 10, length = 3, pad = 4)
+
+    title = "region: \"" + region + "\"\nresolution(binsize): " + proper_unit(fetched_binsize)
     ax.set_title(title)
     plt.tight_layout()
 
@@ -135,12 +149,53 @@ def plot_hic_mat(path, region, binsize='auto', balance=True):
 def plot_global_map(path, binsize='auto', balance=False, chroms=MAIN_CHROM):
     wrap_func = StrawWrap if path.endswith(".hic") else CoolerWrap
     hic = wrap_func(path, balance=balance)
-    mat = hic.fetch_all(chroms=chroms, binsize=binsize)
+    mat, chrom_start_pos, binsize = hic.fetch_all(chroms=chroms, binsize=binsize)
 #    mat[np.eye(mat.shape[0])==1] = 0
 
     max_ = mat.max() * 0.5
 
     fig, ax = plot_mat(mat, log=True, val_range=(None, max_))
+    label, position = zip(*chrom_start_pos)
+#    import ipdb; ipdb.set_trace()
+    label = [i.replace('chr', '') for i in label]
+
+    # plot ticks
+    ax.set_xticks(position)
+    ax.set_xticklabels(label)
+    ax.set_yticks(position)
+    ax.set_yticklabels(label)
+    ax.yaxis.set_ticks_position('left')
+    ax.xaxis.set_ticks_position('bottom')
+    ax.tick_params(axis = 'both', labelsize = 9, length = 3, pad = 4)
+
+    # plot grid
+    lw = 0.4
+    ax.vlines(position[1:], ymin=0, ymax=mat.shape[1]-1, lw=lw)
+    ax.hlines(position[1:], xmin=0, xmax=mat.shape[0]-1, lw=lw)
+
+    title = chroms[0] + "-" + chroms[-1] + "\n resolution(binsize): " + proper_unit(binsize)
+    ax.set_title(title)
 
     return fig, ax
+
+
+def proper_unit(pos):
+    m = int(pos) // 10**6  # Million
+    k = (int(pos) % 10**6) // 1000  # Kilo
     
+    if (m > 0) and (k > 0):
+        return "{}M{}K".format(m, k)
+    elif (m == 0):
+        return "{}K".format(k)
+    else:
+        return "{}M".format(m)
+
+
+def plot_chrom(path, chrom, binsize='auto', balance=False):
+    wrap_func = StrawWrap if path.endswith(".hic") else CoolerWrap
+    hic = wrap_func(path, binsize='auto', balance=balance)
+    length = hic.chrom_length[chrom]
+    g_range = chrom + ":1" + "-" + str(length)
+    fig, ax = plot_hic_mat(path, g_range, binsize, balance)
+    return fig, ax
+
