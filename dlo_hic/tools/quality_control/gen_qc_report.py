@@ -182,6 +182,42 @@ def get_output_paths(pipe_workdir):
     pass
 
 
+def get_software_version_info():
+    from subprocess import Popen, PIPE
+    import re
+    s2v = OrderedDict()
+
+    def get_version(command, pattern, *args):
+        try:
+            p = Popen([command] + list(args), stdout=PIPE, stderr=PIPE)
+        except FileNotFoundError:
+            return 'Not found.'
+        out, err = p.communicate()
+        err = err.decode('utf-8')
+        out = out.decode('utf-8')
+        for line in (err+out).split("\n"):
+            m = re.search(pattern, line)
+            if m:
+                return line.strip()
+
+    for cmd in ['bwa', 'samtools', 'tabix', 'pairix']:
+        s2v[cmd] = get_version(cmd, "[Vv]ersion")
+    for cmd in ['cooler', 'mafft']:
+        s2v[cmd] = get_version(cmd, ".*", "--version")
+
+    res = "\n".join([s+": "+v for s,v in s2v.items()])
+    
+    return res
+
+
+def get_python_package_info():
+    from subprocess import Popen, PIPE
+    p = Popen(['pip', 'freeze'], stdout=PIPE)
+    out, err = p.communicate()
+    out = out.decode('utf-8')
+    return out
+
+
 def split_iter(iterator, f):
     yes_list = []
     no_list = []
@@ -279,6 +315,14 @@ def get_qc_contents(pipe_workdir, sample_id):
             func = load_funcs[step][item]
             file_ = os.path.join(pipe_workdir, files[step][item])
             res[step][item] = func(file_)
+
+    # load dependency info
+    res.update({
+        'dependency': {
+            'software': get_software_version_info(),
+            'python': get_python_package_info(),
+        }
+    })
 
     return res
 

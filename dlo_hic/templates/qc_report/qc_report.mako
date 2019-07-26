@@ -492,6 +492,27 @@
                 </div>
             </div>
 
+            <div class="software">
+                <h2>Software environment:</h2>
+                <table>
+                <tr>
+                    <td>
+                    <p>Python packages:</p>
+                    <div class="python_packages">
+                        <textarea rows="20" cols="45" readonly>${qc_contents['dependency']['python']}</textarea>
+                    </div>
+                    <td>
+
+                    <td>
+                    <p>Others:</p>
+                    <div class="python_packages">
+                        <textarea rows="20" cols="45" readonly>${qc_contents['dependency']['software']}</textarea>
+                    </div>
+                    </td>
+                </tr>
+                </table>
+            </div>
+
         </div>
 
         <div class="footer">
