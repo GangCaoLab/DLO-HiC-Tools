@@ -84,3 +84,29 @@ div.piechart.right {
     max-width: 800px;
     height: 360px;
 }
+
+.global_contact_map svg {
+    max-width: 800px;
+    height: 800px;
+}
+
+.chroms_contact_map svg {
+    max-width: 680px;
+    height: 680px
+}
+
+.slider {
+  width: 800px;
+  height: 720px;
+  display: flex;
+  overflow-x: auto;
+  border: 1px solid #dddddd;
+}
+
+.slide {
+  width: 680px;
+  max-height: 680px;
+  flex-shrink: 0;
+  height: 100%;
+  border: 1px solid #dddddd;
+}

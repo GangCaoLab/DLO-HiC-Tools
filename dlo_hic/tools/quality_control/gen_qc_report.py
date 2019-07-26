@@ -182,6 +182,17 @@ def get_output_paths(pipe_workdir):
     pass
 
 
+def split_iter(iterator, f):
+    yes_list = []
+    no_list = []
+    for i in iterator:
+        if f(i):
+            yes_list.append(i)
+        else:
+            no_list.append(i)
+    return yes_list, no_list
+
+
 def get_qc_contents(pipe_workdir, sample_id):
     """
     Compose a dict for render qc report.
@@ -213,7 +224,8 @@ def get_qc_contents(pipe_workdir, sample_id):
 
     # if infer_adapter has output, update load_funcs and files
     qc_dir = DIRS['qc']
-    if sample_id + '.adapter.txt' in os.listdir(join(pipe_workdir, qc_dir)):
+    contents_qc_dir = os.listdir(join(pipe_workdir, qc_dir))
+    if sample_id + '.adapter.txt' in contents_qc_dir:
         load_funcs['extract_PET'].update({
             'adapter': load_comp,
             'adapter_svg': load_svg,
@@ -221,6 +233,36 @@ def get_qc_contents(pipe_workdir, sample_id):
         files['extract_PET'].update({
             'adapter': join(qc_dir, sample_id + '.adapter.txt'),
             'adapter_svg': join(qc_dir, sample_id + '.adapter.svg'),
+        })
+
+    # if global cmap is ploted, add it to files
+    if sample_id + '.global_cmap.svg' in contents_qc_dir:
+
+        def load_chroms_svg(path):
+            contents = []
+            for p in os.listdir(path):
+                if not p.endswith('.svg'):
+                    continue
+                chrom = splitext(p)[0]
+                svg = load_svg(join(path, p))
+                contents.append((chrom, svg))
+
+            num_chrs, nonnum_chrs = split_iter(contents, lambda t: t[0].replace('chr', '').isdigit())
+            contents = sorted(num_chrs, key=lambda t:int(t[0].replace('chr', ''))) + sorted(nonnum_chrs)
+            chroms2svg = OrderedDict(contents)
+            return chroms2svg
+
+        load_funcs.update({
+            'contact_map' : {
+                'global': load_svg,
+                'chroms': load_chroms_svg  # load all imgs in path
+            }
+        })
+        files.update({
+            'contact_map': {
+                'global': join(qc_dir, sample_id + '.global_cmap.svg'),
+                'chroms': join(qc_dir, sample_id + '.chroms_cmap')
+            }
         })
 
     # add log file to files
@@ -278,7 +320,6 @@ def _main(pipe_workdir, sample_id, output, out_format):
         subp.check_call(cmd, shell=True)
     else:
         qc_contents = get_qc_contents(pipe_workdir, s_id)
-        #import ipdb; ipdb.set_trace()
         report = render_html_report(s_id, qc_contents)
         with open(output, 'w') as f:
             f.write(report)

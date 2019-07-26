@@ -443,6 +443,24 @@
                     <h3>Interaction between chromosomes</h3>
                     ${chr_interactions(qc_contents['bedpe2pairs']['chr_interactions'])}
                 </div>
+
+                % if 'contact_map' in qc_contents:
+                <div class="global_contact_map">
+                    <h3>Global contact map</h3>
+                    ${include_svg(qc_contents['contact_map']['global'])}
+                </div>
+                <div class="chroms_contact_map">
+                    <h3>Contact map of each chromosomes</h3>
+                    <div class="slider">
+                    % for chrom, svg in qc_contents['contact_map']['chroms'].items():
+                        <div class="slide" id="${chrom}">
+                        ${include_svg(svg)}
+                        </div>
+                    % endfor
+                    </div>
+                </div>
+                % endif
+
             </div>
 
             <div class="run_time">

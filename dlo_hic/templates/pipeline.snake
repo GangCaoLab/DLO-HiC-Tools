@@ -1,6 +1,7 @@
 import matplotlib
 matplotlib.use("Agg")
 import logging
+import re
 import os
 from os.path import join
 import sys
@@ -372,7 +373,7 @@ def get_plot_cmap_input(wildcard):
         return
 
 
-cmap_chroms_dir = join(setting.working_dir, join(DIRS['qc'], '{sample}.cmap_chroms'))
+cmap_chroms_dir = join(setting.working_dir, join(DIRS['qc'], '{sample}.chroms_cmap'))
 cmap_global_fig = join(setting.working_dir, join(DIRS['qc'], "{sample}.global_cmap.svg"))
 is_plot_cmap = ('.hic' in setting.result_formats) or ('.cool' in setting.result_formats)
 
@@ -399,13 +400,34 @@ rule plot_contact_map:
         binsize = 'auto'
         fig_format = '.svg'
         fig_size = '10,10'
-        dpi = 600
+        dpi = 300
+
+        chrom_file = setting.chromosome_file
+        supported = supported_chromosomes()
+        is_supported = False
+        if chrom_file in supported:
+            chrom_id = chrom_file
+            chrom_file = supported[chrom_id]
+            is_supported = True
+        chrom_list = []
+        with open(chrom_file) as f:
+            for line in f:
+                chrom = line.split()[0]
+                chrom_list.append(chrom)
+
+        # filter main chroms
+        if is_supported:
+            main_chroms = [c for c in chrom_list if re.match("(chr)?[0-9]+", c)] + ['chrX']
+        else:
+            main_chroms = chrom_list
+
+        chroms = ",".join(main_chroms)
 
         dlo_help.plot_contact_map.log = params.llog
-        out_label_chroms = join(setting.working_dir, join(DIRS['qc'], '{}.cmap_chroms'.format(sid)))
-        dlo_help.plot_contact_map.main(input, out_label_chroms, binsize, balance, False, 'MAIN', fig_format, fig_size, dpi)
+        out_label_chroms = join(setting.working_dir, join(DIRS['qc'], '{}.chroms_cmap'.format(sid)))
+        dlo_help.plot_contact_map.main(input, out_label_chroms, binsize, balance, False, chroms, fig_format, fig_size, dpi)
         out_label_global = join(setting.working_dir, join(DIRS['qc'], '{}.global_cmap'.format(sid)))
-        dlo_help.plot_contact_map.main(input, out_label_global, binsize, balance, True,  'MAIN', fig_format, fig_size, dpi)
+        dlo_help.plot_contact_map.main(input, out_label_global, binsize, balance, True,  chroms, fig_format, fig_size, dpi)
 
 
 rule qc_gen_report:
