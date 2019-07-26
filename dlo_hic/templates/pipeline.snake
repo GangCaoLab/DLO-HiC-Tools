@@ -399,7 +399,6 @@ rule plot_contact_map:
         balance = False
         binsize = 'auto'
         fig_format = '.svg'
-        fig_size = '10,10'
         dpi = 300
 
         chrom_file = setting.chromosome_file
@@ -425,9 +424,9 @@ rule plot_contact_map:
 
         dlo_help.plot_contact_map.log = params.llog
         out_label_chroms = join(setting.working_dir, join(DIRS['qc'], '{}.chroms_cmap'.format(sid)))
-        dlo_help.plot_contact_map.main(input, out_label_chroms, binsize, balance, False, chroms, fig_format, fig_size, dpi)
+        dlo_help.plot_contact_map.main(input, out_label_chroms, binsize, balance, False, chroms, fig_format, "10,9.5", dpi)
         out_label_global = join(setting.working_dir, join(DIRS['qc'], '{}.global_cmap'.format(sid)))
-        dlo_help.plot_contact_map.main(input, out_label_global, binsize, balance, True,  chroms, fig_format, fig_size, dpi)
+        dlo_help.plot_contact_map.main(input, out_label_global, binsize, balance, True,  chroms, fig_format, "10,10", dpi)
 
 
 rule qc_gen_report:

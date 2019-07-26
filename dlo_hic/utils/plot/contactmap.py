@@ -139,9 +139,11 @@ def plot_hic_mat(path, region, binsize='auto', balance=True):
     ax.xaxis.set_ticks_position('bottom')
     ax.tick_params(axis = 'both', labelsize = 10, length = 3, pad = 4)
 
-    title = "region: \"" + region + "\"\nresolution(binsize): " + proper_unit(fetched_binsize)
-    ax.set_title(title)
-    plt.tight_layout()
+    title = region + "\nresolution(binsize): " + proper_unit(fetched_binsize)
+    ax.set_title(title, fontsize=20)
+    ttl = ax.title
+    ttl.set_position([.5, 1.01])
+    plt.subplots_adjust(left=0.10, right=0.92, top=0.88, bottom=0.05)
 
     return fig, ax
 
@@ -174,7 +176,10 @@ def plot_global_map(path, binsize='auto', balance=False, chroms=MAIN_CHROM):
     ax.hlines(position[1:], xmin=0, xmax=mat.shape[0]-1, lw=lw)
 
     title = chroms[0] + "-" + chroms[-1] + "\n resolution(binsize): " + proper_unit(binsize)
-    ax.set_title(title)
+    ax.set_title(title, fontsize=20)
+    ttl = ax.title
+    ttl.set_position([.5, 1.01])
+    plt.subplots_adjust(left=0.05, right=0.95, top=0.90, bottom=0.05)
 
     return fig, ax
 

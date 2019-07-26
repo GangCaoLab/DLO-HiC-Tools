@@ -64,7 +64,7 @@ def _main(path, label, binsize, balance, global_mat, chrom_list, fig_format, fig
     log.info("fig format:\t" + fig_format)
     log.info("DPI:\t" + str(dpi))
 
-    fig_size = tuple([int(i) for i in figure_size.split(",")])
+    fig_size = tuple([float(i) for i in figure_size.split(",")])
 
     if global_mat:
         log.info("Plot global contact map.")
