@@ -363,6 +363,51 @@ rule to_cooler:
         llog.log_end("to_cooler")
 
 
+def get_plot_cmap_input(wildcard):
+    if '.cool' in setting.result_formats:
+        return output_files(wildcard.sample)['mcool']
+    elif '.hic' in setting.result_formats:
+        return output_files(wildcard.sample)['hic']
+    else:
+        return
+
+
+cmap_chroms_dir = join(setting.working_dir, join(DIRS['qc'], '{sample}.cmap_chroms'))
+cmap_global_fig = join(setting.working_dir, join(DIRS['qc'], "{sample}.global_cmap.svg"))
+is_plot_cmap = ('.hic' in setting.result_formats) or ('.cool' in setting.result_formats)
+
+
+rule plot_contact_map:
+    # --------------------
+    # plot Hi-C contact map
+    #
+    # Tool Interface:
+    #    (path, label, binsize, balance, global_mat,
+    #     chrom_list, fig_format, figure_size, dpi)
+    # --------------------
+    threads: 1
+    input: 
+        get_plot_cmap_input
+    output: 
+        [directory(cmap_chroms_dir), cmap_global_fig] if is_plot_cmap else []
+    params:
+        llog = local_logger,
+        sample = '{sample}'
+    run:
+        sid = params.sample
+        balance = False
+        binsize = 'auto'
+        fig_format = '.svg'
+        fig_size = '10,10'
+        dpi = 600
+
+        dlo_help.plot_contact_map.log = params.llog
+        out_label_chroms = join(setting.working_dir, join(DIRS['qc'], '{}.cmap_chroms'.format(sid)))
+        dlo_help.plot_contact_map.main(input, out_label_chroms, binsize, balance, False, 'MAIN', fig_format, fig_size, dpi)
+        out_label_global = join(setting.working_dir, join(DIRS['qc'], '{}.global_cmap'.format(sid)))
+        dlo_help.plot_contact_map.main(input, out_label_global, binsize, balance, True,  'MAIN', fig_format, fig_size, dpi)
+
+
 rule qc_gen_report:
     # --------------------
     # generate QC report
@@ -372,15 +417,16 @@ rule qc_gen_report:
     # --------------------
     threads: 1
     input:
-        all_qc_files('{sample}', workdir=setting.working_dir)
+        all_qc_files('{sample}', workdir=setting.working_dir) + \
+        ([cmap_chroms_dir, cmap_global_fig] if is_plot_cmap else [])
     output:
         join(sub_dir("qc"), "{sample}." + setting.qc_report_format)
     params:
-        s_id = '{sample}'
+        sample = '{sample}'
     run:
         # copy config file to qc dir
         dir_ = join(setting.working_dir, DIRS['qc'])
-        path_conf = join(dir_, params.s_id+'.pipe_config.ini')
+        path_conf = join(dir_, params.sample+'.pipe_config.ini')
         subprocess.check_call(['cp', config_file, path_conf])
 
-        dlo_qc.gen_qc_report.main(setting.working_dir, params.s_id, output[0], setting.qc_report_format)
+        dlo_qc.gen_qc_report.main(setting.working_dir, params.sample, output[0], setting.qc_report_format)

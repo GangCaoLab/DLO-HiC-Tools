@@ -56,6 +56,8 @@ def _main(path, label, binsize, balance, global_mat, chrom_list, fig_format, fig
     else:
         chroms = chrom_list.split(",")
 
+    path = str(path)
+    log.info("input:\t" + path)
     log.info("chromosomes:\t" + ",".join(chroms))
     log.info("balance:\t" + str(balance))
     log.info("fig size:\t" + figure_size)
@@ -71,6 +73,7 @@ def _main(path, label, binsize, balance, global_mat, chrom_list, fig_format, fig
         fig.set_size_inches(fig_size)
         plt.savefig(outfig, dpi=dpi)
         log.info("Figure save to " + outfig)
+        plt.close(fig)
     else:
         log.info("Plot each chromosome's contact map.")
         outpath = label
@@ -81,6 +84,7 @@ def _main(path, label, binsize, balance, global_mat, chrom_list, fig_format, fig
             fig, ax = plot_chrom(path, chrom, binsize, balance)
             fig.set_size_inches(fig_size)
             plt.savefig(outfig, dpi=dpi)
+            plt.close(fig)
         log.info("Figures save to dir: " + outpath)
 
 
