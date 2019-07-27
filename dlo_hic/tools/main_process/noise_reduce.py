@@ -45,7 +45,7 @@ def load_rest_sites(frag_file):
             rest_seq = f.attrs['rest_seq']
             chromosomes = list(f['chromosomes'].keys())
             for chr_ in chromosomes:
-                fragments = f['chromosomes'][chr_].value
+                fragments = f['chromosomes'][chr_][()]
                 rest_sites[chr_] = fragments[1:-1]
     return rest_sites, rest_seq
 
@@ -78,9 +78,9 @@ def find_frag(rest_sites, start, end, rest_site_len):
     search_e = end - rest_site_len - 1  # end search point
     sites = rest_sites
     frag_idx_s = sites.searchsorted(search_s, side='right')
-    frag_idx_e = sites.searchsorted(search_e,   side='right')
+    frag_idx_e = sites.searchsorted(search_e, side='right')
     frag_start = sites[frag_idx_s - 1]
-    frag_end = sites[frag_idx_e]
+    frag_end = sites[frag_idx_e] if frag_idx_e < sites.shape[0] else float('inf')
 
     if frag_idx_s == 0:  # in first fragment
         frag_idx = frag_idx_s
@@ -142,8 +142,8 @@ def bedpe_type(rest_sites, bedpe_items, threshold_span, rest_site_len):
     Return
     ------
     types: {"normal", "self-ligation", "re-ligation"}
-    frag1: {(int, {'s', 't'}), None}
-    frag2: {(int, {'s', 't'}), None}
+    frag1: {(int, {'s', 't'}, int), None}
+    frag2: {(int, {'s', 't'}, int), None}
     """
     chr1, start1, end1, chr2, start2, end2 = bedpe_items[:6]
     # inter chromosome interaction
@@ -234,8 +234,9 @@ def worker(task_queue,
                 err_re_f.write(out_line)
                 l_t_counts['re-ligation'] += 1
 
-            position = items[8] + items[9] + frag1[1] + frag2[1]
-            l_p_counts[position] += 1
+            if frag1:
+                position = items[8] + items[9] + frag1[1] + frag2[1]
+                l_p_counts[position] += 1
 
             l_d_counts['PET1'][frag1[2]] += 1
             l_d_counts['PET2'][frag2[2]] += 1
@@ -291,7 +292,7 @@ def log_counts(counts, log_file):
     default=1,
     help="Use how many processes to run.")
 @click.option("--threshold-span", "-s",
-    default=1000,
+    default=-1,
     show_default=True,
     help="Threshold of pair span. Use -1 to force check.")
 @click.option("--log-file",
