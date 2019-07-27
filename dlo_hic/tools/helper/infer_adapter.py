@@ -13,7 +13,7 @@ from dlo_hic.utils.infer_adapter import infer_adapter, plot_char_prob_stacked_ba
     type=click.Path())
 @click.option("--log-file", default="./adapter.log",
     help="File for store information about adapter inference.")
-@click.option("-n", default=50,
+@click.option("-n", default=1000,
     show_default=True,
     help="Number of fastq records used for inference adapter sequence.")
 @click.option("--start-pos", default=70,
