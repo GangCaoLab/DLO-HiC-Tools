@@ -237,9 +237,8 @@ def worker(task_queue,
             if frag1:
                 position = items[8] + items[9] + frag1[1] + frag2[1]
                 l_p_counts[position] += 1
-
-            l_d_counts['PET1'][frag1[2]] += 1
-            l_d_counts['PET2'][frag2[2]] += 1
+                l_d_counts['PET1'][frag1[2]] += 1
+                l_d_counts['PET2'][frag2[2]] += 1
 
 
 def log_counts(counts, log_file):
