@@ -453,9 +453,15 @@
                     <h3>Contact map of each chromosomes</h3>
                     <div class="slider">
                     % for chrom, svg in qc_contents['contact_map']['chroms'].items():
-                        <div class="slide" id="${chrom}">
+                        <div class="slide" id="slide-${chrom}">
                         ${include_svg(svg)}
                         </div>
+                    % endfor
+                    </div>
+                    <div class="jumping">
+                    % for chrom in qc_contents['contact_map']['chroms'].keys():
+                        <% c = chrom.replace("chr", "") %>
+                        <a href="#slide-${chrom}">${c}</a>
                     % endfor
                     </div>
                 </div>

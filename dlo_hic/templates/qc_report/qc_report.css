@@ -97,7 +97,7 @@ div.piechart.right {
 
 .slider {
   width: 800px;
-  height: 720px;
+  height: 700px;
   display: flex;
   overflow-x: auto;
   border: 1px solid #dddddd;
@@ -110,3 +110,42 @@ div.piechart.right {
   height: 100%;
   border: 1px solid #dddddd;
 }
+
+.slider, .slider .slide
+{
+    transform:rotateX(180deg);
+    -ms-transform:rotateX(180deg); /* IE 9 */
+    -webkit-transform:rotateX(180deg); /* Safari and Chrome */
+}
+
+
+div.jumping {
+    text-align: center;
+    margin-top: 1rem;
+}
+
+.jumping > a {
+  display: inline-flex;
+  width: 1.5rem;
+  height: 1.5rem;
+  background: #aaaaaa;
+  text-decoration: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  margin: 0 0 0 0;
+  position: relative;
+  font-size: 14;
+  font-family: sans-serif;
+  color: white;
+}
+
+.jumping > a:active {
+  top: 1px;
+}
+
+.jumping > a:focus {
+  background: #000;
+}
+
+
