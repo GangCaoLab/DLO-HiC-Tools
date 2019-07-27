@@ -375,7 +375,9 @@ def get_plot_cmap_input(wildcard):
 
 cmap_chroms_dir = join(setting.working_dir, join(DIRS['qc'], '{sample}.chroms_cmap'))
 cmap_global_fig = join(setting.working_dir, join(DIRS['qc'], "{sample}.global_cmap.svg"))
-is_plot_cmap = ('.hic' in setting.result_formats) or ('.cool' in setting.result_formats)
+is_dot_hic = '.hic' in setting.result_formats
+is_cooler = '.cool' in setting.result_formats
+is_plot_cmap = is_dot_hic or is_cooler
 
 
 rule plot_contact_map:
@@ -439,7 +441,8 @@ rule qc_gen_report:
     threads: 1
     input:
         all_qc_files('{sample}', workdir=setting.working_dir) + \
-        ([cmap_chroms_dir, cmap_global_fig] if is_plot_cmap else [])
+        ([cmap_chroms_dir, cmap_global_fig] if is_plot_cmap else []) + \
+        ([rules.to_hic.output] if is_dot_hic else [])
     output:
         join(sub_dir("qc"), "{sample}." + setting.qc_report_format)
     params:
