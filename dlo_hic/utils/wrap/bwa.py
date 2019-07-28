@@ -4,11 +4,13 @@ from datetime import datetime
 import logging
 import subprocess
 from subprocess import Popen, PIPE
+from io import TextIOWrapper
 import multiprocessing
 
 log = logging.getLogger(__name__)
 
 cores = multiprocessing.cpu_count()
+
 
 class BWA():
     """
@@ -22,51 +24,37 @@ class BWA():
 
     algorithm : {'mem', 'aln'}
         bwa algorithm.
+
+    outfmt : {'sam', 'bam'}
+        output format.
     
     log_file : {str, '-'}
         path to log file, use '-' for output log to stdout.
     """
-    def __init__(self, index_prefix, algorithm='aln', log_file='-'):
+    def __init__(self, index_prefix, algorithm='aln', outfmt='bam', log_file='-'):
         self.index_prefix = index_prefix
         self.algorithm = algorithm
-        if log_file == '-':
-            self.log_file = sys.stdout
-        else:
-            self.log_file = open(log_file, 'a')
+        self.log_file = log_file
+        self.outfmt = outfmt
 
     def _check_call(self, cmd):
         """ 
         call cmd and log to self.log_file
         """
         process = Popen(cmd, stderr=PIPE, shell=True)
+        if self.log_file != '-':
+            log_f = open(self.log_file, 'a')
         with process.stderr:
             for line in process.stderr:
                 line = line.decode("utf-8")
                 timestr = datetime.now().strftime("%m/%d/%y %H:%M:%S")
                 line = "[{}]".format(timestr) + line # add datetime information
-                self.log_file.write(line)
+                log_f.write(line)
+        if self.log_file != '-':
+            log_f.close()
         exitcode = process.wait() 
         if exitcode != 0:
             raise subprocess.CalledProcessError(exitcode, cmd)
-
-    def _stream(self, cmd):
-        """
-        call cmd, yiels stdout, log to self.log_file
-        """
-        process = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
-        with process.stdout as out, process.stderr as err:
-            while True:
-                log_line = err.readline()
-                if log_line:
-                    log_line = log_line.decode("utf-8")
-                    timestr = datetime.now().strftime("%m/%d/%y %H:%M:%S")
-                    log_line = "[{}]".format(timestr) + log_line # add datetime information
-                    self.log_file.write(log_line)
-                line = out.readline()
-                if not line:
-                    break
-                line = line.decode("utf-8")
-                yield line
 
     def index(self, ref_fasta):
         """ build index """
@@ -77,9 +65,9 @@ class BWA():
         self._check_call(cmd)
 
     def run(self, input, output_prefix,
-            thread=cores, bam=True,
+            thread=cores,
             max_diff=None,
-            params=None, samse_params=None):
+            params=None):
         """
         launch bwa aln/mem command, return process
 
@@ -91,8 +79,6 @@ class BWA():
             Path prefix to output file.
         thread : int
             Number of cores used for run bwa.
-        bam : bool
-            convert output to bam or not.
         max_diff : {int, None}
             set "-n" parameter.
         params : {str, None}
@@ -117,11 +103,11 @@ class BWA():
                 cmd += " -n {} ".format(max_diff)
             if params:
                 cmd += " " + params
-            if bam:
+            if self.outfmt == "bam":
                 cmd += " | samtools view -bh"
 
             # run cmd
-            suffix = "sam" if not bam else "bam"
+            suffix = "sam" if outfmt == "sam" else "bam"
             self._check_call(cmd + " > " + output_prefix + "." + suffix)
         else:  # bwa aln
             # alignment step
@@ -132,22 +118,32 @@ class BWA():
             if params:
                 cmd += " " + params
             cmd += " > {}.sai".format(output_prefix)
+            self._output_prefix = output_prefix
+            self._input_fq = input
             # run alignment step
             self._check_call(cmd)
 
-            # samse step
-            cmd = "bwa samse {} {}.sai {}".format(self.index_prefix, output_prefix, input)
-            if samse_params:
-                cmd += " " + samse_params
-            if bam:
-                cmd += " | samtools view -bh"
-            # run samse step
-            suffix = "sam" if not bam else "bam"
-            cmd = cmd + " > " + output_prefix + "." + suffix
+    def samse(self, samse_params=None, stdout=False):
+        if self.algorithm != 'aln':
+            log.warning("Only aln algorithm need samse.")
+            return
+
+        # samse step
+        cmd = "bwa samse {} {}.sai {}".format(self.index_prefix, self._output_prefix, self._input_fq)
+        if samse_params:
+            cmd += " " + samse_params
+        if self.outfmt == "bam":
+            cmd += " | samtools view -bh"
+        # run samse step
+        suffix = "sam" if not self.outfmt == "sam" else "bam"
+        if stdout:
+            if self.log_file == '-':
+                p = Popen(cmd, stdout=PIPE, shell=True)
+            else:
+                p = Popen(cmd + " 2>> " + self.log_file, stderr=PIPE, stdout=PIPE, shell=True)
+            return TextIOWrapper(p.stdout)
+        else:
+            cmd = cmd + " > " + self._output_prefix + "." + suffix
             self._check_call(cmd)
-            os.remove(output_prefix+".sai")
+            os.remove(self._output_prefix+".sai")
     
-    def __del__(self):
-        """ close the log file. """
-        if self.log_file is not sys.stdout:
-            self.log_file.close()

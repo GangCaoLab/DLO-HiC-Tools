@@ -114,23 +114,22 @@ rule build_bedpe:
     # 2. build_bedpe
     #
     #  Tool Interface:
-    #     ( file_format, input1, input2, bedpe,
+    #     ( input1, input2, output,
     #       ncpu, bwa_index, mapq, iterative,
     #       log_file, bwa_log_file,
-    #       keep_iter_files )
+    #       keep_iter_files, keep_sam )
     # --------------------
     threads: setting.ncpu
     input:
         rules.extract_PET.output
     output:
         bedpe      = output_files("{sample}")["uniq.bedpe"],
-        pet1_bam   = output_files("{sample}")["pet1.bam"],
-        pet2_bam   = output_files("{sample}")["pet2.bam"],
         qc_bedpe   = qc_files('{sample}')['build_bedpe']['main']
     params:
         llog = local_logger,
         bwa_log    = sub_dir("log") + "/{sample}.bwa.log",
-        keep_iter_files = config['GLOBAL']['log_level'] <= 10
+        keep_iter_files = config['GLOBAL']['log_level'] <= 10,
+        keep_sam = 'pet.sam' in config['PROCESSES']['keep']
     run:
         llog = params.llog
         llog.log_start("build_bedpe")
@@ -143,10 +142,10 @@ rule build_bedpe:
         # run tool
         dlo_main.build_bedpe.log = llog
         dlo_main.build_bedpe.main(
-            'fastq', input[0], input[1], output.bedpe,
+            input[0], input[1], output.bedpe.replace('.uniq.bedpe', ''),
             setting.ncpu, bwa_index, conf['mapq'], conf['iterations'],
             output.qc_bedpe, params.bwa_log,
-            params.keep_iter_files)
+            params.keep_iter_files, params.keep_sam)
 
         llog.log_end("build_bedpe")
 
