@@ -272,7 +272,7 @@ def _main(input1, input2, output, ncpu, bwa_index, mapq, iteration, log_file, bw
     files_in_outdir = os.listdir(outdir)
 
     file_collections = {
-        (tp, pet): glob.glob(join(outdir, "*.iter.*."+pet+"."+tp))
+        (tp, pet): glob.glob(join(out_prefix+".iter.*."+pet+"."+tp))
         for tp in ['bed'] + (['uniq.sam', 'un.sam', 'mul.sam'] if keep_sam else [])
         for pet in ['pet1', 'pet2']
     }
