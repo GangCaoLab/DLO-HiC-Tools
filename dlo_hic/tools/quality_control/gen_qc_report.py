@@ -205,6 +205,10 @@ def get_software_version_info():
         s2v[cmd] = get_version(cmd, "[Vv]ersion")
     for cmd in ['cooler', 'mafft']:
         s2v[cmd] = get_version(cmd, ".*", "--version")
+    for cmd in ['sort']:  # coreutils version
+        info_line = get_version(cmd, ".*", "--version")
+        info = info_line.replace(cmd+" ", "")
+        s2v['coreutils'] = info
 
     res = "\n".join([s+": "+v for s,v in s2v.items()])
     

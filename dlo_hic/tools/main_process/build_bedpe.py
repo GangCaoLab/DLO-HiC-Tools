@@ -80,6 +80,8 @@ def process_sam(bwa, output, next_iter_fq=None, mapq_thresh=20, sam=None):
                     sam_fh_m.write(read)
 
             if s_type == 'unique':  # unique alignment
+                if not read.reference_end:  # not has alignment end
+                    continue
                 bed = sam_to_bed(read)
                 out.write(bed + '\n')
             elif next_iter_fq:  # write fastq files for iterative mapping
