@@ -261,6 +261,16 @@
                 <div class="PET_extract">
                     <h3>1. PET extract</h3>
     ## Step 1
+                    <div class="linkers">
+                    <h4>Linkers</h4>
+                    <table>
+                    <tr> <th>linker</th> <th>sequence</th> <tr>
+                    % for name, linker in qc_contents['extract_PET']['main']['linkers'].items():
+                    <tr> <td>${name}</td> <td>${linker}</td> </tr>
+                    % endfor
+                    </table>
+                    </div>
+
                     <div class="PET_len_stat">
                         <h4>(1). PET length distribution</h4>
                         <%

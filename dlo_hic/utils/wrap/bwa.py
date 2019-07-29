@@ -132,17 +132,21 @@ class BWA():
         cmd = "bwa samse {} {}.sai {}".format(self.index_prefix, self._output_prefix, self._input_fq)
         if samse_params:
             cmd += " " + samse_params
-        if self.outfmt == "bam":
-            cmd += " | samtools view -bh"
-        # run samse step
-        suffix = "sam" if not self.outfmt == "sam" else "bam"
         if stdout:
             if self.log_file == '-':
+                if self.outfmt == "bam":
+                    cmd += " | samtools view -bh"
                 p = Popen(cmd, stdout=PIPE, shell=True)
             else:
-                p = Popen(cmd + " 2>> " + self.log_file, stderr=PIPE, stdout=PIPE, shell=True)
+                cmd = cmd + " 2>> " + self.log_file
+                if self.outfmt == "bam":
+                    cmd += " | samtools view -bh"
+                p = Popen(cmd, stdout=PIPE, shell=True)
             return TextIOWrapper(p.stdout)
         else:
+            if self.outfmt == "bam":
+                cmd += " | samtools view -bh"
+            suffix = "sam" if not self.outfmt == "sam" else "bam"
             cmd = cmd + " > " + self._output_prefix + "." + suffix
             self._check_call(cmd)
             os.remove(self._output_prefix+".sai")

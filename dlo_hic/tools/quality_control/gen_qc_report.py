@@ -111,6 +111,7 @@ def load_comp(path):
 def load_pet_main(path):
     res = OrderedDict()
     with open(path) as f:
+        res['linkers'] = read_tab_splited(f)
         res['flag_stat'] = read_tab_splited(f)
         res['PET1_len_dist'] = read_tab_splited(f)
         res['PET2_len_dist'] = read_tab_splited(f)

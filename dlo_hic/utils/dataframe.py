@@ -19,7 +19,7 @@ def pairs2df(path):
     fields = Pairs.fields
     with open_file(path) as fh:
         fh = skip_header(fh)
-        df = pd.read_table(fh, header=None) 
+        df = pd.read_csv(fh, header=None, sep="\t") 
         df.columns = fields
     return df
 

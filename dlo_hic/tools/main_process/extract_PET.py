@@ -32,7 +32,7 @@ def load_linkers(linker_a, linker_b):
     # convert linker sequence from unicode to str
     linker_a = str(linker_a)
     linker_b = str(linker_b) if linker_b else None
-    if linker_b:
+    if linker_b and linker_b != linker_a:
         AA = linker_a + rc(linker_a)
         BB = linker_b + rc(linker_b)
         AB = linker_a + rc(linker_b)
@@ -44,27 +44,35 @@ def load_linkers(linker_a, linker_b):
     return linkers
 
 
-def log_linkers(linkers):
+def log_linkers(linkers, log_file=None):
     log.info("linkers:")
     linkers_name = ("AA", "BB", "AB", "BA")
     for name, linker in zip(linkers_name, linkers):
         if linker is None:
             break
         log.info("\t{}:\t{}".format(name, linker))
+    if log_file:
+        with open(log_file, 'w') as lf:
+            lf.write("# Linkers\n")
+            for name, linker in zip(linkers_name, linkers):
+                if linker is None:
+                    break
+                lf.write("{}\t{}\n".format(name, linker))
+            lf.write("\n")
 
 
 def log_counts(counts, log_file=None):
-    if not log_file:
-        log.info("Quality Control:")
-        for k, v in zip(COUNT_ITEM_NAMES, counts['flag']):
-            log.info("\t{}:\t{}".format(k, v))
-        try:
-            ratio = counts['flag'][-2] / float(counts['flag'][-1])
-        except ZeroDivisionError:
-            ratio = 0
-        log.info("Valid reads ratio: {}".format(ratio))
-    else:
-        with open(log_file, 'w') as f:
+    log.info("Quality Control:")
+    for k, v in zip(COUNT_ITEM_NAMES, counts['flag']):
+        log.info("\t{}:\t{}".format(k, v))
+    try:
+        ratio = counts['flag'][-2] / float(counts['flag'][-1])
+    except ZeroDivisionError:
+        ratio = 0
+    log.info("Valid reads ratio: {}".format(ratio))
+
+    if log_file:
+        with open(log_file, 'a') as f:
             f.write("# Flag counts(quality control), columns: [item, number]\n")
             for k, v in zip(COUNT_ITEM_NAMES, counts['flag']):
                 outline = "\t".join([str(k), str(v)]) + "\n"
@@ -254,7 +262,7 @@ def _main(fastq, out1, out2,
     if linker_b == linker_a:
         linker_b = None
     linkers = load_linkers(linker_a, linker_b)
-    log_linkers(linkers)
+    log_linkers(linkers, log_file=log_file)
     if mismatch.is_integer():
         mismatch = int(mismatch)
     else:
@@ -331,7 +339,6 @@ def _main(fastq, out1, out2,
             counts[cnt_itm] += counter[pid][cnt_itm]
 
     # log counts
-    log_counts(counts)
     log_counts(counts, log_file)
 
     return counts
