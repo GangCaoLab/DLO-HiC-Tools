@@ -129,7 +129,7 @@ rule build_bedpe:
         llog = local_logger,
         bwa_log    = sub_dir("log") + "/{sample}.bwa.log",
         keep_iter_files = config['GLOBAL']['log_level'] <= 10,
-        keep_sam = 'pet.sam' in config['PROCESSES']['keep']
+        keep_sam = (config['PROCESSES']['keep'] == 'ALL') or ('pet.sam' in config['PROCESSES']['keep'])
     run:
         llog = params.llog
         llog.log_start("build_bedpe")
