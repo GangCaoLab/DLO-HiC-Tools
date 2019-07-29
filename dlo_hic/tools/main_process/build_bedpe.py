@@ -332,10 +332,11 @@ def _main(input1, input2, output, ncpu, bwa_index, mapq, iteration, log_file, bw
 
     # clean intermediate files
     subprocess.check_call(["rm", bed1_sorted, bed2_sorted])
-    subprocess.check_call("rm " + join(outdir, "*.sai"), shell=True)
+    subprocess.check_call("rm " + out_prefix + ".*.sai", shell=True)
     if not keep_iter_files:
-        log.info("Clean all iteration files.")
-        subprocess.check_call("rm " + join(outdir, "*.iter.*"), shell=True)
+        if iteration > 1:
+            log.info("Clean all iteration files.")
+            subprocess.check_call("rm " + out_prefix + "*.iter.*", shell=True)
 
     log.info("Build BEDPE done.")
 
