@@ -88,6 +88,8 @@ class Bedpe(object):
         if extends:
             self.etag1 = extends[0]
             self.etag2 = extends[1]
+            self.etag3 = extends[2]
+            self.etag4 = extends[3]
 
     @classmethod
     def from_line(cls, line):
@@ -99,7 +101,7 @@ class Bedpe(object):
         if (self.chr1 != another.chr1) or (self.chr2 != another.chr2):
             return False
         if by_etag:
-            return (self.etag1 == another.etag1)     and (self.etag2 == another.etag2) and \
+            return (self.etag1 == another.etag1)     and (self.etag3 == another.etag3) and \
                    (self.strand1 == another.strand1) and (self.strand2 == another.strand2)
         else:
             if dis == 0:
