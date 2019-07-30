@@ -80,8 +80,6 @@ def process_sam(bwa, output, next_iter_fq=None, mapq_thresh=20, sam=None):
                     sam_fh_m.write(read)
 
             if s_type == 'unique':  # unique alignment
-                if not read.reference_end:  # not has alignment end
-                    continue
                 bed = sam_to_bed(read)
                 out.write(bed + '\n')
             elif next_iter_fq:  # write fastq files for iterative mapping
@@ -100,7 +98,7 @@ def process_sam(bwa, output, next_iter_fq=None, mapq_thresh=20, sam=None):
 
 def sam_read_type(read, mapq_thresh):
     """ Determine sam read type """
-    if read.mapq >= mapq_thresh:  # unique map
+    if (read.mapq >= mapq_thresh) & (read.flag & 4 == 0):  # unique map
         return 'unique'
     elif read.flag & 4 != 0:
         return 'unmapped'
