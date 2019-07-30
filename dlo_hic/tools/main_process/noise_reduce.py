@@ -79,19 +79,20 @@ def find_frag(rest_sites, start, end, rest_site_len):
     sites = rest_sites
     frag_idx_s = sites.searchsorted(search_s, side='right')
     frag_idx_e = sites.searchsorted(search_e, side='right')
-    frag_start = sites[frag_idx_s - 1]
-    frag_end = sites[frag_idx_e] if frag_idx_e < sites.shape[0] else float('inf')
 
-    if frag_idx_s == 0:  # in first fragment
+    if frag_idx_s <= 0:  # in first fragment
+        frag_end = sites[frag_idx_e]
         frag_idx = frag_idx_s
         pos = 't'
         dis = end - frag_end
-    elif frag_idx_e == sites.shape[0]:  # in last fragment
+    elif frag_idx_e >= sites.shape[0]:  # in last fragment
+        frag_start = sites[frag_idx_s - 1]
         frag_idx = frag_idx_e
         pos = 's'
         dis = start - frag_start
     else:
-
+        frag_start = sites[frag_idx_s - 1]
+        frag_end = sites[frag_idx_e]
         left_span  = start - frag_start
         right_span = end - frag_end
         if abs(left_span) < abs(right_span):

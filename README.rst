@@ -49,7 +49,6 @@ You can also using the docker, pull the dlohic image: ::
 
     $ docker pull nanguage/dlohic
 
-
 Run a container, with mount current directory in file system to the '/data' in the container: ::
 
     $ docker run -v $PWD:/data -ti nanguage/dlohic:latest
@@ -68,26 +67,32 @@ You can list them and get more usage detail by `dlohic` command:
 .. code-block::
 
     $ dlohic --help
-    Usage: __main__.py [OPTIONS] COMMAND [ARGS]...
-
-        DLO HiC Tools command line interface.
-
+    Usage: dlohic [OPTIONS] COMMAND [ARGS]...
+    
+      DLO HiC Tools command line interface.
+    
     Options:
       --log-file TEXT       The log file, default output to stdout.
-      --debug / --no-debug  If debug will print all information, default True.
+      --debug / --no-debug  If debug will print all information, default False.
+      --version             Show the version and exit.
       --help                Show this message and exit.
-
+    
     Commands:
       PET_span_dist         Count the distribution of PET span.
-      bedpe2pairs           Transform bedpe format file to pairs format,...
-      build_bedpe           Build bedpe file from fastq or sam/bam file.
+      bedpe2pairs           Transform BEDPE format file to pairs format,...
+      build_bedpe           Build bedpe file from fastq files.
+      chr_interactions      Count the interactions between chromosomes.
       extract_PET           Extract the PETs sequences on both sides of...
-      extract_rest_sites    Extract all restriction sites from fasta...
+      extract_fragments     Extract all DNA fragments from fasta file,...
       fragment_length_dist  Draw the distribution figure(kde/box plot),...
+      gen_qc_report         Generate pipeline quality control report.
+      infer_adapter         Inference adapter sequence, and plot the...
       interactions_qc       Count ratio of: inter-chromosome...
-      noise_reduce          Remove DLO-HiC noise (self-ligation).
+      noise_reduce          Remove noise in DLO-HiC data.
       pipeline              Generate integrated main processes...
+      plot_contact_map      Draw the Hi-C contact map.
       remove_redundancy     Remove the redundancy within pairs.
+
 
 Use the pipeline
 ^^^^^^^^^^^^^^^^
