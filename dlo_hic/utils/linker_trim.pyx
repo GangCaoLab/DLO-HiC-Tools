@@ -87,7 +87,11 @@ cdef class LinkerTrimer:
         cdef int cost, a_cost
         cdef float min_err_rate
         cdef tuple alignment, alignment_adapter
-        cdef int i
+        cdef int exact_start, len_linker
+        cdef int idx
+        cdef float error_rate
+        cdef bint unmatch
+        cdef int min_cost, min_idx
 
         alignment_adapter = None
 
@@ -97,24 +101,50 @@ cdef class LinkerTrimer:
 
         # align linker with sequence
         if self._single_linker:
-            alignment = aligner.locate(self.linkers[0])
-            if alignment[-1] / len(self.linkers[0]) >= self._max_err_rate:
-                # unmatch
-                flag |= 1
-                return (fq_rec, flag, None, None, alignment, alignment_adapter)
-            else:
-                # AA matched
+
+            # try exact match
+            exact_start = seq.find(self.linkers[0])
+            if exact_start >= 0:  # exact matched
+                len_linker = len(self.linkers[0])
+                alignment = (exact_start, exact_start+len_linker, 0, len_linker, len_linker, 0)
                 flag |= 2
-        else:
+            else:
+                # do alignment
+                alignment = aligner.locate(self.linkers[0])
+                error_rate = alignment[-1] / len(self.linkers[0])
+                if error_rate > self._max_err_rate:
+                    # unmatch
+                    flag |= 1
+                    return (fq_rec, flag, None, None, alignment, alignment_adapter)
+                else:
+                    # AA matched
+                    flag |= 2
+
+        else:  # multiple linkers
+            unmatch = 1
+            min_idx = -1
+            min_cost = 10000
             for idx in range(4):
-                alignment = aligner.locate(self.linkers[idx])
-                if alignment:
-                    if idx < 2:  # AA/BB matched
-                        flag |= 2
+                # try exact match
+                exact_start = seq.find(self.linkers[idx])
+                if exact_start >= 0:  # exact matched
+                    unmatch = 0
+                    min_idx = idx
+                    len_linker = len(self.linkers[idx])
+                    alignment = (exact_start, exact_start+len_linker, 0, len_linker, len_linker, 0)
                     break
-            else:  # all linker unmatch
+                alignment = aligner.locate(self.linkers[idx])  # do alignment
+                error_rate = alignment[-1] / len(self.linkers[0])
+                if error_rate <= self._max_err_rate:  # matched
+                    unmatch = 0
+                    if alignment[-1] < min_cost:
+                        min_idx = idx
+                        min_cost = alignment[-1]
+            if unmatch == 1:
                 flag |= 1
                 return (fq_rec, flag, None, None, alignment, alignment_adapter)
+            elif min_idx < 2:  # AA/BB matched
+                flag |= 2
 
         m_start, m_end, s_, e_, m_, cost = alignment
         pet1_end = m_start
