@@ -4,7 +4,7 @@ LABEL name="dlohic"
 LABEL base.image="ubuntu:16.04"
 LABEL version="1"
 LABEL software="DLO-HiC-Tools"
-LABEL software.version="0.1.0"
+LABEL software.version="0.3.7"
 LABEL website="https://github.com/Nanguage/DLO-HiC-Tools"
 LABEL documentation="https://github.com/Nanguage/DLO-HiC-Tools/blob/master/doc/source/install.rst"
 LABEL license="https://github.com/Nanguage/DLO-HiC-Tools/blob/master/LICENSE"
@@ -13,7 +13,7 @@ LABEL tags="Bioinformatics,Genomics,Hi-C,DLO-Hi-C"
 MAINTAINER nanguage@yahoo.com
 
 ENV MINICONDA https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
-ENV DLOHIC https://github.com/Nanguage/DLO-HiC-Tools/archive/v0.1.1.tar.gz
+ENV DLOHIC https://github.com/GangCaoLab/DLO-HiC-Tools/archive/master.zip
 ENV JUICERTOOLS http://hicfiles.tc4ga.com.s3.amazonaws.com/public/juicer/juicer_tools.1.8.9_jcuda.0.8.jar
 
 ENV LD_ALL C.UTF-8
@@ -79,16 +79,14 @@ RUN conda config --add channels conda-forge
 RUN conda upgrade conda
 
 # install dependency
-RUN conda install --yes cython numpy scipy matplotlib pandas h5py jsonschema graphviz
-RUN conda install --yes -c coreutils bioconda bwa samtools bedtools pairix tabix pysam
+RUN conda install --yes numpy scipy matplotlib pandas cython h5py jsonschema graphviz
+RUN conda install -c bioconda --yes coreutils bwa samtools mafft pairix tabix cooler pysam java-jdk
 RUN conda install --yes -c conda-forge bzip2
 
 # install DLO-HiC-Tools
-RUN wget ${DLOHIC} -O DLO-HiC-Tools.tar.gz && \
-    tar zxvf DLO-HiC-Tools.tar.gz && \
-    mkdir DLO-HiC-Tools && \
-    tar zxvf DLO-HiC-Tools.tar.gz -C DLO-HiC-Tools --strip-components=1 && \
-    cd DLO-HiC-Tools && \
+RUN wget ${DLOHIC} -O DLO-HiC-Tools.zip && \
+    unzip DLO-HiC-Tools.zip && \
+    cd DLO-HiC-Tools-master/ && \
     python setup.py install
 
 
