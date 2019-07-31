@@ -260,8 +260,9 @@ def _main(input1, input2, output, ncpu, bwa_index, mapq, iteration, log_file, bw
 
         iter_id += 1
 
-        if (next_fq1 and next_fq2) and os.stat(next_fq1).st_size == 0 and os.stat(next_fq2).st_size == 0:
-            # break loop when no unmatched found in this iteration
+        if ((counts_iter['pet1']['unique']    == 0) and (counts_iter['pet2']['unique']   == 0)) or \
+           ((counts_iter['pet1']['unmapped']  == 0) and (counts_iter['pet2']['unmapped'] == 0)):
+            # break loop when no new unique or no unmatched found in this iteration
             break
 
     log.info("-"*30)
