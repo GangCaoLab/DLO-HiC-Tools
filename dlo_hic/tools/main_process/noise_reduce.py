@@ -80,7 +80,11 @@ def find_frag(rest_sites, start, end, rest_site_len):
     frag_idx_s = sites.searchsorted(search_s, side='right')
     frag_idx_e = sites.searchsorted(search_e, side='right')
 
-    if frag_idx_s <= 0:  # in first fragment
+    if sites.shape[0] == 0:  # no sites in this chromosome
+        frag_idx = 0
+        pos = 's'
+        dis = 0
+    elif frag_idx_s <= 0:  # in first fragment
         frag_end = sites[frag_idx_e]
         frag_idx = frag_idx_s
         pos = 't'
