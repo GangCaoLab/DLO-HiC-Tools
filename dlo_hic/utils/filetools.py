@@ -46,3 +46,11 @@ def merge_tmp_files(tmp_files, merged_file, header=""):
     cmd = "rm " + " ".join(tmp_files)
     subprocess.check_call(cmd, shell=True)
 
+
+def is_gziped(path):
+    GZ_MAGIC_HEX = "1f8b"
+    with open(path, 'rb') as f:
+        if f.read(2).hex() == GZ_MAGIC_HEX:
+            return True
+        else:
+            return False
