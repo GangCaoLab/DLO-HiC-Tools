@@ -1,5 +1,10 @@
 {% extends 'base.html' %}
 
+{% block head %}
+    {{ super() }}
+    <script src="{{ url_for('main.static', filename='js/index.bundle.css') }}"></script>
+{% endblock %}
+
 {% block title %} DHT Home {% endblock %}
 
 {% block content %}

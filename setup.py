@@ -51,6 +51,40 @@ def get_install_requires():
     return requirements
 
 
+def build_wui():
+    wui_dir = "./dlo_hic/wui"
+    from os.path import join, exists, abspath
+    static_dir = join(wui_dir, 'main/static')
+    from shutil import rmtree
+    if exists(static_dir):  # clean old static directory
+        rmtree(static_dir)
+    curr_dir = abspath(os.curdir)
+    os.chdir(wui_dir)
+    from subprocess import check_call
+    check_call(['npm', 'install'])
+    check_call(['npm', 'run', 'build'])
+    os.chdir(curr_dir)
+
+
+def check_npm_installed():
+    from subprocess import check_call
+    try:
+        ret = check_call(['npm', '--version'])
+        if ret == 0:
+            return True
+    except FileNotFoundError as e:
+        print("[Warning] npm is not installed. Don't build WUI.")
+        return False
+
+
+if check_npm_installed():
+    try:
+        build_wui()
+    except Extension as e:
+        print(str(e))
+        print("[Error] Fail to build WUI.")
+
+
 setup(
     name='dlo_hic',
     version=get_version(),
