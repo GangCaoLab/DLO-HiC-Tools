@@ -52,8 +52,8 @@ def get_install_requires():
 
 
 def build_wui():
-    wui_dir = "./dlo_hic/wui"
     from os.path import join, exists, abspath
+    wui_dir = abspath("./dlo_hic/wui")
     static_dir = join(wui_dir, 'main/static')
     from shutil import rmtree
     if exists(static_dir):  # clean old static directory
@@ -61,16 +61,25 @@ def build_wui():
     curr_dir = abspath(os.curdir)
     os.chdir(wui_dir)
     from subprocess import check_call
-    check_call(['npm', 'install'])
+    npm_dir = join(wui_dir, 'node_modules')
+    print(npm_dir, exists(npm_dir))
+    if not exists(npm_dir):
+        check_call(['npm', 'install'])
     check_call(['npm', 'run', 'build'])
     os.chdir(curr_dir)
 
 
 def check_npm_installed():
-    from subprocess import check_call
+    from subprocess import Popen, PIPE
     try:
-        ret = check_call(['npm', '--version'])
-        if ret == 0:
+        p = Popen(['npm', '--version'], stdout=PIPE)
+        out, _ = p.communicate()
+        version = out.decode('utf-8').strip()
+        print("npm version: "+version)
+        p.kill()
+        if p.returncode == 0:
+            return True
+        else:
             return True
     except FileNotFoundError as e:
         print("[Warning] npm is not installed. Don't build WUI.")

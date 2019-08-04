@@ -1,1 +1,2 @@
-import "../css/style.scss";
+import tabs from "./tabs"
+

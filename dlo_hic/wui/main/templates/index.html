@@ -2,11 +2,33 @@
 
 {% block head %}
     {{ super() }}
-    <script src="{{ url_for('main.static', filename='js/index.bundle.css') }}"></script>
 {% endblock %}
 
 {% block title %} DHT Home {% endblock %}
 
+{% block header %}
+{% include 'navbar.html' %}
+<hr>
+
+{% endblock %}
 {% block content %}
-<h1>Hello</h1>
+
+<div class="panel box">
+<div id="root" class="container">
+    <tabs>
+      <tab name="Setting" :selected="true">
+        <h1>What we do</h1>
+      </tab>
+      <tab name="Run">
+        <h1>How much we do it for</h1>
+      </tab>
+      <tab name="Console">
+        <h1>Why we do it</h1>
+      </tab>
+    </tabs>
+</div>
+</div>
+
+
+<script src="{{ url_for('main.static', filename='js/index.bundle.js') }}"></script>
 {% endblock %}
