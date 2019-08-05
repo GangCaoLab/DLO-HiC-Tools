@@ -1,3 +1,5 @@
+import click
+
 import os
 
 os.environ['FLASK_DEBUG'] = '1'

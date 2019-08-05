@@ -1,0 +1,17 @@
+{
+
+    "port": "5000",
+    "password": "dlohic",
+
+    "reference_genomes": [
+        {
+            "name": "hg19",
+            "fasta": "",
+            "bwa_index_prefix": "",
+            "chromosome_file": ""
+        }
+    ],
+
+    "path_to_juicer_tools": ""
+
+}

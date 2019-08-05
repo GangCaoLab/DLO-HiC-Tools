@@ -54,6 +54,21 @@ div.panel {
   height: 800px;
 }
 
+.tabs-details {
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 700px;
+}
+
+.sub-panel {
+  padding-right: 10px;
+
+  .box {
+    margin-left: 1px;
+  }
+}
+
+
 #footer {
   position: fixed;
   left: 0;
@@ -75,3 +90,4 @@ div.panel {
 @import "../..//node_modules/bulma/sass/components/tabs.sass";
 @import "../..//node_modules/bulma/sass/layout/hero.sass";
 @import "../..//node_modules/bulma/sass/layout/section.sass";
+@import "../..//node_modules/bulma/sass/grid/columns.sass";

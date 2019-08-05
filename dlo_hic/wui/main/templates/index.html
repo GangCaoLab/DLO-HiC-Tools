@@ -17,13 +17,13 @@
 <div id="root" class="container">
     <tabs>
       <tab name="Setting" :selected="true">
-        <h1>What we do</h1>
+        {% include 'setting.html' %}
       </tab>
       <tab name="Run">
-        <h1>How much we do it for</h1>
+        {% include 'run.html' %}
       </tab>
       <tab name="Console">
-        <h1>Why we do it</h1>
+        {% include 'console.html' %}
       </tab>
     </tabs>
 </div>
