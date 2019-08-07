@@ -79,8 +79,13 @@ def load_pet_span_stats(path):
 
 
 def load_svg(path):
+    lines = []
     with open(path) as f:
-        contents = f.read()
+        for line in f:
+            # remove white-space:pre style setting
+            if "white-space:pre" in line: continue
+            lines.append(line)
+    contents = "\n".join(lines)
     contents = contents.strip()
     return contents
 
