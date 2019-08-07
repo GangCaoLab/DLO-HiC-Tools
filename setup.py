@@ -104,7 +104,7 @@ setup(
     url='https://github.com/Nanguage/DLO-HiC-Tools',
     keywords=keywords,
     packages=find_packages(),
-    scripts=['scripts/dlohic'],
+    scripts=['scripts/dlohic', 'scripts/dlohicwui'],
     include_package_data=True,
     zip_safe=False,
     package_dir={'dlo_hic': 'dlo_hic'},

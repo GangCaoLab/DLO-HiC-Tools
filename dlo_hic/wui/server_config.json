@@ -1,7 +1,8 @@
 {
 
+    "host": "0.0.0.0",
     "port": "5000",
-    "password": "dlohic",
+    "password_hash": "",
 
     "reference_genomes": [
         {
@@ -12,6 +13,6 @@
         }
     ],
 
-    "path_to_juicer_tools": ""
+    "juicer_tools_jar": ""
 
 }

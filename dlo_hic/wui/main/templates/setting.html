@@ -17,7 +17,7 @@
             <label class="label">Working dir</label>
 
             <div class="control">
-                <input class="input" type="text" name="working-dir" placeholder="Working directory">
+                <input class="input" type="text" name="working-dir" value="{{ conf['current_dir'] }}">
             </div>
             <p class="help">Path to the working directory.</p>
         </div>
@@ -34,6 +34,21 @@
             <p class="help">Path to the input directory which contain all input fastq files.</p>
         </div>
 
+        {% if conf['reference_genomes'] %}
+            <div class="field">
+                <label class="label">Reference genome</label>
+
+                <div class="select">
+                  <select>
+                        {% for g in conf['reference_genomes'] %}
+                        <option>{{ g['name'] }}</option>
+                        {% endfor %}
+                  </select>
+                </div>
+
+            </div>
+
+        {% else %}
         <div class="field">
             <label class="label">Fasta</label>
 
@@ -63,6 +78,7 @@
             <p class="help">Path to the file contain all chromosomes's name and size, name and size delimited with tab.</p>
 
         </div>
+        {% endif %}
 
         <div class="columns">
 
@@ -193,7 +209,7 @@
             <div class="columns">
                 <div class="column is-one-quarter">
                     <label class="label">PET length range</label>
-                    <div class="columns is-gapless control">
+                    <div class="columns is-gapless control" style="margin-bottom: 0px;">
                         <div class="column">
                             <input class="input" type="number" name="pet_len_range_lo" min="0" value="10">
                         </div>
@@ -241,7 +257,9 @@
             <label class="label">Result formats</label>
             <div class="control">
                 <label class="checkbox" name=".cool"> <input type="checkbox" checked> .cool </label>
+                {% if conf['java_exist'] and conf['juicer_tools_jar'] %}
                 <label class="checkbox" name=".hic">  <input type="checkbox" checked> .hic </label>
+                {% endif %}
             </div>
             <p class="help">Output formats of contact matrix.</p>
         </div>

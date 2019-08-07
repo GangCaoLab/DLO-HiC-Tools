@@ -1,0 +1,3 @@
+#!/usr/bin/env python
+
+import dlo_hic.wui.__main__

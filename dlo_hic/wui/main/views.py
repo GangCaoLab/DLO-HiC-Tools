@@ -16,7 +16,7 @@ main = Blueprint('main', __name__,
 def index():
     if not current_user.is_authenticated:
         return redirect(url_for('main.login'))
-    return render_template("index.html")
+    return render_template("index.html", conf=current_app.conf)
 
 
 @main.route("/login", methods=['GET', 'POST'])
@@ -25,7 +25,7 @@ def login():
         return redirect(url_for('main.index'))
     form = LoginForm()
     if request.method == 'POST' and form.validate():
-        user = User(current_app.password)
+        user = User(current_app.conf['password_hash'])
         if not user.check_password(form.password.data):
             flash("Invalid password.")
             return redirect(url_for('main.login'))
