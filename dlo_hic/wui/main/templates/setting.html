@@ -1,7 +1,7 @@
 
 <div class="settings sub-panel">
 
-    <div class="setting form">
+    <form class="setting" method="post" action="/gen-pipe-conf">
         <h2 class="title is-3">Global</h2>
 
         <div class="field">
@@ -153,7 +153,7 @@
                     <div class="column">
                         <label class="label">Probability Threshold</label>
                         <div class="control">
-                            <input class="input" type="number" name="prob-thresh" value="0.75" max="1" min="0" step="0.1">
+                            <input class="input" type="number" name="prob-thresh" value="0.75" max="1" min="0" step="0.01">
                         </div>
                         <p class="help">Probability threshold of base occurrence.</p>
                     </div>
@@ -291,7 +291,8 @@
 
         </div>
 
+        <input type="submit" value="Generate config">
 
-    </div>
+    </form>
 
 </div>

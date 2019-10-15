@@ -22,9 +22,11 @@ log.addHandler(handler)
 log.setLevel(logging.DEBUG)
 
 
-@click.group(name="dlohic")
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+
+@click.group(name="dlohic", context_settings=CONTEXT_SETTINGS)
 @click.option("--log-file", help="The log file, default output to stdout.")
-@click.option("--debug/--no-debug", default=False,
+@click.option("--debug", is_flag=True,
     help="If debug will print all information, default False.")
 @click.version_option(version=dlo_hic.__version__)
 def cli(log_file, debug):

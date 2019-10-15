@@ -89,7 +89,7 @@ def check_npm_installed():
 if check_npm_installed():
     try:
         build_wui()
-    except Extension as e:
+    except Exception as e:
         print(str(e))
         print("[Error] Fail to build WUI.")
 
