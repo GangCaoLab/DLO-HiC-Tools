@@ -1,8 +1,13 @@
 import os
 from os.path import join
 import logging
+import re
 
 import click
+
+from dlo_hic.utils.parse_text import is_comment
+from dlo_hic.utils.pipeline import format_ini_config
+from dlo_hic import __version__
 
 
 log = logging.getLogger(__name__)
@@ -12,24 +17,66 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 EXAMPLE_CONFIG = join(HERE, "../../templates/pipeline_config.ini")
 SNAKEFILE = join(HERE, "../../templates/pipeline.snake")
 
-def gen_file(template, filename, tag):
-    if not os.path.exists(filename):
-        log.info("Generate %s at %s"%(tag, filename))
-        with open(template) as fi, open(filename, 'w') as fo:
-            fo.write(fi.read())
+
+def read_version(path):
+    with open(path) as f:
+        line = f.readline().strip()
+    m = re.match("# pipeline version: (.*)", line)
+    if m is None:
+        return
+    version = m.groups()[0]
+    return version
+
+
+def copy_file(source, target):
+    with open(source) as fi, open(target, 'w') as fo:
+        fo.write("# pipeline version: {}\n\n".format(__version__))
+        fo.write(fi.read())
+
+
+def backup_path(prefix, suffix='.bak'):
+    i = 0
+    f = prefix + suffix + ".{}".format(i)
+    while os.path.exists(f):
+        i += 1
+        f = prefix + suffix + ".{}".format(i)
+    return f
+
+
+def gen_file(gen_func, target, tag):
+    if not os.path.exists(target):
+        log.info("Generate %s at '%s'"%(tag, target))
+        gen_func()
     else:
-        log.info("%s aleardy exist."%filename)
+        log.info("'%s' aleardy exist."%target)
+        old_ver = read_version(target)
+        if old_ver != __version__:
+            backup = backup_path(target)
+            log.info("'{}' is in old version, backup to '{}'".format(target, backup))
+            os.system("mv {} {}".format(target, backup))
+            gen_file(gen_func, target, tag)
+
 
 def gen_snakefile():
-    snake = "./Snakefile"
+    target = "./Snakefile"
     tag = "pipeline (Snakemake file)"
-    gen_file(SNAKEFILE, snake, tag)
+    def gen():
+        copy_file(SNAKEFILE, target)
+    gen_file(gen, target, tag)
+
 
 def gen_config():
-    example_config = "./pipeline_config.ini"
+    target = "./pipeline_config.ini"
     tag = "config file"
-    gen_file(EXAMPLE_CONFIG, example_config, tag)
-
+    def gen():
+        with open(EXAMPLE_CONFIG) as f:
+            template = f.read()
+        from dlo_hic.config import DEFAULT_PIPELINE_CONFIG
+        contents = format_ini_config(template, DEFAULT_PIPELINE_CONFIG)
+        with open(target, 'w') as f:
+            f.write("# pipeline version: {}\n\n".format(__version__))
+            f.write(contents)
+    gen_file(gen, target, tag)
 
 
 @click.command(name="pipeline")

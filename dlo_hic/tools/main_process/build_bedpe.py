@@ -1,4 +1,5 @@
 from os.path import join, split, splitext, dirname, basename
+import os.path as osp
 from copy import copy
 import logging
 import multiprocessing as mp
@@ -269,7 +270,7 @@ def _main(input1, input2, output, ncpu, bwa_index, mapq, iteration, log_file, bw
     log.info("Iterative mapping stopped.")
 
     # merge files
-    outdir = dirname(out_prefix)
+    outdir = dirname(osp.abspath(out_prefix))
     files_in_outdir = os.listdir(outdir)
 
     file_collections = {

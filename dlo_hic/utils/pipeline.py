@@ -387,3 +387,25 @@ def copy_chromosome_file(genomeid, out_path):
         raise ValueError(msg)
     if not os.path.exists(out_path):
         subprocess.check_call(["cp", genomeid2path[genomeid], out_path])
+
+
+def format_ini_config(template, conf):
+    grp = None
+    lines = []
+    for line in template.split("\n"):
+        line = line.strip()
+        if is_comment(line):
+            lines.append(line)
+            continue
+        m = re.match("^\[(.*?)\]", line)
+        if m is not None:
+            grp = conf[m.groups()[0].lower()]
+        else:
+            m = re.match("^(.+?) *?= *?", line)
+            if m is not None:
+                field = m.groups()[0]
+                default = grp[field]
+                if default is not None:
+                    line = re.sub("^{} *?= *?".format(field), "{} = {}".format(field, repr(default)), line)
+        lines.append(line)
+    return "\n".join(lines)
