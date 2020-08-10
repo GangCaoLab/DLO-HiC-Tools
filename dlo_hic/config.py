@@ -27,6 +27,7 @@ DEFAULT_PIPELINE_CONFIG = {
         "prob_thresh": 0.75,
         "linker_A": "",
         "linker_B": "",
+        "linkers": [],
         "mismatch": 0.3,
         "pet_len_range": (10, 22),
         "pet_cut_len": 20,

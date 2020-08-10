@@ -17,8 +17,6 @@ from dlo_hic.utils.infer_adapter import infer_adapter_seq
 log = logging.getLogger(__name__)
 
 
-
-
 def load_linkers(linker_a, linker_b):
     """
     compose linkers
@@ -37,16 +35,19 @@ def load_linkers(linker_a, linker_b):
         BB = linker_b + rc(linker_b)
         AB = linker_a + rc(linker_b)
         BA = linker_b + rc(linker_a)
-        linkers = (AA, BB, AB, BA)
+        linkers = [AA, BB, AB, BA]
     else:
         AA = linker_a + rc(linker_a)
-        linkers = (AA, None, None, None)
+        linkers = [AA]
     return linkers
 
 
-def log_linkers(linkers, log_file=None):
+def log_linkers(linkers, from_ab=False, log_file=None):
     log.info("linkers:")
-    linkers_name = ("AA", "BB", "AB", "BA")
+    if from_ab:
+        linkers_name = ("AA", "BB", "AB", "BA")
+    else:
+        linkers_name = [f"linker_{i}" for i in range(len(linkers))]
     for name, linker in zip(linkers_name, linkers):
         if linker is None:
             break
@@ -181,10 +182,13 @@ def worker(task_queue, out1, out2, flag_file, lock, counter, args):
     help="output1: right side PET fastq file")
 @click.option("--out2", '-o2', required=True,
     help="output2: right side PET fastq file")
-@click.option("--linker-A", required=True,
-    help="The sequence of linkerA")
+@click.option("--linkers", '-l',
+    multiple=True,
+    help="The sequence of linkers.")
+@click.option("--linker-A",
+    help="The sequence of linkerA(half linker). (for generate AB linker).")
 @click.option("--linker-B",
-    help="The sequence of linkerB")
+    help="The sequence of linkerB(half linker). (for generate AB linker).")
 @click.option("--mismatch", default=0.12,
     show_default=True,
     help="Threshold of linkers base mismatch(and gap open extends) number. "
@@ -223,7 +227,7 @@ def worker(task_queue, out1, out2, flag_file, lock, counter, args):
     show_default=True,
     help="How many records in one chunk, when do parallel computing.")
 def _main(fastq, out1, out2,
-          linker_a, linker_b,
+          linkers, linker_a, linker_b,
           mismatch, rest, processes, PET_len_range, PET_cut_len,
           adapter, mismatch_adapter, log_file, flag_file, chunk_size):
     """
@@ -259,10 +263,19 @@ def _main(fastq, out1, out2,
     log.info("enzyme cutting site: %s"%rest)
 
     # load linkers
-    if linker_b == linker_a:
-        linker_b = None
-    linkers = load_linkers(linker_a, linker_b)
-    log_linkers(linkers, log_file=log_file)
+    if not linkers:
+        from_ab = True
+        if linker_a == None:
+            raise IOError("You should specify linker-A if not input linkers")
+        if linker_b == linker_a:
+            linker_b = None
+        linkers = load_linkers(linker_a, linker_b)
+    else:
+        from_ab = False
+
+    linkers = list(linkers)
+    log_linkers(linkers, from_ab, log_file)
+
     if mismatch.is_integer():
         mismatch = int(mismatch)
     else:
@@ -293,7 +306,7 @@ def _main(fastq, out1, out2,
 
     # Perform linker trimer on fastq file
 
-    args = linkers, adapter, rest_site, mismatch, mismatch_adapter, PET_len_range, PET_cut_len
+    args = linkers, from_ab, adapter, rest_site, mismatch, mismatch_adapter, PET_len_range, PET_cut_len
     tmp_files_o1 = [out1+".tmp."+str(i) for i in range(processes)]
     tmp_files_o2 = [out2+".tmp."+str(i) for i in range(processes)]
     if flag_file:

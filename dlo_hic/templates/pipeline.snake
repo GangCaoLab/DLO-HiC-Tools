@@ -101,7 +101,7 @@ rule extract_PET:
         dlo_main.extract_PET.log = llog
         dlo_main.extract_PET.main(
             input[0], output.pet1, output.pet2,
-            conf['linker_a'], conf['linker_b'],
+            conf['linkers'], conf['linker_a'], conf['linker_b'],
             conf['mismatch'], rest, setting.ncpu, conf['pet_len_range'], conf['pet_cut_len'],
             adapter, conf['mismatch_adapter'],
             output.qc_comp, trim_flag, chunk_size)

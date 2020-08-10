@@ -129,7 +129,6 @@ def check_required(config):
         'DATA/restriction_site',
         'DATA/restriction_name',
         'DATA/chromosome_file',
-        'EXTRACT_PET/linker_a',
     ]
 
     for require in required_fields:

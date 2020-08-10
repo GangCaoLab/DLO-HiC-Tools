@@ -8,7 +8,8 @@ from dlo_hic.utils.align import Aligner
 
 cdef class LinkerTrimer:
 
-    cdef tuple linkers
+    cdef list linkers
+    cdef bint ab_linker
     cdef bint  _single_linker
     cdef str adapter
     cdef bint _trim_adapter
@@ -24,11 +25,12 @@ cdef class LinkerTrimer:
     cdef int pet_len_min
     cdef int pet_cut_len
 
-    def __init__(self, tuple linkers, str adapter, tuple rest,
+    def __init__(self, list linkers, bint ab_linker, str adapter, tuple rest,
                   int mismatch, int mismatch_adapter,
                   tuple pet_len_range, int pet_cut_len):
         self.linkers = linkers
-        self._single_linker = linkers[1] is None
+        self.ab_linker = ab_linker
+        self._single_linker = len(linkers) == 1
         self.adapter = adapter
         self._trim_adapter = not (adapter == "")
         cutting_idx, rest_seq = rest
@@ -124,7 +126,7 @@ cdef class LinkerTrimer:
             unmatch = 1
             min_idx = -1
             min_cost = 10000
-            for idx in range(4):
+            for idx in range(len(self.linkers)):
                 # try exact match
                 exact_start = seq.find(self.linkers[idx])
                 if exact_start >= 0:  # exact matched
@@ -143,7 +145,7 @@ cdef class LinkerTrimer:
             if unmatch == 1:
                 flag |= 1
                 return (fq_rec, flag, None, None, alignment, alignment_adapter)
-            elif min_idx < 2:  # AA/BB matched
+            elif (min_idx < 2) or (not self.ab_linker):  # AA/BB matched
                 flag |= 2
 
         m_start, m_end, s_, e_, m_, cost = alignment
