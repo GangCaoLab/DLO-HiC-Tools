@@ -417,7 +417,11 @@ rule plot_contact_map:
 
         # filter main chroms
         if is_supported:
-            main_chroms = [c for c in chrom_list if re.match("(chr)?[0-9]+", c)] + ['chrX']
+            main_chroms = [c for c in chrom_list if re.match("(chr)?[0-9]+", c)]
+            if "chrX" in chrom_list:
+                main_chroms.append("chrX")
+            elif "X" in chrom_list:
+                main_chroms.append("X")
         else:
             main_chroms = chrom_list
 
