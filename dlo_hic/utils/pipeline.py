@@ -5,6 +5,7 @@ utils for pipeline configuration.
 import logging
 import os
 from os.path import join, abspath
+import subprocess as subp
 import re
 from collections import OrderedDict
 import subprocess
@@ -55,7 +56,7 @@ def make_result_dirs(workdir=None):
         dirs = DIRS
     for d in dirs.values():
         if not os.path.exists(d):
-            os.mkdir(d)
+            subp.check_call(['mkdir', '-p', d])
 
 
 class SnakeFilter(logging.Filter):
