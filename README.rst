@@ -10,7 +10,7 @@ Installation
 This package is only support UNIX-like system.
 
 Recommend install and manage requirements with `conda <https://conda.io/miniconda.html>`_
-and `mamba <https://mamba.readthedocs.io/en/latest/user_guide/mamba.html>`, just use following commands::
+and `mamba <https://mamba.readthedocs.io/en/latest/user_guide/mamba.html>`_, just use following commands::
 
     $ git clone https://github.com/Nanguage/DLO-HiC-Tools.git
     $ cd DLO-HiC-Tools/
