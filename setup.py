@@ -42,15 +42,6 @@ def get_long_description():
         desc = f.read()
     return desc
 
-
-def get_install_requires():
-    requirements = []
-    with open('requirements.txt') as f:
-        for line in f:
-            requirements.append(line.strip())
-    return requirements
-
-
 setup(
     name='dlo_hic',
     version=get_version(),
@@ -65,7 +56,7 @@ setup(
     include_package_data=True,
     zip_safe=False,
     package_dir={'dlo_hic': 'dlo_hic'},
-    install_requires=get_install_requires(),
+    install_requires=[],
     ext_modules=cythonize(extensions),
     license='GNU GPLv3',
     classifiers=[

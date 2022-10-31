@@ -1,0 +1,31 @@
+name: dlo-hic-tools
+
+channels:
+  - defaults
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - python=3.6
+  - pip
+  - cython
+  - coreutils
+  - pairix
+  - bwa
+  - samtools
+  - mafft
+  - tabix
+  - openjdk
+  - graphviz
+  - pysam
+  - numpy
+  - scipy
+  - matplotlib
+  - h5py
+  - click
+  - seaborn
+  - pandas
+  - pyfaidx
+  - cooler
+  - mako
+  - snakemake

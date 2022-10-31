@@ -7,40 +7,17 @@ Integrated DLO HiC analyze pipeline.
 Installation
 ------------
 
-Requirements
-^^^^^^^^^^^^
+This package is only support UNIX-like system.
 
-This package is only support UNIX-like system, and Python version must be >= 3.4, 
-and following softwares are required:
+Recommend install and manage requirements with `conda <https://conda.io/miniconda.html>`_
+and `mamba <https://mamba.readthedocs.io/en/latest/user_guide/mamba.html>`, just use following commands::
 
-- BWA (>=0.7.15)
-- samtools (>=1.6)
-- coreutils (>=8.25)
-- pairix
-- tabix
-- cooler
-- mafft
-- java (optional, for create .hic file)
-
-Recommend install and manage requirements with `Anaconda <https://conda.io/miniconda.html>`_, just use following commands::
-
-    $ conda config --add channels defaults  # add channels
-    $ conda config --add channels bioconda
-    $ conda config --add channels conda-forge
-    $ conda create -n dlohic python=3.6  # create virtual environment
-    $ source activate dlohic
-    (dlohic) $ conda install --yes numpy scipy matplotlib pandas cython h5py jsonschema graphviz
-    (dlohic) $ conda install -c bioconda --yes coreutils bwa samtools mafft pairix tabix cooler pysam java-jdk
-    (dlohic) $ conda install -c conda-forge --yes bzip2
-
-
-Install from source code
-^^^^^^^^^^^^^^^^^^^^^^^^
-Download the source code firsyly, then install with setup.py ::
-
-    $ (dlohic) git clone https://github.com/Nanguage/DLO-HiC-Tools.git
-    $ (dlohic) cd DLO-HiC-Tools/
-    $ (dlohic) python setup.py install
+    $ git clone https://github.com/Nanguage/DLO-HiC-Tools.git
+    $ cd DLO-HiC-Tools/
+    $ conda install mamba -c conda-forge  # skip this line if mamba is installed
+    $ mamba env create -f environment.yml
+    $ conda activate dlo-hic-tools
+    $ python setup.py install
 
 Using Docker
 ^^^^^^^^^^^^
